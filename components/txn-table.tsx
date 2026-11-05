@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Pencil, Trash2 } from "lucide-react";
+import { FolderKanban, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { deleteTransaction } from "@/app/actions/books";
 import { money, prettyDate } from "@/lib/format";
 import type { TxnRow } from "@/lib/books";
@@ -24,7 +24,26 @@ export function TxnTable({ rows, back }: { rows: TxnRow[]; back: string }) {
               <td><TypeBadge type={t.type} /></td>
               <td>{t.from_name}</td>
               <td>{t.to_name}</td>
-              <td className="max-w-xs text-slate-500">{t.note}</td>
+              <td className="max-w-xs text-slate-500">
+                {t.note}
+                <div className="mt-0.5 flex flex-wrap gap-1.5 text-xs">
+                  {t.currency && (
+                    <span className="rounded bg-blue-50 px-1.5 text-blue-700">
+                      {t.currency} {money(t.foreign_amount ?? 0)} @ {t.rate}
+                    </span>
+                  )}
+                  {t.project && (
+                    <Link href={`/transactions?project=${t.project_id}`} className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 text-purple-700">
+                      <FolderKanban className="h-3 w-3" />{t.project}
+                    </Link>
+                  )}
+                  {t.attachments > 0 && (
+                    <Link href={`/voucher?edit=${t.id}`} className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 text-slate-700">
+                      <Paperclip className="h-3 w-3" />{t.attachments}
+                    </Link>
+                  )}
+                </div>
+              </td>
               <td className="num font-medium">{money(t.amount)}</td>
               <td className="no-print whitespace-nowrap text-right">
                 <Link href={`/voucher?edit=${t.id}`} title="Edit" aria-label="Edit" className="mr-1 inline-flex rounded-md p-1.5 text-blue-600 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Link>

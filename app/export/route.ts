@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
       to: p.get("to") || undefined,
       type: (p.get("type") as TxnType) || undefined,
       search: p.get("q") || undefined,
+      projectId: Number(p.get("project")) || undefined,
       limit: 100000,
     }),
     accountsWithBalances(d, user.id),
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
   const where = new Map(accs.map((a) => [a.id, `${a.category} › ${a.subcategory}`]));
   return csv(
     `entries-${p.get("from") || "all"}-to-${p.get("to") || "all"}`,
-    ["No", "Date", "Type", "From", "From (category)", "To", "To (category)", "Amount (PKR)", "Note", "Added on"],
+    ["No", "Date", "Type", "From", "From (category)", "To", "To (category)", "Amount (PKR)", "Note", "Currency", "Foreign amount", "Rate", "Project", "Attachments", "Added on"],
     rows.map((r) => [
       r.id,
       r.date,
@@ -79,6 +80,11 @@ export async function GET(req: NextRequest) {
       where.get(r.to_account_id),
       rs(r.amount),
       r.note,
+      r.currency,
+      r.foreign_amount != null ? rs(r.foreign_amount) : "",
+      r.rate,
+      r.project,
+      r.attachments || "",
       r.created_at,
     ]),
   );

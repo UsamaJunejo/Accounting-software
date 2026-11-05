@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Embedded Postgres used for local development only.
   serverExternalPackages: ["@electric-sql/pglite"],
+  // Room for up to 5 receipt photos (shrunk in the browser first) in one save.
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
 };
 
 export default nextConfig;

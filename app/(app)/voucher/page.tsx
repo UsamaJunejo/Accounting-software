@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Eraser, Save, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Eraser, FileText, Save, Trash2, type LucideIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountsWithBalances, getTransaction, listTransactions, type TxnType } from "@/lib/books";
-import { saveTransaction } from "@/app/actions/books";
+import { accountsWithBalances, getTransaction, listAttachments, listTransactions, MAX_ATTACHMENTS, projects, type TxnType } from "@/lib/books";
+import { deleteAttachment, saveTransaction } from "@/app/actions/books";
+import { MoneyFields } from "@/components/money-fields";
+import { AttachmentPicker } from "@/components/attachment-picker";
 import { today } from "@/lib/format";
 import { AccountSelect, Flash, PageHeader } from "@/components/ui";
 import { TxnTable } from "@/components/txn-table";
@@ -44,7 +46,11 @@ export default async function Voucher({
   const pre = (v?: string) => (v && accounts.some((a) => a.id === Number(v)) ? Number(v) : undefined);
   const defFrom = editing?.from_account_id ?? pre(sp.from) ?? (type === "payment" || type === "transfer" ? cash : undefined);
   const defTo = editing?.to_account_id ?? pre(sp.to) ?? (type === "receipt" ? cash : type === "transfer" ? bank : undefined);
-  const recent = await listTransactions(d, user.id, { type, limit: 10 });
+  const [recent, projectList, existing] = await Promise.all([
+    listTransactions(d, user.id, { type, limit: 10 }),
+    projects(d, user.id),
+    editing ? listAttachments(d, user.id, editing.id) : Promise.resolve([]),
+  ]);
 
   return (
     <>
@@ -67,21 +73,24 @@ export default async function Voucher({
       <form action={saveTransaction} className="card mb-6 grid gap-4 p-5 sm:grid-cols-2" key={`${type}-${editing?.id ?? "new"}-${sp.ok ?? ""}`}>
         <input type="hidden" name="type" value={type} />
         {editing && <input type="hidden" name="id" value={editing.id} />}
-        <div>
-          <label className="label">Amount (PKR)</label>
-          <input
-            name="amount"
-            inputMode="decimal"
-            required
-            autoFocus
-            placeholder="0.00"
-            defaultValue={editing ? (editing.amount / 100).toFixed(2) : ""}
-            className="input text-lg font-semibold"
-          />
-        </div>
+        <MoneyFields
+          amount={editing ? (editing.amount / 100).toFixed(2) : ""}
+          currency={editing?.currency ?? "PKR"}
+          foreignAmount={editing?.foreign_amount ? (editing.foreign_amount / 100).toFixed(2) : ""}
+          rate={editing?.rate ? String(editing.rate) : ""}
+        />
         <div>
           <label className="label">Date</label>
           <input type="date" name="date" required defaultValue={editing?.date ?? today()} className="input" />
+        </div>
+        <div>
+          <label className="label">Project (optional)</label>
+          <select name="project" defaultValue={editing?.project_id ?? ""} className="input">
+            <option value="">No project</option>
+            {projectList.filter((p) => !p.archived || p.id === editing?.project_id).map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="label">{type === "receipt" ? "Received from" : "From (money leaves)"}</label>
@@ -107,7 +116,30 @@ export default async function Voucher({
             ))}
           </div>
         </div>
-        <div className="flex items-end justify-end gap-2">
+        <div className="sm:col-span-2">
+          {existing.length > 0 && (
+            <ul className="mb-3 flex flex-wrap gap-2">
+              {existing.map((f) => (
+                <li key={f.id} className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
+                  <a href={`/api/attachments/${f.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-medium text-blue-700">
+                    {f.mime.startsWith("image/") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={`/api/attachments/${f.id}`} alt="" className="h-10 w-10 rounded object-cover" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                    {f.filename}
+                  </a>
+                  <button formAction={deleteAttachment} name="attachment" value={f.id} formNoValidate className="text-red-600" aria-label="Remove attachment">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <AttachmentPicker max={MAX_ATTACHMENTS - existing.length} />
+        </div>
+        <div className="flex items-end justify-end gap-2 sm:col-span-2">
           {editing ? (
             <Link href="/transactions" className="btn-ghost">Cancel</Link>
           ) : (

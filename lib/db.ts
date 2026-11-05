@@ -154,6 +154,38 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE shares ENABLE ROW LEVEL SECURITY;
   ALTER TABLE shared_entries ENABLE ROW LEVEL SECURITY;
   `,
+  /* 4: receipt attachments, foreign currency, projects */ `
+  CREATE TABLE IF NOT EXISTS attachments (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    mime TEXT NOT NULL CHECK (mime IN ('image/jpeg','image/png','image/webp','application/pdf')),
+    size INTEGER NOT NULL,
+    data BYTEA NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_attachments_txn ON attachments(transaction_id);
+  CREATE INDEX IF NOT EXISTS idx_attachments_user ON attachments(user_id);
+
+  -- When an entry was in another currency: amount stays in PKR, these keep the original.
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS currency TEXT;
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS foreign_amount BIGINT;
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS rate NUMERIC(18,6);
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    archived BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+  CREATE INDEX IF NOT EXISTS idx_txn_project ON transactions(project_id);
+
+  ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

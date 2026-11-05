@@ -1,7 +1,7 @@
 import { Download, Filter, Plus, Search } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { listTransactions, type TxnType } from "@/lib/books";
+import { listTransactions, projects, type TxnType } from "@/lib/books";
 import { money, monthRange } from "@/lib/format";
 import { Flash, LinkButton, PageHeader } from "@/components/ui";
 import { TxnTable } from "@/components/txn-table";
@@ -11,7 +11,7 @@ export const metadata = { title: "Entries" };
 export default async function Transactions({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; type?: string; q?: string; error?: string; ok?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; type?: string; q?: string; project?: string; error?: string; ok?: string }>;
 }) {
   const user = await requireUser();
   const sp = await searchParams;
@@ -19,9 +19,20 @@ export default async function Transactions({
   const from = sp.from ?? mStart;
   const to = sp.to ?? mEnd;
   const type = ["payment", "receipt", "transfer"].includes(sp.type ?? "") ? (sp.type as TxnType) : undefined;
-  const rows = await listTransactions(await db(), user.id, { from, to, type, search: sp.q, limit: 2000 });
+  const d = await db();
+  const projectId = Number(sp.project) || undefined;
+  const [rows, projectList] = await Promise.all([
+    listTransactions(d, user.id, { from, to, type, search: sp.q, projectId, limit: 2000 }),
+    projects(d, user.id),
+  ]);
   const total = (t: TxnType) => rows.filter((r) => r.type === t).reduce((s, r) => s + r.amount, 0);
-  const qs = new URLSearchParams({ from, to, ...(type ? { type } : {}), ...(sp.q ? { q: sp.q } : {}) }).toString();
+  const qs = new URLSearchParams({
+    from,
+    to,
+    ...(type ? { type } : {}),
+    ...(sp.q ? { q: sp.q } : {}),
+    ...(projectId ? { project: String(projectId) } : {}),
+  }).toString();
 
   return (
     <>
@@ -54,6 +65,15 @@ export default async function Transactions({
             <option value="transfer">Transfer</option>
           </select>
         </div>
+        {projectList.length > 0 && (
+          <div>
+            <label className="label">Project</label>
+            <select name="project" defaultValue={projectId ?? ""} className="input">
+              <option value="">All</option>
+              {projectList.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
         <div className="min-w-48 flex-1">
           <label className="label">Search</label>
           <div className="relative">

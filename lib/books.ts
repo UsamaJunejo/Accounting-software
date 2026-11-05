@@ -151,7 +151,7 @@ export async function categoryTotals(d: Db, userId: number, opts: { from?: strin
 
 // ---------- Chart of accounts editing ----------
 
-async function own(d: Db, table: "categories" | "subcategories" | "accounts", id: number, userId: number) {
+async function own(d: Db, table: "categories" | "subcategories" | "accounts" | "projects", id: number, userId: number) {
   if (!Number.isInteger(id)) throw new Error("Not found");
   const r = await d.q(`SELECT id FROM ${table} WHERE id = $1 AND user_id = $2`, [id, userId]);
   if (!r.length) throw new Error("Not found");
@@ -256,6 +256,11 @@ export type TxnInput = {
   toAccountId: number;
   note?: string | null;
   highlight?: string | null;
+  /** Set when the entry was in another currency (e.g. "USD"). amount is still in PKR. */
+  currency?: string | null;
+  foreignAmount?: number | null; // in cents of that currency
+  rate?: number | null; // PKR per 1 unit of that currency
+  projectId?: number | null;
 };
 
 async function validate(d: Db, userId: number, t: TxnInput) {
@@ -265,6 +270,18 @@ async function validate(d: Db, userId: number, t: TxnInput) {
   if (t.fromAccountId === t.toAccountId) throw new Error("'From' and 'To' must be different accounts");
   await own(d, "accounts", t.fromAccountId, userId);
   await own(d, "accounts", t.toAccountId, userId);
+  if (t.projectId) await own(d, "projects", t.projectId, userId);
+  if (t.currency && t.currency !== "PKR") {
+    if (!/^[A-Z]{3}$/.test(t.currency)) throw new Error("Invalid currency");
+    if (!t.foreignAmount || t.foreignAmount <= 0 || !Number.isSafeInteger(t.foreignAmount)) throw new Error("Enter the amount in " + t.currency);
+    if (!t.rate || !(t.rate > 0)) throw new Error("Enter the exchange rate");
+  }
+}
+
+/** The extra columns, cleaned: blank unless a foreign currency was really used. */
+function extras(t: TxnInput) {
+  const foreign = t.currency && t.currency !== "PKR";
+  return [foreign ? t.currency : null, foreign ? t.foreignAmount : null, foreign ? t.rate : null, t.projectId || null];
 }
 
 function audit(d: Db, userId: number, action: string, txnId: number | null, details: unknown) {
@@ -280,9 +297,10 @@ export async function addTransaction(d: Db, userId: number, t: TxnInput): Promis
   await validate(d, userId, t);
   return d.tx(async (x) => {
     const [row] = await x.q<IdRow>(
-      `INSERT INTO transactions (user_id, type, date, amount, from_account_id, to_account_id, note, highlight)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-      [userId, t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null],
+      `INSERT INTO transactions (user_id, type, date, amount, from_account_id, to_account_id, note, highlight,
+                                 currency, foreign_amount, rate, project_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+      [userId, t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null, ...extras(t)],
     );
     await audit(x, userId, "create", row.id, t);
     return row.id;
@@ -296,8 +314,9 @@ export async function updateTransaction(d: Db, userId: number, id: number, t: Tx
   await d.tx(async (x) => {
     await x.q(
       `UPDATE transactions SET type = $1, date = $2, amount = $3, from_account_id = $4, to_account_id = $5,
-              note = $6, highlight = $7, updated_at = now() WHERE id = $8 AND user_id = $9`,
-      [t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null, id, userId],
+              note = $6, highlight = $7, currency = $8, foreign_amount = $9, rate = $10, project_id = $11,
+              updated_at = now() WHERE id = $12 AND user_id = $13`,
+      [t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null, ...extras(t), id, userId],
     );
     await audit(x, userId, "update", id, { before, after: t });
   });
@@ -333,15 +352,24 @@ export type TxnRow = {
   highlight: string | null;
   created_at: string;
   deleted_at: string | null;
+  currency: string | null;
+  foreign_amount: number | null;
+  rate: number | null;
+  project_id: number | null;
+  project: string | null;
+  attachments: number;
 };
 
 const TXN_SELECT = `SELECT t.id, t.type, to_char(t.date, 'YYYY-MM-DD') AS date, t.amount::float8 AS amount,
   t.from_account_id, t.to_account_id, fa.name AS from_name, ta.name AS to_name, t.note, t.highlight,
   to_char(t.created_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS created_at,
-  to_char(t.deleted_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS deleted_at
+  to_char(t.deleted_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS deleted_at,
+  t.currency, t.foreign_amount::float8 AS foreign_amount, t.rate::float8 AS rate, t.project_id, pr.name AS project,
+  (SELECT COUNT(*)::int FROM attachments at WHERE at.transaction_id = t.id) AS attachments
   FROM transactions t
   JOIN accounts fa ON fa.id = t.from_account_id
-  JOIN accounts ta ON ta.id = t.to_account_id`;
+  JOIN accounts ta ON ta.id = t.to_account_id
+  LEFT JOIN projects pr ON pr.id = t.project_id`;
 
 export async function getTransaction(d: Db, userId: number, id: number): Promise<TxnRow | undefined> {
   if (!Number.isInteger(id)) return undefined;
@@ -352,7 +380,16 @@ export async function getTransaction(d: Db, userId: number, id: number): Promise
 export function listTransactions(
   d: Db,
   userId: number,
-  f: { type?: TxnType; from?: string; to?: string; search?: string; deleted?: boolean; limit?: number } = {},
+  f: {
+    type?: TxnType;
+    from?: string;
+    to?: string;
+    search?: string;
+    deleted?: boolean;
+    limit?: number;
+    projectId?: number;
+    currency?: string;
+  } = {},
 ): Promise<TxnRow[]> {
   const args: unknown[] = [userId];
   const p = (v: unknown) => (args.push(v), `$${args.length}`);
@@ -360,6 +397,8 @@ export function listTransactions(
   if (f.type) where.push(`t.type = ${p(f.type)}`);
   if (f.from) where.push(`t.date >= ${p(f.from)}::date`);
   if (f.to) where.push(`t.date <= ${p(f.to)}::date`);
+  if (f.projectId) where.push(`t.project_id = ${p(f.projectId)}`);
+  if (f.currency) where.push(`t.currency = ${p(f.currency)}`);
   if (f.search) {
     const q = p(`%${f.search}%`);
     where.push(`(t.note ILIKE ${q} OR fa.name ILIKE ${q} OR ta.name ILIKE ${q})`);
@@ -471,5 +510,121 @@ export function auditLog(d: Db, userId: number, limit = 200) {
             to_char(created_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS created_at
      FROM audit_log WHERE user_id = $1 ORDER BY id DESC LIMIT $2`,
     [userId, limit],
+  );
+}
+
+// ---------- Projects ----------
+
+export type Project = { id: number; name: string; archived: boolean };
+
+export function projects(d: Db, userId: number): Promise<Project[]> {
+  return d.q<Project>("SELECT id, name, archived FROM projects WHERE user_id = $1 ORDER BY archived, name", [userId]);
+}
+
+export async function addProject(d: Db, userId: number, name: string) {
+  if (!name) throw new Error("Name is required");
+  const [r] = await d.q<IdRow>("INSERT INTO projects (user_id, name) VALUES ($1, $2) RETURNING id", [userId, name]);
+  return r.id;
+}
+
+export async function updateProject(d: Db, userId: number, id: number, name: string, archived: boolean) {
+  if (!name) throw new Error("Name is required");
+  await own(d, "projects", id, userId);
+  await d.q("UPDATE projects SET name = $1, archived = $2 WHERE id = $3", [name, archived, id]);
+}
+
+/** Income, expense and profit of each project in a period. */
+export async function projectSummary(d: Db, userId: number, from: string, to: string) {
+  return d.q<{ id: number; name: string; archived: boolean; income: number; expense: number; entries: number }>(
+    `SELECT p.id, p.name, p.archived,
+       COALESCE(SUM(CASE WHEN fc.kind = 'income' THEN t.amount END), 0)::float8
+         - COALESCE(SUM(CASE WHEN tc.kind = 'income' THEN t.amount END), 0)::float8 AS income,
+       COALESCE(SUM(CASE WHEN tc.kind = 'expense' THEN t.amount END), 0)::float8
+         - COALESCE(SUM(CASE WHEN fc.kind = 'expense' THEN t.amount END), 0)::float8 AS expense,
+       COUNT(t.id)::int AS entries
+     FROM projects p
+     LEFT JOIN transactions t ON t.project_id = p.id AND t.deleted_at IS NULL AND t.date BETWEEN $2::date AND $3::date
+     LEFT JOIN accounts fa ON fa.id = t.from_account_id LEFT JOIN subcategories fs ON fs.id = fa.subcategory_id
+     LEFT JOIN categories fc ON fc.id = fs.category_id
+     LEFT JOIN accounts ta ON ta.id = t.to_account_id LEFT JOIN subcategories ts ON ts.id = ta.subcategory_id
+     LEFT JOIN categories tc ON tc.id = ts.category_id
+     WHERE p.user_id = $1
+     GROUP BY p.id ORDER BY p.archived, p.name`,
+    [userId, from, to],
+  );
+}
+
+// ---------- Attachments (receipt photos & PDFs) ----------
+
+export const MAX_ATTACHMENTS = 5;
+export const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
+export const MAX_STORAGE_BYTES = 100 * 1024 * 1024; // per user
+
+/** Work out the real file type from its first bytes (never trust the file name). */
+export function sniffMime(b: Uint8Array): string | null {
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50)
+    return "image/webp";
+  if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return "application/pdf";
+  return null;
+}
+
+export async function addAttachment(d: Db, userId: number, txnId: number, file: { name: string; data: Uint8Array }) {
+  const t = await getTransaction(d, userId, txnId);
+  if (!t || t.deleted_at) throw new Error("Entry not found");
+  const mime = sniffMime(file.data);
+  if (!mime) throw new Error(`"${file.name}" is not a photo or PDF`);
+  if (file.data.length > MAX_ATTACHMENT_BYTES) throw new Error(`"${file.name}" is too big (max 3 MB)`);
+  const [{ n, total }] = await d.q<{ n: number; total: number }>(
+    `SELECT (SELECT COUNT(*) FROM attachments WHERE transaction_id = $1)::int AS n,
+            (SELECT COALESCE(SUM(size), 0) FROM attachments WHERE user_id = $2)::float8 AS total`,
+    [txnId, userId],
+  );
+  if (n >= MAX_ATTACHMENTS) throw new Error(`Only ${MAX_ATTACHMENTS} attachments allowed per entry`);
+  if (total + file.data.length > MAX_STORAGE_BYTES) throw new Error("Your attachment storage (100 MB) is full");
+  const name = file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 100) || "file";
+  await d.q("INSERT INTO attachments (user_id, transaction_id, filename, mime, size, data) VALUES ($1, $2, $3, $4, $5, $6)", [
+    userId,
+    txnId,
+    name,
+    mime,
+    file.data.length,
+    file.data,
+  ]);
+}
+
+export type AttachmentInfo = { id: number; filename: string; mime: string; size: number; created_at: string };
+
+export function listAttachments(d: Db, userId: number, txnId: number) {
+  return d.q<AttachmentInfo>(
+    `SELECT id, filename, mime, size, to_char(created_at, 'YYYY-MM-DD') AS created_at
+     FROM attachments WHERE user_id = $1 AND transaction_id = $2 ORDER BY id`,
+    [userId, txnId],
+  );
+}
+
+export async function getAttachment(d: Db, userId: number, id: number) {
+  if (!Number.isInteger(id)) return undefined;
+  const [a] = await d.q<{ filename: string; mime: string; data: Uint8Array }>(
+    "SELECT filename, mime, data FROM attachments WHERE id = $1 AND user_id = $2",
+    [id, userId],
+  );
+  return a;
+}
+
+export async function deleteAttachment(d: Db, userId: number, id: number) {
+  await d.q("DELETE FROM attachments WHERE id = $1 AND user_id = $2", [id, userId]);
+}
+
+/** Attachments per account, for the Attachments report. */
+export function attachmentReport(d: Db, userId: number) {
+  return d.q<{ id: number; transaction_id: number; filename: string; mime: string; size: number; date: string; from_name: string; to_name: string; amount: number; note: string | null }>(
+    `SELECT a.id, a.transaction_id, a.filename, a.mime, a.size, to_char(t.date, 'YYYY-MM-DD') AS date,
+            fa.name AS from_name, ta.name AS to_name, t.amount::float8 AS amount, t.note
+     FROM attachments a JOIN transactions t ON t.id = a.transaction_id
+     JOIN accounts fa ON fa.id = t.from_account_id JOIN accounts ta ON ta.id = t.to_account_id
+     WHERE a.user_id = $1 AND t.deleted_at IS NULL ORDER BY t.date DESC, a.id DESC LIMIT 500`,
+    [userId],
   );
 }
