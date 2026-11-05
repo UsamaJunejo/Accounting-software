@@ -17,7 +17,7 @@ export function Logo({ className = "", dark = false }: { className?: string; dar
       <LogoMark />
       <span>
         {BRAND[0]}
-        <span className={dark ? "text-mustard" : "text-khata"}>{BRAND[1]}</span>
+        <span className={dark ? "text-nav-marker" : "text-khata"}>{BRAND[1]}</span>
       </span>
     </span>
   );

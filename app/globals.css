@@ -33,6 +33,10 @@
   --color-nav-active: #1e4b54;
   --color-nav-text: #d6e2e4;
   --color-nav-muted: #9fb4b8;
+  --color-nav-active-text: #ffffff;
+  --color-nav-marker: #f2b705;
+  --color-nav-border: transparent;
+  --color-nav-logo: #ffffff;
 
   --color-khata: #c2263a;
   --color-khata-dark: #9e1c2e;
@@ -61,8 +65,16 @@
   --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
 }
 
+/*
+  Frosted glass, done quietly: two faint glows in the theme's own colours sit fixed behind
+  the page, and panels are translucent white that blurs them. No purple, no blobs, no neon.
+*/
 body {
-  background: var(--color-paper);
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(70rem 45rem at -10% -10%, color-mix(in srgb, var(--color-peacock) 16%, transparent), transparent 70%),
+    radial-gradient(60rem 40rem at 110% 110%, color-mix(in srgb, var(--color-nav-marker) 18%, transparent), transparent 70%);
+  background-attachment: fixed;
   color: var(--color-body);
   font-size: 15px;
   font-variant-numeric: tabular-nums;
@@ -85,18 +97,21 @@ a { text-underline-offset: 3px; }
 .tabular-nums, .num { unicode-bidi: isolate; }
 [dir="rtl"] .num { direction: ltr; text-align: left; }
 
-/* Panels: white sheets with a soft edge. */
-@utility card { @apply rounded-lg border border-rule bg-sheet shadow-[0_1px_2px_rgba(18,48,58,0.06)]; }
+/* Panels: frosted glass. A bright top edge (like light on glass) and a soft, low shadow. */
+@utility card {
+  @apply rounded-xl border border-white/70 bg-white/65 backdrop-blur-xl;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 10px 30px -18px rgba(18, 48, 58, 0.35);
+}
 
-@utility btn { @apply inline-flex items-center justify-center gap-2 rounded px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-50; }
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-50; }
 @utility btn-primary { @apply btn bg-peacock text-white hover:bg-peacock-dark; }
 @utility btn-dark { @apply btn bg-peacock text-white hover:bg-peacock-dark; }
-@utility btn-ghost { @apply btn border border-rule-strong bg-sheet text-peacock hover:bg-peacock-soft; }
-@utility btn-danger { @apply btn border border-khata/40 bg-sheet text-khata hover:bg-khata-soft; }
+@utility btn-ghost { @apply btn border border-white/80 bg-white/60 text-peacock backdrop-blur hover:bg-white/90; }
+@utility btn-danger { @apply btn border border-khata/30 bg-white/60 text-khata backdrop-blur hover:bg-khata-soft; }
 @utility btn-in { @apply btn bg-inflow text-white hover:bg-inflow-dark; }
 @utility btn-out { @apply btn bg-khata text-white hover:bg-khata-dark; }
 
-@utility input { @apply w-full rounded border border-rule-strong bg-sheet px-3 py-2 text-[15px] text-body outline-none focus:border-peacock focus:ring-2 focus:ring-peacock/20; }
+@utility input { @apply w-full rounded-md border border-rule-strong/80 bg-white/80 px-3 py-2 text-[15px] text-body outline-none focus:border-peacock focus:ring-2 focus:ring-peacock/20; }
 @utility label { @apply mb-1 block text-sm font-semibold text-body; }
 @utility num { @apply text-right tabular-nums whitespace-nowrap; }
 
@@ -105,8 +120,8 @@ a { text-underline-offset: 3px; }
 
 @layer components {
   .table { @apply w-full text-[15px]; }
-  .table th { @apply border-b-2 border-rule bg-paper px-3 py-2 text-start text-sm font-semibold text-muted; }
-  .table td { @apply border-b border-rule px-3 py-2.5 align-top; }
+  .table th { @apply border-b border-rule bg-white/40 px-3 py-2 text-start text-sm font-semibold text-muted; }
+  .table td { @apply border-b border-rule/70 px-3 py-2.5 align-top; }
   .table tbody tr:hover td { background: color-mix(in srgb, var(--color-ink-soft) 45%, transparent); }
 }
 
@@ -121,3 +136,53 @@ a { text-underline-offset: 3px; }
   main { padding: 0 !important; }
 }
 
+
+/*
+  Colour themes. Each one swaps the side menu, the main action colour and the page tint.
+  Money in (blue), money out (crimson) and the category colours never change, so meaning stays the same.
+*/
+[data-scheme="navy"] {
+  --color-nav: #0f1e3a; --color-nav-hover: #1a2c50; --color-nav-active: #24396a;
+  --color-nav-text: #dbe3f0; --color-nav-muted: #a3b1c9; --color-nav-marker: #f5b700;
+  --color-peacock: #1d4ed8; --color-peacock-dark: #1e40af; --color-peacock-soft: #e3ebfb;
+  --color-brand: #1d4ed8; --color-paper: #f2f4f8;
+}
+[data-scheme="emerald"] {
+  --color-nav: #0b3b2e; --color-nav-hover: #12503f; --color-nav-active: #1a6651;
+  --color-nav-text: #d9ebe3; --color-nav-muted: #a3c7b8; --color-nav-marker: #f5c542;
+  --color-peacock: #13704a; --color-peacock-dark: #0d5537; --color-peacock-soft: #e0f2e9;
+  --color-brand: #13704a; --color-paper: #f1f5f3;
+}
+[data-scheme="light"] {
+  --color-nav: #ffffff; --color-nav-hover: #f1f4f9; --color-nav-active: #e8eefc;
+  --color-nav-text: #2b3a4a; --color-nav-muted: #5f6e7e; --color-nav-active-text: #1f3f99;
+  --color-nav-marker: #2f5bd3; --color-nav-border: #dce3e8; --color-nav-logo: #12303a;
+  --color-peacock: #2f5bd3; --color-peacock-dark: #2448ad; --color-peacock-soft: #e8eefc;
+  --color-brand: #2f5bd3; --color-paper: #f5f7fb;
+}
+
+/* Glass for the side menu and the top bar. */
+.glass-nav {
+  background: color-mix(in srgb, var(--color-nav) 90%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+.glass-bar {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 1px 0 rgba(18, 48, 58, 0.06);
+}
+[data-scheme="light"] .glass-nav { background: rgba(255, 255, 255, 0.72); }
+
+/* If the browser can't blur, fall back to solid panels so text stays readable. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card { background: #fff; }
+  .glass-nav { background: var(--color-nav); }
+  .glass-bar { background: #fff; }
+}
+@media print {
+  body { background-image: none; }
+  .card { box-shadow: none; background: #fff; }
+}

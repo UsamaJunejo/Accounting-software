@@ -64,7 +64,7 @@ export default async function Voucher({
             <Link
               key={t.type}
               href={`/voucher?type=${t.type}`}
-              className={`btn border ${t.type === type ? t.active : "border-rule-strong bg-sheet text-body hover:bg-ink-soft"}`}
+              className={`btn border ${t.type === type ? t.active : "border-white/80 bg-white/60 text-body backdrop-blur hover:bg-white/90"}`}
             >
               <t.Icon className="h-4 w-4" />
               {tr(t.label)}

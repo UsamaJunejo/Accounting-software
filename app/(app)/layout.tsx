@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const t = await getT();
   return (
     <div>
-      <header className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-rule bg-sheet px-4 text-ink lg:ps-64">
+      <header className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between glass-bar px-4 text-ink lg:ps-64">
         <div className="flex items-center gap-2">
           <Nav isAdmin={user.is_admin} badge={badge} labels={Object.fromEntries(NAV_LABELS.map((l) => [l, t(l)]))} />
           <Link href="/dashboard" className="text-lg lg:hidden">

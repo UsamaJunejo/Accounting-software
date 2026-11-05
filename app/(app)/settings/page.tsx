@@ -1,8 +1,11 @@
 import Link from "next/link";
-import { Coins, Database, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, UserRound } from "lucide-react";
+import { Coins, Database, Palette, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, UserRound } from "lucide-react";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { CurrencySettings } from "@/components/currency-settings";
+import { setScheme } from "@/app/actions/lang";
+import { SCHEMES } from "@/lib/schemes";
+import { getScheme } from "@/lib/lang";
 import { db } from "@/lib/db";
 import { changePassword, updateLevel, updateNextOfKin, updateProfile } from "@/app/actions/auth";
 import { Flash, PageHeader } from "@/components/ui";
@@ -14,6 +17,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const [{ n }] = await (await db()).q<{ n: number }>("SELECT COUNT(*)::int AS n FROM transactions WHERE user_id = $1", [user.id]);
   const hasEntries = n > 0;
+  const scheme = await getScheme();
   const h = await headers();
   const site = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   return (
@@ -30,6 +34,21 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <div><label className="label">NTN / STRN (optional, shown on invoices)</label><input name="ntn" defaultValue={user.ntn ?? ""} className="input" /></div>
           <div><label className="label">Email</label><input value={user.email} disabled className="input bg-paper" /></div>
           <button className="btn-primary">Save profile</button>
+        </form>
+        <form action={setScheme} className="card space-y-3 p-5">
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><Palette className="h-5 w-5 text-brand" />Colour theme</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {SCHEMES.map((sc) => (
+              <label key={sc.id} className="flex cursor-pointer items-center gap-3 rounded-md border border-rule p-3 has-[:checked]:border-peacock has-[:checked]:bg-peacock-soft">
+                <input type="radio" name="scheme" value={sc.id} defaultChecked={scheme === sc.id} className="sr-only" />
+                <span className="flex overflow-hidden rounded border border-rule" aria-hidden="true">
+                  {sc.swatch.map((c) => <span key={c} className="h-8 w-4" style={{ background: c }} />)}
+                </span>
+                <span><b className="block text-ink">{sc.name}</b><span className="text-sm text-muted">{sc.desc}</span></span>
+              </label>
+            ))}
+          </div>
+          <button className="btn-dark">Use this theme</button>
         </form>
         <div className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Coins className="h-5 w-5 text-brand" />Currency</h2>

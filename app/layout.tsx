@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { APP_NAME } from "@/lib/brand";
-import { getLang } from "@/lib/lang";
+import { getLang, getScheme } from "@/lib/lang";
 
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
@@ -10,8 +10,9 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
+  const scheme = await getScheme();
   return (
-    <html lang={lang} dir={lang === "ur" ? "rtl" : "ltr"}>
+    <html lang={lang} dir={lang === "ur" ? "rtl" : "ltr"} data-scheme={scheme}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link

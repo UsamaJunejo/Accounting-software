@@ -35,7 +35,7 @@ function Tip({
 }: { active?: boolean; payload?: TipItem[]; label?: string | number; cur: string; labelFormat?: (l: string) => string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded border border-rule bg-sheet px-3 py-2 text-sm shadow-md">
+    <div className="rounded-md border border-white/80 bg-white/90 px-3 py-2 text-sm shadow-lg backdrop-blur">
       <div className="mb-1 font-semibold text-ink">{labelFormat ? labelFormat(String(label)) : label}</div>
       {payload.map((p) => (
         <div key={String(p.dataKey)} className="flex items-center gap-2 text-body">

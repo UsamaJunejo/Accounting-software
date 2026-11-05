@@ -30,8 +30,8 @@ export default async function Home() {
   const t = await getT();
   const net = SAMPLE.reduce((s, [, , a, k]) => s + (k === "in" ? a : -a), 0);
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-rule bg-sheet">
+    <div className="min-h-screen">
+      <header className="glass-bar sticky top-0 z-30">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Logo className="text-xl text-ink" />
           <div className="flex items-center gap-1 sm:gap-2">
@@ -59,7 +59,7 @@ export default async function Home() {
 
         {/* A khata page: red binding on the left, ruled lines, the total double-underlined. */}
         <figure className="relative" aria-label="Example: two days in a shop's khata">
-          <div className="relative overflow-hidden rounded-md border border-rule bg-sheet shadow-[6px_8px_0_0_#e3e9e4]">
+          <div className="card relative overflow-hidden">
             <div className="absolute inset-y-0 start-0 w-3 bg-khata" />
             <div className="ps-7 pe-5 pt-5 pb-6">
               <div className="mb-3 flex items-baseline justify-between">
@@ -96,7 +96,7 @@ export default async function Home() {
         </figure>
       </section>
 
-      <section className="border-y border-rule bg-sheet">
+      <section className="border-y border-white/70 bg-white/45 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 py-14">
           <h2 className="mb-8 max-w-xl text-2xl font-bold">What a shop or small business needs, and nothing it doesn&apos;t</h2>
           <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -131,7 +131,7 @@ export default async function Home() {
         <Link href="/signup" className="btn-primary mt-10 px-6 py-3 text-base">{t("Create free account")}</Link>
       </section>
 
-      <footer className="border-t border-rule bg-sheet py-8 text-center text-sm text-muted">
+      <footer className="glass-bar py-8 text-center text-sm text-muted">
         <Logo className="text-ink" />
         <div className="mt-2">
           <Link href="/privacy" className="underline hover:text-ink">Privacy</Link>

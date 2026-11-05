@@ -3,8 +3,8 @@ import { Logo } from "@/components/logo";
 
 export function LegalPage({ title, updated, children }: { title: string; updated: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b border-rule bg-sheet px-4 py-4">
+    <div className="min-h-screen">
+      <header className="glass-bar px-4 py-4">
         <Link href="/" className="text-xl text-ink"><Logo /></Link>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-10">

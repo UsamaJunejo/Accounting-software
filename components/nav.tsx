@@ -33,11 +33,10 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
         onClick={() => setOpen(false)}
         aria-current={active ? "page" : undefined}
         className={`relative flex items-center gap-3 rounded-md px-3 py-2 text-[15px] transition-colors ${
-          active ? "bg-nav-active font-semibold text-white" : "text-nav-text hover:bg-nav-hover hover:text-white"
+          active ? "bg-nav-active font-semibold text-nav-active-text" : "text-nav-text hover:bg-nav-hover hover:text-nav-active-text"
         }`}
       >
-        {active && <span className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-mustard" />}
-        <Icon className={`h-5 w-5 ${active ? "text-mustard" : "text-nav-muted"}`} strokeWidth={1.8} />
+        <Icon className={`h-5 w-5 ${active ? "text-nav-marker" : "text-nav-muted"}`} strokeWidth={1.8} />
         {labels[label] ?? label}
         {href === "/shared" && badge > 0 && (
           <span className="ms-auto rounded-full bg-khata px-2 text-xs font-bold text-white">{badge}</span>
@@ -51,9 +50,9 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         {!open && badge > 0 && <span className="absolute end-1 top-1 h-2.5 w-2.5 rounded-full bg-khata" />}
       </button>
-      {open && <nav className="no-print absolute inset-x-0 top-14 z-20 space-y-0.5 bg-nav p-3 shadow-lg lg:hidden">{links}</nav>}
-      <aside className="no-print fixed inset-y-0 start-0 z-40 hidden w-60 flex-col bg-nav lg:flex">
-        <Link href="/dashboard" className="flex h-14 items-center px-5 text-lg text-white">
+      {open && <nav className="glass-nav no-print absolute inset-x-0 top-14 z-20 space-y-0.5 p-3 shadow-lg lg:hidden">{links}</nav>}
+      <aside className="glass-nav no-print fixed inset-y-0 start-0 z-40 hidden w-60 flex-col border-e border-nav-border lg:flex">
+        <Link href="/dashboard" className="flex h-14 items-center px-5 text-lg text-nav-logo">
           <Logo dark />
         </Link>
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">{links}</nav>
