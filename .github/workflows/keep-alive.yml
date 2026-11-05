@@ -2,8 +2,8 @@
 # This visits the site's health page every 3 days, which runs a small database query.
 # (vercel.json also does this once a day; this is a backup.)
 #
-# Setup: GitHub repo → Settings → Secrets and variables → Actions → Variables tab →
-#        New repository variable: SITE_URL = https://your-site.vercel.app
+# The site address is below. To change it without editing this file, add a repository
+# variable SITE_URL (Settings → Secrets and variables → Actions → Variables).
 name: Keep database awake
 
 on:
@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Ping health check
         env:
-          SITE_URL: ${{ vars.SITE_URL }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://finance-chachu.vercel.app' }}
         run: |
           if [ -z "$SITE_URL" ]; then
             echo "::warning::SITE_URL variable is not set, skipping."

@@ -41,8 +41,8 @@ Free Supabase databases pause after **7 days** with no activity. Two things prev
 1. **Vercel Cron (automatic):** `vercel.json` makes Vercel visit `/api/health` every day.
    That page runs a tiny database query. Check it under Vercel → your project → **Settings → Cron Jobs**.
 2. **GitHub Action (backup):** `.github/workflows/keep-alive.yml` does the same every 3 days.
-   Turn it on: GitHub repo → **Settings → Secrets and variables → Actions → Variables** →
-   **New repository variable**: `SITE_URL` = your Vercel link (e.g. `https://financechachu.vercel.app`).
+   It is already set to `https://finance-chachu.vercel.app`. If the address changes, edit the
+   workflow file or add a repository variable `SITE_URL`.
    Test it: **Actions** tab → *Keep database awake* → **Run workflow**.
 
 Note: GitHub turns off scheduled workflows if the repository has no commits for 60 days.
