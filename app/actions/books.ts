@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db, type Db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireWriter as requireUser } from "@/lib/auth";
 import * as B from "@/lib/books";
 import { toPaisa } from "@/lib/format";
 import { CURRENCY_CODES } from "@/lib/currencies";

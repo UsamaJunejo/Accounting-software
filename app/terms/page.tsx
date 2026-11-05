@@ -23,6 +23,13 @@ export default function Terms() {
         <li>When you share an account or send an invoice link, you are choosing to show that information to others.</li>
         <li>We work hard to keep the service running and your data safe, but we recommend keeping your own backup by downloading your data regularly.</li>
       </ul>
+      <h2>Free trial and payment</h2>
+      <ul>
+        <li>New accounts get a free trial. After it, FinanceChachu is a paid monthly plan at the price shown on the website.</li>
+        <li>You pay by JazzCash, Easypaisa or bank transfer and submit the transaction ID. Your plan is extended once the payment is checked.</li>
+        <li>If your plan ends, your account becomes view-only: you can still see and download all your data, but can&apos;t add new entries until you pay.</li>
+        <li>Payments are for time already started and are not refunded, except where the law requires.</li>
+      </ul>
       <h2>Changes and availability</h2>
       <p>
         We may improve or change features over time. We may suspend accounts that break these terms. The service is

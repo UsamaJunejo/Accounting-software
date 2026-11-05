@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireWriter as requireUser } from "@/lib/auth";
 import { cancelInvoice as cancel, createInvoice as create, recordInvoicePayment, type InvoiceItem } from "@/lib/invoices";
 import { toPaisa } from "@/lib/format";
 

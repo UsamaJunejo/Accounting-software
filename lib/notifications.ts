@@ -7,7 +7,7 @@ import { monthRange } from "./format.ts";
 
 export type Notice = {
   key: string;
-  kind: "approval" | "invite" | "reminder" | "overdue" | "budget" | "auto";
+  kind: "approval" | "invite" | "reminder" | "overdue" | "budget" | "auto" | "billing";
   urgent: boolean;
   title: string;
   detail?: string;
@@ -17,7 +17,7 @@ export type Notice = {
 };
 
 /** Everything that needs the user's attention, worked out fresh each time (nothing to clear by hand). */
-export async function getNotifications(d: Db, userId: number, today: string): Promise<Notice[]> {
+export async function getNotifications(d: Db, userId: number, today: string, isAdmin = false): Promise<Notice[]> {
   const [mStart, mEnd] = monthRange(today);
   const [pending, shares, reminders, invoices, budgetRows, auto] = await Promise.all([
     pendingForOwner(d, userId),
@@ -46,5 +46,17 @@ export async function getNotifications(d: Db, userId: number, today: string): Pr
     out.push({ key: `bu${b.id}`, kind: "budget", urgent: b.spent > b.budget, title: b.spent > b.budget ? `${b.name} is over budget` : `${b.name} is close to its budget`, detail: "This month", href: `/accounts/${b.id}` });
   for (const a of auto)
     out.push({ key: `au${a.id}`, kind: "auto", urgent: false, title: `Added automatically: ${a.note || `${a.from_name} → ${a.to_name}`}`, detail: "From a scheduled entry", href: `/voucher?edit=${a.id}`, date: a.date });
+  // Payments: admins see what's waiting; everyone sees recent decisions on their own payments.
+  const [waiting, decided] = await Promise.all([
+    isAdmin ? d.q<{ n: number }>("SELECT COUNT(*)::int AS n FROM subscription_payments WHERE status = 'pending'") : Promise.resolve([{ n: 0 }]),
+    d.q<{ id: number; status: string; months: number; note: string | null }>(
+      "SELECT id, status, months, note FROM subscription_payments WHERE user_id = $1 AND status <> 'pending' AND decided_at > now() - interval '7 days' AND amount > 0",
+      [userId],
+    ),
+  ]);
+  if (waiting[0].n)
+    out.unshift({ key: "pay-waiting", kind: "billing", urgent: true, title: `${waiting[0].n} ${waiting[0].n === 1 ? "payment is" : "payments are"} waiting for your approval`, detail: "Check the transaction IDs, then approve", href: "/admin" });
+  for (const p of decided)
+    out.push({ key: `pd${p.id}`, kind: "billing", urgent: false, title: p.status === "approved" ? `Payment approved: ${p.months} ${p.months === 1 ? "month" : "months"} added` : "Payment not approved", detail: p.status === "approved" ? "Thank you!" : p.note || "Please contact support", href: "/billing" });
   return out;
 }

@@ -270,6 +270,36 @@ export const MIGRATIONS: string[] = [
   );
   ALTER TABLE backups ENABLE ROW LEVEL SECURITY;
   `,
+  /* 9: subscriptions (free trial, then paid months) */ `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS paid_until DATE;
+  -- People who signed up before paid plans existed get a fresh 15-day trial.
+  UPDATE users SET trial_ends_at = now() + interval '15 days' WHERE trial_ends_at IS NULL;
+  ALTER TABLE users ALTER COLUMN trial_ends_at SET DEFAULT (now() + interval '15 days');
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS subscription_payments (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    months INTEGER NOT NULL CHECK (months BETWEEN 1 AND 24),
+    amount BIGINT NOT NULL CHECK (amount >= 0),
+    method TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    proof BYTEA,
+    proof_mime TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    decided_at TIMESTAMPTZ,
+    decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_sub_payments ON subscription_payments(status, created_at);
+  ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE subscription_payments ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

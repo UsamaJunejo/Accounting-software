@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, BellOff, CalendarClock, CheckCircle2, Clock, Inbox, Mail, Target, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BellOff, CreditCard, CalendarClock, CheckCircle2, Clock, Inbox, Mail, Target, type LucideIcon } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getNotifications, type Notice } from "@/lib/notifications";
@@ -16,12 +16,13 @@ const ICON: Record<Notice["kind"], [LucideIcon, string]> = {
   overdue: [AlertTriangle, "bg-khata-soft text-khata"],
   budget: [Target, "bg-khata-soft text-khata"],
   auto: [CheckCircle2, "bg-ledger-soft text-ledger"],
+  billing: [CreditCard, "bg-brand text-white"],
 };
 
 export default async function Notifications({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const list = await getNotifications(await db(), user.id, today());
+  const list = await getNotifications(await db(), user.id, today(), user.is_admin);
   return (
     <>
       <PageHeader title="Notifications" subtitle="Things that need your attention. They disappear once they're dealt with." />

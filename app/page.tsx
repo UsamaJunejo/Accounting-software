@@ -5,6 +5,8 @@ import { currentUser } from "@/lib/auth";
 import { Logo } from "@/components/logo";
 import { getT } from "@/lib/lang";
 import { LangSwitch } from "@/components/lang-switch";
+import { db } from "@/lib/db";
+import { getBillingSettings } from "@/lib/billing";
 
 const FEATURES: [string, string, LucideIcon][] = [
   ["Money in, money out", "One simple form for every sale, expense and payment. Add a note or a photo of the bill.", ArrowRightLeft],
@@ -28,6 +30,8 @@ const fmt = (n: number) => new Intl.NumberFormat("en-PK").format(n);
 export default async function Home() {
   if (await currentUser()) redirect("/dashboard");
   const t = await getT();
+  const billing = await getBillingSettings(await db()).catch(() => ({ price: 50000, trialDays: 15 }));
+  const price = new Intl.NumberFormat("en-PK").format(billing.price / 100);
   const net = SAMPLE.reduce((s, [, , a, k]) => s + (k === "in" ? a : -a), 0);
   return (
     <div className="min-h-screen">
@@ -109,6 +113,19 @@ export default async function Home() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pt-14">
+        <div className="card flex flex-wrap items-center justify-between gap-6 p-6 sm:p-8">
+          <div>
+            <h2 className="text-2xl font-bold">One simple price</h2>
+            <p className="mt-1 text-body">Everything included: khata, invoices, reports, sharing, backups, Urdu.</p>
+          </div>
+          <div className="text-end">
+            <div className="text-4xl font-bold text-ink">Rs {price}<span className="text-lg font-semibold text-muted"> / month</span></div>
+            <div className="text-[15px] text-ledger">First {billing.trialDays} days free. No card needed.</div>
           </div>
         </div>
       </section>

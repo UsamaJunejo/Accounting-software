@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { changeMainCurrency, createUser } from "@/lib/books";
+import { setTrialForNewUser } from "@/lib/billing";
 import { CURRENCY_CODES } from "@/lib/currencies";
 import { endSession, requireAdmin, requireUser, startSession } from "@/lib/auth";
 import {
@@ -36,6 +37,7 @@ export async function signup(form: FormData) {
   let id = 0;
   try {
     id = await createUser(d, { name, email, phone, businessName, passwordHash: await bcrypt.hash(password, 10) });
+    await setTrialForNewUser(d, id);
   } catch {
     fail("/signup", "Could not create the account. Please try again.");
   }

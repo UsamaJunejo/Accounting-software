@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { db } from "./db.ts";
+import { planOf, type Plan } from "./billing.ts";
+import { today } from "./format.ts";
 
 const COOKIE = "session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -52,6 +54,9 @@ export type User = {
   nok_relation: string | null;
   nok_phone: string | null;
   nok_email: string | null;
+  trial_end: string | null;
+  paid_until: string | null;
+  plan: Plan;
 };
 
 // Cached per request so the layout and page share one lookup.
@@ -60,15 +65,17 @@ export const currentUser = cache(async (): Promise<User | null> => {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
-    const [u] = await (await db()).q<User & { session_version: number }>(
+    const [u] = await (await db()).q<Omit<User, "plan"> & { session_version: number }>(
       `SELECT id, name, email, phone, business_name, currency, is_admin, must_change_password,
               recovery_hash IS NOT NULL AS has_recovery, session_version, level, address, ntn,
-              nok_name, nok_relation, nok_phone, nok_email
+              nok_name, nok_relation, nok_phone, nok_email,
+              to_char(trial_ends_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD') AS trial_end,
+              to_char(paid_until, 'YYYY-MM-DD') AS paid_until
        FROM users WHERE id = $1`,
       [Number(payload.uid)],
     );
     if (!u || u.session_version !== Number(payload.sv ?? 1)) return null;
-    return u;
+    return { ...u, plan: planOf(u, today()) };
   } catch {
     return null;
   }
@@ -77,6 +84,13 @@ export const currentUser = cache(async (): Promise<User | null> => {
 export async function requireUser(): Promise<User> {
   const u = await currentUser();
   if (!u) redirect("/login");
+  return u;
+}
+
+/** For anything that adds or changes entries: the plan must be active (trial, paid, or admin). */
+export async function requireWriter(): Promise<User> {
+  const u = await requireUser();
+  if (u.plan.state === "expired") redirect("/billing?expired=1");
   return u;
 }
 

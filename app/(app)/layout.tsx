@@ -8,19 +8,19 @@ import { today } from "@/lib/format";
 import { getT } from "@/lib/lang";
 import { LangSwitch } from "@/components/lang-switch";
 
-const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Scheduled", "Shared", "Reports", "Settings", "Admin"];
+const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Scheduled", "Shared", "Reports", "Settings", "Billing", "Admin"];
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
-import { Bell, KeyRound, LogOut, ShieldAlert, Store } from "lucide-react";
+import { Bell, Clock, KeyRound, Lock, LogOut, ShieldAlert, Store } from "lucide-react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const d = await db();
   // Add any automatic scheduled entries that have come due since the last visit.
-  await runDueSchedules(d, user.id, today()).catch(() => 0);
+  if (user.plan.state !== "expired") await runDueSchedules(d, user.id, today()).catch(() => 0);
   const badge = await sharingBadge(d, user.id);
-  const alerts = (await getNotifications(d, user.id, today())).filter((n) => n.urgent).length;
+  const alerts = (await getNotifications(d, user.id, today(), user.is_admin)).filter((n) => n.urgent).length;
   const t = await getT();
   return (
     <div>
@@ -45,6 +45,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       <main className="px-4 pb-16 pt-20 lg:ms-60 lg:px-8">
         <div className="mx-auto max-w-6xl">
+          {user.plan.state === "expired" && (
+            <Link href="/billing" className="no-print mb-4 flex items-center gap-2 rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-[15px] text-khata">
+              <Lock className="h-5 w-5 shrink-0" />
+              Your plan has ended. You can still view and download everything. Tap here to pay and keep adding entries.
+            </Link>
+          )}
+          {user.plan.state === "trial" && user.plan.daysLeft <= 5 && (
+            <Link href="/billing" className="no-print mb-4 flex items-center gap-2 rounded-lg border border-marigold/30 bg-marigold-soft px-4 py-3 text-[15px] text-marigold">
+              <Clock className="h-5 w-5 shrink-0" />
+              Your free trial ends in {user.plan.daysLeft} {user.plan.daysLeft === 1 ? "day" : "days"}. Tap here to see how to pay.
+            </Link>
+          )}
           {user.must_change_password && (
             <Link href="/settings?must=1" className="no-print mb-4 flex items-center gap-2 rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">
               <ShieldAlert className="h-5 w-5 shrink-0" />

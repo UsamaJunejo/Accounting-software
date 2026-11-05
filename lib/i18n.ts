@@ -41,6 +41,7 @@ const UR: Record<string, string> = {
   Invoice: "بل",
   Scheduled: "طے شدہ اندراجات",
   Notifications: "اطلاعات",
+  Billing: "ادائیگی و پلان",
   "Your assets, by category": "زمرے کے لحاظ سے آپ کے اثاثے",
   "Category balances": "زمروں کے بیلنس",
   "What you own, owe and put in, side by side": "اثاثے، واجبات اور سرمایہ ساتھ ساتھ",

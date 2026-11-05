@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Logo } from "@/components/logo";
 import {
   CalendarClock,
+  CreditCard,
   BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const ITEMS = [
   { href: "/shared", label: "Shared", Icon: Share2 },
   { href: "/reports", label: "Reports", Icon: BarChart3 },
   { href: "/settings", label: "Settings", Icon: Settings },
+  { href: "/billing", label: "Billing", Icon: CreditCard },
 ];
 
 export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boolean; badge?: number; labels?: Record<string, string> }) {

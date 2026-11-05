@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireWriter as requireUser } from "@/lib/auth";
 import * as S from "@/lib/sharing";
 import { toPaisa } from "@/lib/format";
 
