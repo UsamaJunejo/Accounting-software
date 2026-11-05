@@ -188,7 +188,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
           {cats.map((c) => (
             <li key={c.id}>
-              <Link href={`/accounts#cat-${c.id}`} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
+              <Link href={`/accounts/category/${c.id}`} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
                 <CategoryBadge name={c.name} kind={c.kind} size="lg" color={c.color} />
                 <span className="min-w-0">
                   <span className="block truncate text-[15px] text-body">{c.name}</span>

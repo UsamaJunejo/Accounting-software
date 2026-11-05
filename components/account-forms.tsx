@@ -1,0 +1,135 @@
+import { KIND_LABEL, type Kind } from "@/lib/books";
+import * as A from "@/app/actions/books";
+import { LookPicker } from "@/components/look-picker";
+
+export function AddCategoryForm({ back }: { back: string }) {
+  return (
+    <form action={A.addCategory} className="space-y-4">
+      <input type="hidden" name="back" value={back} />
+      <div>
+        <label className="label" htmlFor="cat-name">Category name</label>
+        <input id="cat-name" name="name" required placeholder="e.g. Online Business" className="input" />
+      </div>
+      <div>
+        <label className="label" htmlFor="cat-kind">What kind of money is it?</label>
+        <select id="cat-kind" name="kind" required className="input" defaultValue="asset">
+          {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+        </select>
+        <p className="mt-1 text-sm text-muted">Asset: things you own. Liability: what you owe. Income, Expense, or Equity (owner&apos;s money).</p>
+      </div>
+      <LookPicker />
+      <button className="btn-primary w-full">Add category</button>
+    </form>
+  );
+}
+
+export function AddSubcategoryForm({ categoryId, back }: { categoryId: number; back: string }) {
+  return (
+    <form action={A.addSubcategory} className="space-y-4">
+      <input type="hidden" name="back" value={back} />
+      <input type="hidden" name="category" value={categoryId} />
+      <div>
+        <label className="label" htmlFor="sub-name">Sub-category name</label>
+        <input id="sub-name" name="name" required placeholder="e.g. Vehicles" className="input" />
+      </div>
+      <LookPicker />
+      <button className="btn-primary w-full">Add sub-category</button>
+    </form>
+  );
+}
+
+/** Pass a sub-category, or (in the simpler views) a category: the account goes into its first sub-category. */
+export function AddAccountForm({
+  subcategoryId,
+  categories,
+  categoryId,
+  back,
+}: {
+  subcategoryId?: number;
+  categoryId?: number;
+  categories?: { id: number; name: string }[];
+  back: string;
+}) {
+  return (
+    <form action={A.addAccount} className="space-y-4">
+      <input type="hidden" name="back" value={back} />
+      {subcategoryId && <input type="hidden" name="subcategory" value={subcategoryId} />}
+      {!subcategoryId && categoryId && <input type="hidden" name="category" value={categoryId} />}
+      {!subcategoryId && !categoryId && categories && (
+        <div>
+          <label className="label" htmlFor="acc-cat">Category</label>
+          <select id="acc-cat" name="category" required className="input" defaultValue="">
+            <option value="" disabled>Choose a category</option>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className="label" htmlFor="acc-name">Account name</label>
+        <input id="acc-name" name="name" required placeholder="e.g. Honda CD-70, Ahmed Traders" className="input" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label" htmlFor="acc-phone">Mobile (optional)</label>
+          <input id="acc-phone" name="phone" placeholder="For khata reminders" className="input" />
+        </div>
+        <div>
+          <label className="label" htmlFor="acc-budget">Monthly budget (optional)</label>
+          <input id="acc-budget" name="budget" inputMode="decimal" className="input" />
+        </div>
+      </div>
+      <button className="btn-primary w-full">Add account</button>
+    </form>
+  );
+}
+
+export function EditGroupForm({
+  kind,
+  id,
+  name,
+  color,
+  icon,
+  categoryId,
+  categories,
+  back,
+  deleteBack,
+}: {
+  kind: "category" | "sub";
+  id: number;
+  name: string;
+  color: string | null;
+  icon: string | null;
+  categoryId?: number;
+  categories?: { id: number; name: string }[];
+  back: string;
+  deleteBack: string;
+}) {
+  return (
+    <div className="space-y-5">
+      <form action={kind === "category" ? A.updateCategory : A.updateSubcategory} className="space-y-4">
+        <input type="hidden" name="id" value={id} />
+        <input type="hidden" name="back" value={back} />
+        <div>
+          <label className="label" htmlFor={`edit-${kind}-${id}`}>Name</label>
+          <input id={`edit-${kind}-${id}`} name="name" defaultValue={name} required className="input" />
+        </div>
+        {kind === "sub" && categories && (
+          <div>
+            <label className="label" htmlFor={`move-${id}`}>Belongs to category</label>
+            <select id={`move-${id}`} name="category" defaultValue={categoryId} className="input">
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
+        <LookPicker color={color} icon={icon} />
+        <button className="btn-primary w-full">Save changes</button>
+      </form>
+      <form action={kind === "category" ? A.deleteCategory : A.deleteSubcategory} className="border-t border-rule pt-4">
+        <input type="hidden" name="id" value={id} />
+        <input type="hidden" name="back" value={deleteBack} />
+        <button className="btn-danger w-full">Delete {kind === "category" ? "category" : "sub-category"}</button>
+        <p className="mt-1 text-sm text-muted">Only possible when it&apos;s empty. Move or delete what&apos;s inside first.</p>
+      </form>
+    </div>
+  );
+}

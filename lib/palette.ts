@@ -8,9 +8,12 @@ export function categoryColor(index: number) {
 }
 
 /** Colour for each balance-sheet category, by its order. Income and expense stay neutral. */
-export function categoryColorMap(cats: { id: number; kind: string }[]) {
+export function categoryColorMap(cats: { id: number; kind: string; color?: string | null }[]) {
   const m = new Map<number, string>();
   let slot = 0;
-  for (const c of cats) if (c.kind !== "income" && c.kind !== "expense") m.set(c.id, categoryColor(slot++));
+  for (const c of cats) {
+    if (c.color) m.set(c.id, c.color);
+    else if (c.kind !== "income" && c.kind !== "expense") m.set(c.id, categoryColor(slot++));
+  }
   return m;
 }

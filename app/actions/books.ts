@@ -112,20 +112,34 @@ export async function restoreTransaction(form: FormData) {
   await run("/reports/deleted", (uid, d) => B.restoreTransaction(d, uid, int(form, "id")), "Entry restored");
 }
 
+const look = (form: FormData) => ({ color: str(form, "color") || null, icon: str(form, "icon") || null });
+
 export async function addCategory(form: FormData) {
-  await run("/accounts", async (uid, d) => {
+  await run(str(form, "back") || "/accounts", async (uid, d) => {
     const name = str(form, "name");
     if (!name) throw new Error("Name is required");
-    await B.addCategory(d, uid, name, str(form, "kind") as B.Kind);
+    await B.addCategory(d, uid, name, str(form, "kind") as B.Kind, look(form));
   }, "Category added");
 }
 
 export async function addSubcategory(form: FormData) {
-  await run("/accounts", async (uid, d) => {
+  await run(str(form, "back") || "/accounts", async (uid, d) => {
     const name = str(form, "name");
     if (!name) throw new Error("Name is required");
-    await B.addSubcategory(d, uid, int(form, "category"), name);
+    await B.addSubcategory(d, uid, int(form, "category"), name, look(form));
   }, "Sub-category added");
+}
+
+export async function updateCategory(form: FormData) {
+  await run(str(form, "back") || "/accounts", (uid, d) => B.updateCategory(d, uid, int(form, "id"), str(form, "name"), look(form)), "Saved");
+}
+
+export async function updateSubcategory(form: FormData) {
+  await run(
+    str(form, "back") || "/accounts",
+    (uid, d) => B.updateSubcategory(d, uid, int(form, "id"), str(form, "name"), int(form, "category"), look(form)),
+    "Saved",
+  );
 }
 
 function budget(form: FormData) {
@@ -186,9 +200,9 @@ export async function renameSubcategory(form: FormData) {
 }
 
 export async function deleteCategory(form: FormData) {
-  await run("/accounts", (uid, d) => B.deleteCategory(d, uid, int(form, "id")), "Category deleted");
+  await run(str(form, "back") || "/accounts", (uid, d) => B.deleteCategory(d, uid, int(form, "id")), "Category deleted");
 }
 
 export async function deleteSubcategory(form: FormData) {
-  await run("/accounts", (uid, d) => B.deleteSubcategory(d, uid, int(form, "id")), "Sub-category deleted");
+  await run(str(form, "back") || "/accounts", (uid, d) => B.deleteSubcategory(d, uid, int(form, "id")), "Sub-category deleted");
 }

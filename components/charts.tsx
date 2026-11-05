@@ -160,14 +160,14 @@ type Slice = { name: string; value: number; color: string };
 
 /** Donut: what you own, split by category. Each slice keeps its category's colour, and a legend
  *  with names and amounts sits beside it, so identity never depends on colour alone. */
-export function CategoryDonut({ data, cur, empty = "Nothing to show yet." }: { data: Slice[]; cur: string; empty?: string }) {
+export function CategoryDonut({ data, cur, empty = "Nothing to show yet.", label = "Share by category" }: { data: Slice[]; cur: string; empty?: string; label?: string }) {
   const rows = data.filter((d) => d.value > 0);
   if (!rows.length) return <Empty text={empty} />;
   const total = rows.reduce((s, d) => s + d.value, 0);
   const pts = rows.map((d) => ({ ...d, value: d.value / 100 }));
   return (
     <div className="grid items-center gap-4 sm:grid-cols-[200px_1fr]">
-      <div className="relative" role="img" aria-label="What you own, by category">
+      <div className="relative" role="img" aria-label={label}>
         <ResponsiveContainer width="100%" height={200}>
           <PieChart>
             <Pie data={pts} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={1.5} stroke="#fff" strokeWidth={2} isAnimationActive={false}>
@@ -204,7 +204,7 @@ export function CategoryBars({ data, cur }: { data: Slice[]; cur: string }) {
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={pts} margin={{ top: 16, right: 12, left: 4, bottom: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={C.grid} vertical={false} />
-          <XAxis dataKey="name" {...axisProps} interval={0} tick={{ fill: C.axis, fontSize: 12 }} />
+          <XAxis dataKey="name" {...axisProps} interval={0} tick={{ fill: C.axis, fontSize: 12 }} tickFormatter={(v: string) => (v.length > 16 ? v.slice(0, 15) + "…" : v)} />
           <YAxis {...axisProps} axisLine={false} tickFormatter={short} width={56} />
           {hasNeg && <ReferenceLine y={0} stroke={C.axis} />}
           <Tooltip content={<Tip cur={cur} />} cursor={{ fill: "#e6ecef", opacity: 0.6 }} />

@@ -129,15 +129,15 @@ export async function accountsWithBalances(
   return rows.map((r) => ({ ...r, balance: signedBalance(r.kind, r.money_in, r.money_out) }));
 }
 
-export type Category = { id: number; name: string; kind: Kind; sort: number };
-export type Subcategory = { id: number; name: string; category_id: number };
+export type Category = { id: number; name: string; kind: Kind; sort: number; color: string | null; icon: string | null };
+export type Subcategory = { id: number; name: string; category_id: number; color: string | null; icon: string | null };
 
 export function categories(d: Db, userId: number): Promise<Category[]> {
-  return d.q<Category>("SELECT id, name, kind, sort FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
+  return d.q<Category>("SELECT id, name, kind, sort, color, icon FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
 }
 
 export function subcategories(d: Db, userId: number): Promise<Subcategory[]> {
-  return d.q<Subcategory>("SELECT id, name, category_id FROM subcategories WHERE user_id = $1 ORDER BY name", [userId]);
+  return d.q<Subcategory>("SELECT id, name, category_id, color, icon FROM subcategories WHERE user_id = $1 ORDER BY name", [userId]);
 }
 
 export async function categoryTotals(d: Db, userId: number, opts: { from?: string; to?: string } = {}) {
@@ -157,23 +157,50 @@ async function own(d: Db, table: "categories" | "subcategories" | "accounts" | "
   if (!r.length) throw new Error("Not found");
 }
 
-export async function addCategory(d: Db, userId: number, name: string, kind: Kind) {
+/** Only #rrggbb colours and short icon keys are stored. */
+function look(l?: { color?: string | null; icon?: string | null }) {
+  const color = l?.color && /^#[0-9a-f]{6}$/i.test(l.color) ? l.color.toLowerCase() : null;
+  const icon = l?.icon && /^[a-z-]{2,30}$/.test(l.icon) ? l.icon : null;
+  return [color, icon] as const;
+}
+
+export async function addCategory(d: Db, userId: number, name: string, kind: Kind, l?: { color?: string | null; icon?: string | null }) {
   if (!(kind in KIND_LABEL)) throw new Error("Choose a type");
   const [row] = await d.q<IdRow>(
-    `INSERT INTO categories (user_id, name, kind, sort)
-     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1)) RETURNING id`,
-    [userId, name, kind],
+    `INSERT INTO categories (user_id, name, kind, sort, color, icon)
+     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1), $4, $5) RETURNING id`,
+    [userId, name, kind, ...look(l)],
   );
   return row.id;
 }
 
-export async function addSubcategory(d: Db, userId: number, categoryId: number, name: string) {
+export async function addSubcategory(d: Db, userId: number, categoryId: number, name: string, l?: { color?: string | null; icon?: string | null }) {
   await own(d, "categories", categoryId, userId);
   const [row] = await d.q<IdRow>(
-    "INSERT INTO subcategories (user_id, category_id, name) VALUES ($1, $2, $3) RETURNING id",
-    [userId, categoryId, name],
+    "INSERT INTO subcategories (user_id, category_id, name, color, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+    [userId, categoryId, name, ...look(l)],
   );
   return row.id;
+}
+
+export async function updateCategory(d: Db, userId: number, id: number, name: string, l?: { color?: string | null; icon?: string | null }) {
+  if (!name) throw new Error("Name is required");
+  await own(d, "categories", id, userId);
+  await d.q("UPDATE categories SET name = $1, color = $2, icon = $3 WHERE id = $4", [name, ...look(l), id]);
+}
+
+export async function updateSubcategory(
+  d: Db,
+  userId: number,
+  id: number,
+  name: string,
+  categoryId: number,
+  l?: { color?: string | null; icon?: string | null },
+) {
+  if (!name) throw new Error("Name is required");
+  await own(d, "subcategories", id, userId);
+  await own(d, "categories", categoryId, userId);
+  await d.q("UPDATE subcategories SET name = $1, category_id = $2, color = $3, icon = $4 WHERE id = $5", [name, categoryId, ...look(l), id]);
 }
 
 export async function addAccount(

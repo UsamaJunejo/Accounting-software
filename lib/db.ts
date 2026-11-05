@@ -220,6 +220,12 @@ export const MIGRATIONS: string[] = [
   );
   ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
   `,
+  /* 6: colour and icon chosen for categories and sub-categories */ `
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS color TEXT;
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS icon TEXT;
+  ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS color TEXT;
+  ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS icon TEXT;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;
