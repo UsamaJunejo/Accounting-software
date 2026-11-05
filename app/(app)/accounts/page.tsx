@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, ChevronRight, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
+import { Archive, ChevronRight, Download, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
 import { CategoryBadge } from "@/components/icons";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -23,10 +23,13 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
         title="Accounts"
         subtitle="Category → Sub-category → Account. Click an account to see its full statement."
         actions={
+          <>
+          <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
           <Link href={sp.archived ? "/accounts" : "/accounts?archived=1"} className="btn-ghost">
             <Archive className="h-4 w-4" />
             {sp.archived ? "Hide archived" : "Show archived"}
           </Link>
+          </>
         }
       />
       <Flash sp={sp} />

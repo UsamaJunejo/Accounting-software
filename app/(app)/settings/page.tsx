@@ -32,8 +32,11 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           </form>
           <div className="card space-y-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold text-ink"><Database className="h-5 w-5 text-brand" />Your data</h2>
-            <p className="text-sm text-slate-600">Download all your entries as a CSV file that opens in Excel or Google Sheets.</p>
-            <Link href="/export" className="btn-ghost"><Download className="h-4 w-4" />Download all entries</Link>
+            <p className="text-sm text-slate-600">Download your data as files that open in Excel or Google Sheets. Keep a copy as a backup.</p>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/export" className="btn-ghost"><Download className="h-4 w-4" />All entries</Link>
+              <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Accounts &amp; balances</Link>
+            </div>
             <p className="text-sm text-slate-600">Budgets are set per account: open <Link href="/accounts" className="font-semibold text-brand">Accounts</Link> → Edit.</p>
           </div>
         </div>
