@@ -1,15 +1,16 @@
 import Link from "next/link";
+import { ArrowRightLeft, BarChart3, BookUser, ShieldCheck, Smartphone, Target, type LucideIcon } from "lucide-react";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { Logo } from "@/components/logo";
 
-const FEATURES = [
-  ["Payments & receipts in seconds", "Record money in and out with one simple form. Attach a note and colour-highlight important entries."],
-  ["Khata for customers & suppliers", "See who owes you and whom you owe. Send a balance reminder on WhatsApp in one tap."],
-  ["Proper accounting, no jargon", "Every entry is double-entry behind the scenes, so your Balance Sheet always balances."],
-  ["Reports that matter", "Profit & Loss, Balance Sheet, account statements, and a log of deleted entries. Print or save as PDF."],
-  ["Budgets with alerts", "Set a monthly limit on any expense and see at a glance when you are close to it."],
-  ["Works on any device", "Phone, tablet or computer, nothing to install. Download your data any time as Excel/CSV."],
+const FEATURES: [string, string, LucideIcon][] = [
+  ["Payments & receipts in seconds", "Record money in and out with one simple form. Attach a note and colour-highlight important entries.", ArrowRightLeft],
+  ["Khata for customers & suppliers", "See who owes you and whom you owe. Send a balance reminder on WhatsApp in one tap.", BookUser],
+  ["Proper accounting, no jargon", "Every entry is double-entry behind the scenes, so your Balance Sheet always balances.", ShieldCheck],
+  ["Reports that matter", "Profit & Loss, Balance Sheet, account statements, and a log of deleted entries. Print or save as PDF.", BarChart3],
+  ["Budgets with alerts", "Set a monthly limit on any expense and see at a glance when you are close to it.", Target],
+  ["Works on any device", "Phone, tablet or computer, nothing to install. Download your data any time as Excel/CSV.", Smartphone],
 ];
 
 export default async function Home() {
@@ -42,8 +43,9 @@ export default async function Home() {
       <section className="mx-auto max-w-6xl px-4 py-16">
         <h2 className="mb-8 text-2xl font-bold text-ink">Everything a shop or small business needs</h2>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map(([t, d]) => (
+          {FEATURES.map(([t, d, Icon]) => (
             <div key={t} className="card p-5">
+              <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 text-brand"><Icon className="h-5 w-5" /></span>
               <h3 className="font-semibold text-ink">{t}</h3>
               <p className="mt-2 text-sm text-slate-600">{d}</p>
             </div>

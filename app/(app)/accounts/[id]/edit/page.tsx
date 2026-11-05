@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileText, Save, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -56,13 +57,13 @@ export default async function EditAccount({
           <input type="checkbox" name="archived" defaultChecked={!!a.archived} /> Archived (hide from lists, keep history)
         </label>
         <div className="flex gap-2">
-          <button className="btn-primary">Save</button>
-          <Link href={`/accounts/${a.id}`} className="btn-ghost">View statement</Link>
+          <button className="btn-primary"><Save className="h-4 w-4" />Save</button>
+          <Link href={`/accounts/${a.id}`} className="btn-ghost"><FileText className="h-4 w-4" />View statement</Link>
         </div>
       </form>
       <form action={deleteAccount} className="max-w-2xl">
         <input type="hidden" name="id" value={a.id} />
-        <button className="btn-danger">Delete account</button>
+        <button className="btn-danger"><Trash2 className="h-4 w-4" />Delete account</button>
         <p className="mt-1 text-xs text-slate-500">Only possible if it has no entries. Otherwise archive it.</p>
       </form>
     </>

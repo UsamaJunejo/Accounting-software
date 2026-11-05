@@ -1,3 +1,4 @@
+import { Download, Filter, Plus, Search } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listTransactions, type TxnType } from "@/lib/books";
@@ -29,8 +30,8 @@ export default async function Transactions({
         subtitle={`${rows.length} entries`}
         actions={
           <>
-            <LinkButton href={`/export?${qs}`}>Download Excel (CSV)</LinkButton>
-            <LinkButton href="/voucher" variant="primary">+ New entry</LinkButton>
+            <LinkButton href={`/export?${qs}`}><Download className="h-4 w-4" />Download Excel (CSV)</LinkButton>
+            <LinkButton href="/voucher" variant="primary"><Plus className="h-4 w-4" />New entry</LinkButton>
           </>
         }
       />
@@ -55,9 +56,12 @@ export default async function Transactions({
         </div>
         <div className="min-w-48 flex-1">
           <label className="label">Search</label>
-          <input name="q" defaultValue={sp.q} placeholder="Account or note…" className="input" />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input name="q" defaultValue={sp.q} placeholder="Account or note…" className="input pl-9" />
+          </div>
         </div>
-        <button className="btn-dark">Filter</button>
+        <button className="btn-dark"><Filter className="h-4 w-4" />Filter</button>
       </form>
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
         <div className="card p-3"><div className="text-slate-500">Money in</div><div className="font-bold text-green-700">{money(total("receipt"))}</div></div>

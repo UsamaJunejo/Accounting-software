@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Inbox } from "lucide-react";
 import { money } from "@/lib/format";
 import type { AccountRow } from "@/lib/books";
 
@@ -81,13 +82,25 @@ export function DateRange({ from, to, extra }: { from: string; to: string; extra
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="px-4 py-10 text-center text-sm text-slate-500">{children}</div>;
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-slate-500">
+      <Inbox className="h-8 w-8 text-slate-300" />
+      {children}
+    </div>
+  );
 }
 
 export function TypeBadge({ type }: { type: string }) {
   const c =
     type === "payment" ? "bg-orange-100 text-orange-700" : type === "receipt" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700";
-  return <span className={`rounded px-2 py-0.5 text-xs font-semibold capitalize ${c}`}>{type}</span>;
+  const Icon = type === "payment" ? ArrowUpRight : type === "receipt" ? ArrowDownLeft : ArrowLeftRight;
+  const label = type === "payment" ? "Out" : type === "receipt" ? "In" : "Transfer";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${c}`}>
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </span>
+  );
 }
 
 export function LinkButton(props: React.ComponentProps<typeof Link> & { variant?: "primary" | "dark" | "ghost" }) {

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
+import { LogOut, Store } from "lucide-react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -16,9 +17,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="hidden text-slate-300 sm:inline">{user.business_name || user.name}</span>
+          <span className="hidden items-center gap-1.5 text-slate-300 sm:flex"><Store className="h-4 w-4" />{user.business_name || user.name}</span>
           <form action={logout}>
-            <button className="rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10 hover:text-white">Sign out</button>
+            <button className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-300 hover:bg-white/10 hover:text-white"><LogOut className="h-4 w-4" />Sign out</button>
           </form>
         </div>
       </header>

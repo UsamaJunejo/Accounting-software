@@ -1,3 +1,4 @@
+import { RotateCcw } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { auditLog, listTransactions } from "@/lib/books";
@@ -39,7 +40,7 @@ export default async function Deleted({ searchParams }: { searchParams: Promise<
                   <td>
                     <form action={restoreTransaction}>
                       <input type="hidden" name="id" value={t.id} />
-                      <button className="text-sm font-semibold text-blue-600">Restore</button>
+                      <button className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600"><RotateCcw className="h-4 w-4" />Restore</button>
                     </form>
                   </td>
                 </tr>

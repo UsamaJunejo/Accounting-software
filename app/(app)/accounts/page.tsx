@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Archive, ChevronRight, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
+import { CategoryBadge } from "@/components/icons";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, KIND_LABEL, subcategories, type Kind } from "@/lib/books";
@@ -22,6 +24,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
         subtitle="Category → Sub-category → Account. Click an account to see its full statement."
         actions={
           <Link href={sp.archived ? "/accounts" : "/accounts?archived=1"} className="btn-ghost">
+            <Archive className="h-4 w-4" />
             {sp.archived ? "Hide archived" : "Show archived"}
           </Link>
         }
@@ -30,7 +33,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
 
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <form action={A.addAccount} className="card space-y-3 p-4">
-          <h2 className="font-semibold text-ink">Add account</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><Plus className="h-5 w-5 text-brand" />Add account</h2>
           <select name="subcategory" required className="input" defaultValue="">
             <option value="" disabled>Choose sub-category</option>
             {cats.map((c) => (
@@ -47,7 +50,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           <button className="btn-primary w-full">Add account</button>
         </form>
         <form action={A.addSubcategory} className="card space-y-3 p-4">
-          <h2 className="font-semibold text-ink">Add sub-category</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><Layers className="h-5 w-5 text-brand" />Add sub-category</h2>
           <select name="category" required className="input" defaultValue="">
             <option value="" disabled>Choose category</option>
             {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -56,7 +59,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           <button className="btn-dark w-full">Add sub-category</button>
         </form>
         <form action={A.addCategory} className="card space-y-3 p-4">
-          <h2 className="font-semibold text-ink">Add category</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><FolderPlus className="h-5 w-5 text-brand" />Add category</h2>
           <input name="name" required placeholder="e.g. Online Business" className="input" />
           <select name="kind" required className="input" defaultValue="">
             <option value="" disabled>What type is it?</option>
@@ -74,14 +77,15 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           return (
             <section key={c.id} id={`cat-${c.id}`} className="card overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 bg-ink px-4 py-3 text-white">
-                <div>
+                <div className="flex items-center gap-2">
+                  <CategoryBadge name={c.name} kind={c.kind} size="sm" />
                   <span className="font-semibold">{c.name}</span>
                   <span className="ml-2 rounded bg-white/15 px-2 py-0.5 text-xs">{KIND_LABEL[c.kind]}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Money value={cAccs.reduce((s, a) => s + a.balance, 0)} className="font-semibold" />
                   <details className="relative">
-                    <summary className="cursor-pointer list-none text-xs text-slate-300 hover:text-white">Edit</summary>
+                    <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-300 hover:text-white"><Pencil className="h-3.5 w-3.5" />Edit</summary>
                     <div className="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded-lg bg-white p-3 text-slate-800 shadow-lg">
                       <form action={A.renameCategory} className="flex gap-2">
                         <input type="hidden" name="id" value={c.id} />
@@ -105,7 +109,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
                       <div className="flex items-center gap-3">
                         <Money value={sAccs.reduce((t, a) => t + a.balance, 0)} className="text-slate-600" />
                         <details className="relative">
-                          <summary className="cursor-pointer list-none text-xs text-slate-500 hover:text-ink">Edit</summary>
+                          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-ink"><Pencil className="h-3.5 w-3.5" />Edit</summary>
                           <div className="absolute right-0 z-10 mt-2 w-72 space-y-2 rounded-lg bg-white p-3 shadow-lg">
                             <form action={A.renameSubcategory} className="space-y-2">
                               <input type="hidden" name="id" value={s.id} />
@@ -129,13 +133,14 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
                       <ul>
                         {sAccs.map((a) => (
                           <li key={a.id} className="flex items-center justify-between border-t border-[var(--line)] px-4 py-2 text-sm hover:bg-orange-50/40">
-                            <Link href={`/accounts/${a.id}`} className="font-medium text-ink hover:text-brand">
+                            <Link href={`/accounts/${a.id}`} className="flex items-center gap-1 font-medium text-ink hover:text-brand">
+                              <ChevronRight className="h-4 w-4 text-slate-400" />
                               {a.name}
                               {a.archived ? <span className="ml-2 text-xs text-slate-400">(archived)</span> : null}
                             </Link>
                             <div className="flex items-center gap-4">
                               <Money value={a.balance} />
-                              <Link href={`/accounts/${a.id}/edit`} className="text-xs font-semibold text-blue-600">Edit</Link>
+                              <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-blue-600 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Link>
                             </div>
                           </li>
                         ))}

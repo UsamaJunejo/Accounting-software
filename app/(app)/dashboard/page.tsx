@@ -5,13 +5,18 @@ import { accountsWithBalances, budgets, categoryTotals, incomeStatement, listTra
 import { money, monthRange, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, LinkButton, Money, PageHeader, TypeBadge } from "@/components/ui";
 import { ExpensePie, MonthlyBars } from "@/components/charts";
+import { CategoryBadge } from "@/components/icons";
+import { ArrowDownLeft, ArrowUpRight, ChartPie, ChartColumn, HandCoins, LineChart, ListOrdered, Target, Truck, Wallet, type LucideIcon } from "lucide-react";
 
 export const metadata = { title: "Dashboard" };
 
-function Stat({ label, value, tone, href }: { label: string; value: number; tone: string; href?: string }) {
+function Stat({ label, value, tone, href, Icon, iconBg }: { label: string; value: number; tone: string; href?: string; Icon: LucideIcon; iconBg: string }) {
   const body = (
     <div className={`card h-full border-l-4 p-4 ${tone}`}>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}><Icon className="h-4 w-4" /></span>
+      </div>
       <div className="mt-1 text-2xl font-bold text-ink">
         <span className="mr-1 text-sm font-medium text-slate-400">Rs</span>
         <Money value={value} />
@@ -76,8 +81,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         subtitle={`${prettyDate(from)} to ${prettyDate(to)}`}
         actions={
           <>
-            <LinkButton href="/voucher?type=receipt" variant="dark">+ Money In</LinkButton>
-            <LinkButton href="/voucher?type=payment" variant="primary">+ Money Out</LinkButton>
+            <LinkButton href="/voucher?type=receipt" variant="dark"><ArrowDownLeft className="h-4 w-4" />Money In</LinkButton>
+            <LinkButton href="/voucher?type=payment" variant="primary"><ArrowUpRight className="h-4 w-4" />Money Out</LinkButton>
           </>
         }
       />
@@ -91,37 +96,40 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <DateRange from={from} to={to} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cash & Bank now" value={cashBank} tone="border-blue-500" href="/accounts" />
-        <Stat label="Profit this period" value={pl.profit} tone={pl.profit >= 0 ? "border-green-500" : "border-red-500"} href={`/reports/income?from=${from}&to=${to}`} />
-        <Stat label="Customers owe you" value={receivable} tone="border-brand" href="/khata" />
-        <Stat label="You owe suppliers" value={payable} tone="border-slate-500" href="/khata" />
+        <Stat label="Cash & Bank now" value={cashBank} tone="border-blue-500" href="/accounts" Icon={Wallet} iconBg="bg-blue-50 text-blue-600" />
+        <Stat label="Profit this period" value={pl.profit} tone={pl.profit >= 0 ? "border-green-500" : "border-red-500"} href={`/reports/income?from=${from}&to=${to}`} Icon={LineChart} iconBg={pl.profit >= 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"} />
+        <Stat label="Customers owe you" value={receivable} tone="border-brand" href="/khata" Icon={HandCoins} iconBg="bg-orange-50 text-brand" />
+        <Stat label="You owe suppliers" value={payable} tone="border-slate-500" href="/khata" Icon={Truck} iconBg="bg-slate-100 text-slate-600" />
       </div>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Categories</h2>
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {cats.map((c) => (
-          <Link key={c.id} href={`/accounts#cat-${c.id}`} className="card p-3 transition hover:border-brand">
-            <div className="text-xs font-semibold uppercase text-slate-500">{c.name}</div>
-            <div className="mt-1 font-bold text-ink"><Money value={c.balance} /></div>
-            <div className="text-[11px] text-slate-400">{c.note}</div>
+          <Link key={c.id} href={`/accounts#cat-${c.id}`} className="card flex items-center gap-3 p-3 transition hover:border-brand">
+            <CategoryBadge name={c.name} kind={c.kind} />
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold uppercase text-slate-500">{c.name}</div>
+              <div className="font-bold text-ink"><Money value={c.balance} /></div>
+              <div className="text-[11px] text-slate-400">{c.note}</div>
+            </div>
           </Link>
         ))}
       </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <div className="card p-4">
-          <h2 className="mb-2 font-semibold text-ink">Where the money went</h2>
+          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartPie className="h-5 w-5 text-brand" />Where the money went</h2>
           <ExpensePie data={top} />
         </div>
         <div className="card p-4">
-          <h2 className="mb-2 font-semibold text-ink">Income vs expense (last 6 months)</h2>
+          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartColumn className="h-5 w-5 text-brand" />Income vs expense (last 6 months)</h2>
           <MonthlyBars data={months} />
         </div>
       </div>
 
       {budgetRows.length > 0 && (
         <div className="card mb-6 p-4">
-          <h2 className="mb-3 font-semibold text-ink">Budgets this month</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink"><Target className="h-5 w-5 text-brand" />Budgets this month</h2>
           <div className="space-y-3">
             {budgetRows.map((b) => {
               const pct = Math.min(100, Math.round((b.spent / b.budget) * 100));
@@ -146,7 +154,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-4">
-          <h2 className="font-semibold text-ink">Latest entries</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><ListOrdered className="h-5 w-5 text-brand" />Latest entries</h2>
           <Link href="/transactions" className="text-sm font-semibold text-brand">See all</Link>
         </div>
         {recent.length === 0 ? (

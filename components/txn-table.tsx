@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Pencil, Trash2 } from "lucide-react";
 import { deleteTransaction } from "@/app/actions/books";
 import { money, prettyDate } from "@/lib/format";
 import type { TxnRow } from "@/lib/books";
@@ -26,11 +27,11 @@ export function TxnTable({ rows, back }: { rows: TxnRow[]; back: string }) {
               <td className="max-w-xs text-slate-500">{t.note}</td>
               <td className="num font-medium">{money(t.amount)}</td>
               <td className="no-print whitespace-nowrap text-right">
-                <Link href={`/voucher?edit=${t.id}`} className="mr-3 text-sm font-semibold text-blue-600">Edit</Link>
+                <Link href={`/voucher?edit=${t.id}`} title="Edit" aria-label="Edit" className="mr-1 inline-flex rounded-md p-1.5 text-blue-600 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Link>
                 <form action={deleteTransaction} className="inline">
                   <input type="hidden" name="id" value={t.id} />
                   <input type="hidden" name="back" value={back} />
-                  <button className="text-sm font-semibold text-red-600">Delete</button>
+                  <button title="Delete" aria-label="Delete" className="inline-flex rounded-md p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
                 </form>
               </td>
             </tr>

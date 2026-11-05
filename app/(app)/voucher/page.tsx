@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Eraser, Save, type LucideIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -10,10 +11,10 @@ import { TxnTable } from "@/components/txn-table";
 
 export const metadata = { title: "New Entry" };
 
-const TABS: { type: TxnType; label: string; help: string; active: string }[] = [
-  { type: "payment", label: "Money Out (Payment)", help: "You paid someone: expense, purchase, supplier, salary…", active: "bg-brand text-white" },
-  { type: "receipt", label: "Money In (Receipt)", help: "You received money: sale, customer payment, loan…", active: "bg-green-600 text-white" },
-  { type: "transfer", label: "Transfer", help: "Move money between your own accounts, e.g. Cash → Bank.", active: "bg-ink text-white" },
+const TABS: { type: TxnType; label: string; help: string; active: string; Icon: LucideIcon }[] = [
+  { type: "payment", label: "Money Out (Payment)", help: "You paid someone: expense, purchase, supplier, salary…", active: "bg-brand text-white", Icon: ArrowUpRight },
+  { type: "receipt", label: "Money In (Receipt)", help: "You received money: sale, customer payment, loan…", active: "bg-green-600 text-white", Icon: ArrowDownLeft },
+  { type: "transfer", label: "Transfer", help: "Move money between your own accounts, e.g. Cash → Bank.", active: "bg-ink text-white", Icon: ArrowLeftRight },
 ];
 
 const HIGHLIGHTS = [
@@ -56,6 +57,7 @@ export default async function Voucher({
               href={`/voucher?type=${t.type}`}
               className={`btn ${t.type === type ? t.active : "border border-slate-300 bg-white text-slate-700"}`}
             >
+              <t.Icon className="h-4 w-4" />
               {t.label}
             </Link>
           ))}
@@ -109,9 +111,9 @@ export default async function Voucher({
           {editing ? (
             <Link href="/transactions" className="btn-ghost">Cancel</Link>
           ) : (
-            <button type="reset" className="btn-ghost">Clear</button>
+            <button type="reset" className="btn-ghost"><Eraser className="h-4 w-4" />Clear</button>
           )}
-          <button className="btn-primary px-8">{editing ? "Save changes" : "Save"}</button>
+          <button className="btn-primary px-8"><Save className="h-4 w-4" />{editing ? "Save changes" : "Save"}</button>
         </div>
         <p className="text-xs text-slate-500 sm:col-span-2">
           Can&apos;t find the account? <Link href="/accounts" className="font-semibold text-brand">Add it here</Link>.

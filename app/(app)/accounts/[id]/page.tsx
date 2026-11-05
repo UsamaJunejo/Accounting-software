@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MessageCircle, Pencil } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -41,11 +42,12 @@ export default async function Statement({
           <>
             {isParty && phone && (
               <a href={`https://wa.me/${phone}?text=${waText}`} target="_blank" rel="noreferrer" className="btn bg-green-600 text-white hover:bg-green-700">
+                <MessageCircle className="h-4 w-4" />
                 Send on WhatsApp
               </a>
             )}
             <PrintButton />
-            <LinkButton href={`/accounts/${a.id}/edit`}>Edit account</LinkButton>
+            <LinkButton href={`/accounts/${a.id}/edit`}><Pencil className="h-4 w-4" />Edit account</LinkButton>
           </>
         }
       />
