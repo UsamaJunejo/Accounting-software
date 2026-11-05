@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { accountsWithBalances, getTransaction, listAttachments, listTransactions, MAX_ATTACHMENTS, projects, type TxnType } from "@/lib/books";
 import { deleteAttachment, saveTransaction } from "@/app/actions/books";
 import { MoneyFields } from "@/components/money-fields";
+import { getT } from "@/lib/lang";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { today } from "@/lib/format";
 import { AccountSelect, Flash, PageHeader } from "@/components/ui";
@@ -35,6 +36,8 @@ export default async function Voucher({
   const user = await requireUser();
   const sp = await searchParams;
   const d = await db();
+  const t = await getT();
+  const tr = t;
   const editing = sp.edit ? await getTransaction(d, user.id, Number(sp.edit)) : undefined;
   if (sp.edit && (!editing || editing.deleted_at)) notFound();
   const type = (editing?.type ?? (TABS.some((t) => t.type === sp.type) ? sp.type : "payment")) as TxnType;
@@ -54,7 +57,7 @@ export default async function Voucher({
 
   return (
     <>
-      <PageHeader title={editing ? `Edit entry #${editing.id}` : "New entry"} subtitle={tab.help} />
+      <PageHeader title={editing ? `Edit entry #${editing.id}` : t("New entry")} subtitle={t(tab.help)} />
       {!editing && (
         <div className="mb-4 flex flex-wrap gap-2">
           {TABS.map((t) => (
@@ -64,7 +67,7 @@ export default async function Voucher({
               className={`btn ${t.type === type ? t.active : "border border-slate-300 bg-white text-slate-700"}`}
             >
               <t.Icon className="h-4 w-4" />
-              {t.label}
+              {tr(t.label)}
             </Link>
           ))}
         </div>
@@ -80,32 +83,32 @@ export default async function Voucher({
           rate={editing?.rate ? String(editing.rate) : ""}
         />
         <div>
-          <label className="label">Date</label>
+          <label className="label">{t("Date")}</label>
           <input type="date" name="date" required defaultValue={editing?.date ?? today()} className="input" />
         </div>
         <div>
-          <label className="label">Project (optional)</label>
+          <label className="label">{t("Project (optional)")}</label>
           <select name="project" defaultValue={editing?.project_id ?? ""} className="input">
-            <option value="">No project</option>
+            <option value="">{t("No project")}</option>
             {projectList.filter((p) => !p.archived || p.id === editing?.project_id).map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label">{type === "receipt" ? "Received from" : "From (money leaves)"}</label>
+          <label className="label">{t(type === "receipt" ? "Received from" : "From (money leaves)")}</label>
           <AccountSelect name="from" accounts={accounts} value={defFrom} />
         </div>
         <div>
-          <label className="label">{type === "payment" ? "Paid to / for" : "To (money goes into)"}</label>
+          <label className="label">{t(type === "payment" ? "Paid to / for" : "To (money goes into)")}</label>
           <AccountSelect name="to" accounts={accounts} value={defTo} />
         </div>
         <div className="sm:col-span-2">
-          <label className="label">Note</label>
+          <label className="label">{t("Note")}</label>
           <textarea name="note" rows={2} defaultValue={editing?.note ?? ""} className="input" placeholder="e.g. Bill no. 245, 10 bags cement" />
         </div>
         <div>
-          <label className="label">Highlight</label>
+          <label className="label">{t("Highlight")}</label>
           <div className="flex flex-wrap gap-3 pt-1">
             {HIGHLIGHTS.map(([c, n]) => (
               <label key={n} className="flex items-center gap-1 text-sm">
@@ -141,14 +144,14 @@ export default async function Voucher({
         </div>
         <div className="flex items-end justify-end gap-2 sm:col-span-2">
           {editing ? (
-            <Link href="/transactions" className="btn-ghost">Cancel</Link>
+            <Link href="/transactions" className="btn-ghost">{t("Cancel")}</Link>
           ) : (
-            <button type="reset" className="btn-ghost"><Eraser className="h-4 w-4" />Clear</button>
+            <button type="reset" className="btn-ghost"><Eraser className="h-4 w-4" />{t("Clear")}</button>
           )}
-          <button className="btn-primary px-8"><Save className="h-4 w-4" />{editing ? "Save changes" : "Save"}</button>
+          <button className="btn-primary px-8"><Save className="h-4 w-4" />{t(editing ? "Save changes" : "Save")}</button>
         </div>
         <p className="text-xs text-slate-500 sm:col-span-2">
-          Can&apos;t find the account? <Link href="/accounts" className="font-semibold text-brand">Add it here</Link>.
+          {t("Can't find the account?")} <Link href="/accounts" className="font-semibold text-brand">{t("Add it here")}</Link>.
         </p>
       </form>
 

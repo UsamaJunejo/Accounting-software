@@ -45,8 +45,8 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <Flash sp={sp} />
       <form className="card mb-5 flex gap-2 p-4">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input name="q" defaultValue={q} placeholder="Search name, email, mobile or business" className="input pl-9" />
+          <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-slate-400" />
+          <input name="q" defaultValue={q} placeholder="Search name, email, mobile or business" className="input ps-9" />
         </div>
         <button className="btn-dark">Search</button>
       </form>

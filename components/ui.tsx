@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Inbox } from "lucide-react";
 import { money } from "@/lib/format";
 import { currentUser } from "@/lib/auth";
+import { getT } from "@/lib/lang";
 import type { AccountRow } from "@/lib/books";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
@@ -25,7 +26,7 @@ export function Flash({ sp }: { sp: { error?: string; ok?: string } }) {
 }
 
 export function Money({ value, className = "" }: { value: number; className?: string }) {
-  return <span className={`tabular-nums ${value < 0 ? "text-red-600" : ""} ${className}`}>{money(value)}</span>;
+  return <span dir="ltr" className={`tabular-nums ${value < 0 ? "text-red-600" : ""} ${className}`}>{money(value)}</span>;
 }
 
 /** Account dropdown grouped by category, the way users think about them. */
@@ -35,7 +36,7 @@ export async function AccountSelect({
   accounts,
   value,
   required = true,
-  placeholder = "Select account",
+  placeholder,
 }: {
   name: string;
   accounts: AccountRow[];
@@ -44,6 +45,7 @@ export async function AccountSelect({
   placeholder?: string;
 }) {
   const level = (await currentUser())?.level ?? 3;
+  placeholder = placeholder ?? (await getT())("Select account");
   const visible = accounts.filter((a) => !a.archived || a.id === value);
   if (level === 1)
     return (
@@ -74,19 +76,20 @@ export async function AccountSelect({
   );
 }
 
-export function DateRange({ from, to, extra }: { from: string; to: string; extra?: React.ReactNode }) {
+export async function DateRange({ from, to, extra }: { from: string; to: string; extra?: React.ReactNode }) {
+  const t = await getT();
   return (
     <form className="card no-print mb-5 flex flex-wrap items-end gap-3 p-4">
       <div>
-        <label className="label">From</label>
+        <label className="label">{t("From")}</label>
         <input type="date" name="from" defaultValue={from} className="input" />
       </div>
       <div>
-        <label className="label">To</label>
+        <label className="label">{t("To")}</label>
         <input type="date" name="to" defaultValue={to} className="input" />
       </div>
       {extra}
-      <button className="btn-dark">Show</button>
+      <button className="btn-dark">{t("Show")}</button>
     </form>
   );
 }
@@ -100,11 +103,12 @@ export function Empty({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function TypeBadge({ type }: { type: string }) {
+export async function TypeBadge({ type }: { type: string }) {
+  const t = await getT();
   const c =
     type === "payment" ? "bg-orange-100 text-orange-700" : type === "receipt" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700";
   const Icon = type === "payment" ? ArrowUpRight : type === "receipt" ? ArrowDownLeft : ArrowLeftRight;
-  const label = type === "payment" ? "Out" : type === "receipt" ? "In" : "Transfer";
+  const label = t.lang === "ur" ? t(type === "payment" ? "Money Out" : type === "receipt" ? "Money In" : "Transfer") : type === "payment" ? "Out" : type === "receipt" ? "In" : "Transfer";
   return (
     <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${c}`}>
       <Icon className="h-3.5 w-3.5" />

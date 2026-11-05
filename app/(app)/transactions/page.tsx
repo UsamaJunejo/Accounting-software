@@ -77,8 +77,8 @@ export default async function Transactions({
         <div className="min-w-48 flex-1">
           <label className="label">Search</label>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input name="q" defaultValue={sp.q} placeholder="Account or note…" className="input pl-9" />
+            <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input name="q" defaultValue={sp.q} placeholder="Account or note…" className="input ps-9" />
           </div>
         </div>
         <button className="btn-dark"><Filter className="h-4 w-4" />Filter</button>

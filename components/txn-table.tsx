@@ -4,15 +4,17 @@ import { deleteTransaction } from "@/app/actions/books";
 import { money, prettyDate } from "@/lib/format";
 import type { TxnRow } from "@/lib/books";
 import { Empty, TypeBadge } from "@/components/ui";
+import { getT } from "@/lib/lang";
 
-export function TxnTable({ rows, back }: { rows: TxnRow[]; back: string }) {
+export async function TxnTable({ rows, back }: { rows: TxnRow[]; back: string }) {
+  const t = await getT();
   if (!rows.length) return <Empty>No entries found.</Empty>;
   return (
     <div className="overflow-x-auto">
       <table className="table">
         <thead>
           <tr>
-            <th>#</th><th>Date</th><th>Type</th><th>From</th><th>To</th><th>Note</th><th className="num">Amount</th>
+            <th>#</th><th>{t("Date")}</th><th>{t("Type")}</th><th>{t("From")}</th><th>{t("To")}</th><th>{t("Note")}</th><th className="num">{t("Amount")}</th>
             <th className="no-print"></th>
           </tr>
         </thead>

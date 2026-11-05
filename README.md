@@ -8,12 +8,17 @@ customers and suppliers, and see profit, balance sheet and reports. All amounts 
 | Page | What it does |
 |---|---|
 | Dashboard | Cash & bank, profit, receivables/payables, category totals, charts, budgets, latest entries |
-| New Entry | Money Out (payment), Money In (receipt) or Transfer, with note and highlight colour |
-| Entries | Search/filter every entry, edit, delete, download as CSV (opens in Excel) |
-| Accounts | Category → Sub-category → Account. Add, rename, move, archive. Click for a statement |
-| Khata | Customers and suppliers with balances, one-tap entries and WhatsApp reminders |
-| Reports | Profit & Loss, Balance Sheet / Net Worth, Group Ledger, Deleted entries & history |
-| Settings | Profile, password, data download |
+| New Entry | Money Out / Money In / Transfer, in PKR or another currency (with rate), project tag, highlight, up to 5 bill photos/PDFs |
+| Entries | Search/filter (date, type, project), edit, delete, download for Excel |
+| Accounts | Category → Sub-category → Account (or simpler 1- or 2-level views). Statement per account, sharing |
+| Khata | Customers and suppliers, one-tap udhaar/payment entries, WhatsApp reminders |
+| Invoices | Bills with items, discount and GST; print/PDF; customer link on WhatsApp; optional posting to books |
+| Shared | Accounts others shared with you; entries waiting for your approval |
+| Reports | Profit & Loss, Balance Sheet, Group Ledger, Projects, Currency Ledger, Attachments, Deleted entries |
+| Settings | Profile, address/NTN, password, recovery code, view level, next of kin, invite, downloads |
+| Admin | (First user) search users, reset a password to a temporary one, make admins |
+
+Also: English / اردو switch, "Forgot password" with a recovery code, login limits, Privacy & Terms pages.
 
 ### Better than the original
 - Real double-entry accounting underneath, so the Balance Sheet always balances (checked automatically).
@@ -47,6 +52,6 @@ Includes an automatic daily "ping" so the free database never pauses.
 - `app/actions/*`: what happens when a form is submitted.
 - `docs/munshibaba-reference.md`: notes on how the original app worked.
 
-## Not built yet (next steps)
-Sharing ledgers with other users (approve/reject), receipt photo attachments, multi-currency,
-Urdu language, email password reset, and the 1/2/3-level display switch.
+## Not built yet
+Email-based password reset (needs an email account), paid plans, SMS reminders, stock tracking,
+and full Urdu for every page (main pages are translated; the rest stays in English).

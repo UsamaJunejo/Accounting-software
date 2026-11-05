@@ -17,7 +17,7 @@ const ITEMS = [
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 
-export function Nav({ isAdmin = false, badge = 0 }: { isAdmin?: boolean; badge?: number }) {
+export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boolean; badge?: number; labels?: Record<string, string> }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", Icon: ShieldCheck }] : ITEMS;
@@ -33,9 +33,9 @@ export function Nav({ isAdmin = false, badge = 0 }: { isAdmin?: boolean; badge?:
         }`}
       >
         <Icon className="h-5 w-5" strokeWidth={1.8} />
-        {label}
+        {labels[label] ?? label}
         {href === "/shared" && badge > 0 && (
-          <span className="ml-auto rounded-full bg-red-500 px-2 text-xs font-bold text-white">{badge}</span>
+          <span className="ms-auto rounded-full bg-red-500 px-2 text-xs font-bold text-white">{badge}</span>
         )}
       </Link>
     );
@@ -44,10 +44,10 @@ export function Nav({ isAdmin = false, badge = 0 }: { isAdmin?: boolean; badge?:
     <>
       <button onClick={() => setOpen(!open)} className="no-print rounded-lg p-2 text-white hover:bg-white/10 lg:hidden" aria-label="Menu">
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        {!open && badge > 0 && <span className="absolute ml-3 -mt-6 h-2.5 w-2.5 rounded-full bg-red-500" />}
+        {!open && badge > 0 && <span className="absolute ms-3 -mt-6 h-2.5 w-2.5 rounded-full bg-red-500" />}
       </button>
       {open && <nav className="no-print absolute inset-x-0 top-14 z-20 space-y-1 bg-ink p-3 shadow-lg lg:hidden">{links}</nav>}
-      <nav className="no-print fixed bottom-0 left-0 top-14 hidden w-56 space-y-1 bg-ink p-3 lg:block">{links}</nav>
+      <nav className="no-print fixed bottom-0 start-0 top-14 hidden w-56 space-y-1 bg-ink p-3 lg:block">{links}</nav>
     </>
   );
 }

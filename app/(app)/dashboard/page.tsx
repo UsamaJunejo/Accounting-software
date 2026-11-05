@@ -5,6 +5,7 @@ import { accountsWithBalances, budgets, categories, listTransactions, monthlyTot
 import { money, monthRange, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, LinkButton, Money, PageHeader, TypeBadge } from "@/components/ui";
 import { ExpensePie, MonthlyBars } from "@/components/charts";
+import { getT } from "@/lib/lang";
 import { CategoryBadge } from "@/components/icons";
 import { ArrowDownLeft, ArrowUpRight, ChartPie, ChartColumn, HandCoins, LineChart, ListOrdered, Target, Truck, Wallet, type LucideIcon } from "lucide-react";
 
@@ -33,6 +34,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const from = sp.from || mStart;
   const to = sp.to || mEnd;
   const d = await db();
+  const t = await getT();
 
   const base = new Date(to + "T00:00:00Z");
   const monthStarts = [5, 4, 3, 2, 1, 0].map((i) => new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - i, 1)));
@@ -56,8 +58,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   const cats = cats0.map((c) =>
     c.kind === "income" || c.kind === "expense"
-      ? { ...c, balance: sumBy(period, (a) => a.category_id === c.id), note: "this period" }
-      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: "balance" },
+      ? { ...c, balance: sumBy(period, (a) => a.category_id === c.id), note: t("this period") }
+      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: t("balance") },
   );
 
   const expensePie = period
@@ -80,12 +82,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader
-        title={`Assalam-o-Alaikum, ${user.name.split(" ")[0]}`}
-        subtitle={`${prettyDate(from)} to ${prettyDate(to)}`}
+        title={`${t("Assalam-o-Alaikum")}, ${user.name.split(" ")[0]}`}
+        subtitle={`${prettyDate(from)} ${t("to")} ${prettyDate(to)}`}
         actions={
           <>
-            <LinkButton href="/voucher?type=receipt" variant="dark"><ArrowDownLeft className="h-4 w-4" />Money In</LinkButton>
-            <LinkButton href="/voucher?type=payment" variant="primary"><ArrowUpRight className="h-4 w-4" />Money Out</LinkButton>
+            <LinkButton href="/voucher?type=receipt" variant="dark"><ArrowDownLeft className="h-4 w-4" />{t("Money In")}</LinkButton>
+            <LinkButton href="/voucher?type=payment" variant="primary"><ArrowUpRight className="h-4 w-4" />{t("Money Out")}</LinkButton>
           </>
         }
       />
@@ -99,13 +101,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <DateRange from={from} to={to} />
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cash & Bank now" value={cashBank} tone="border-blue-500" href="/accounts" Icon={Wallet} iconBg="bg-blue-50 text-blue-600" />
-        <Stat label="Profit this period" value={pl.profit} tone={pl.profit >= 0 ? "border-green-500" : "border-red-500"} href={`/reports/income?from=${from}&to=${to}`} Icon={LineChart} iconBg={pl.profit >= 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"} />
-        <Stat label="Customers owe you" value={receivable} tone="border-brand" href="/khata" Icon={HandCoins} iconBg="bg-orange-50 text-brand" />
-        <Stat label="You owe suppliers" value={payable} tone="border-slate-500" href="/khata" Icon={Truck} iconBg="bg-slate-100 text-slate-600" />
+        <Stat label={t("Cash & Bank now")} value={cashBank} tone="border-blue-500" href="/accounts" Icon={Wallet} iconBg="bg-blue-50 text-blue-600" />
+        <Stat label={t("Profit this period")} value={pl.profit} tone={pl.profit >= 0 ? "border-green-500" : "border-red-500"} href={`/reports/income?from=${from}&to=${to}`} Icon={LineChart} iconBg={pl.profit >= 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"} />
+        <Stat label={t("Customers owe you")} value={receivable} tone="border-brand" href="/khata" Icon={HandCoins} iconBg="bg-orange-50 text-brand" />
+        <Stat label={t("You owe suppliers")} value={payable} tone="border-slate-500" href="/khata" Icon={Truck} iconBg="bg-slate-100 text-slate-600" />
       </div>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Categories</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t("Categories")}</h2>
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {cats.map((c) => (
           <Link key={c.id} href={`/accounts#cat-${c.id}`} className="card flex items-center gap-3 p-3 transition hover:border-brand">
@@ -121,18 +123,18 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <div className="card p-4">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartPie className="h-5 w-5 text-brand" />Where the money went</h2>
-          <ExpensePie data={top} />
+          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartPie className="h-5 w-5 text-brand" />{t("Where the money went")}</h2>
+          <ExpensePie data={top} empty={t("No expenses in this period.")} />
         </div>
         <div className="card p-4">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartColumn className="h-5 w-5 text-brand" />Income vs expense (last 6 months)</h2>
-          <MonthlyBars data={months} />
+          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartColumn className="h-5 w-5 text-brand" />{t("Income vs expense (last 6 months)")}</h2>
+          <MonthlyBars data={months} labels={{ income: t("Income"), expense: t("Expense") }} />
         </div>
       </div>
 
       {budgetRows.length > 0 && (
         <div className="card mb-6 p-4">
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink"><Target className="h-5 w-5 text-brand" />Budgets this month</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink"><Target className="h-5 w-5 text-brand" />{t("Budgets this month")}</h2>
           <div className="space-y-3">
             {budgetRows.map((b) => {
               const pct = Math.min(100, Math.round((b.spent / b.budget) * 100));
@@ -142,7 +144,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   <div className="mb-1 flex justify-between text-sm">
                     <span>{b.name}</span>
                     <span className={over ? "font-semibold text-red-600" : "text-slate-600"}>
-                      {money(b.spent)} / {money(b.budget)} {over && "· over budget!"}
+                      {money(b.spent)} / {money(b.budget)} {over && `· ${t("over budget!")}`}
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-100">
@@ -157,16 +159,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between p-4">
-          <h2 className="flex items-center gap-2 font-semibold text-ink"><ListOrdered className="h-5 w-5 text-brand" />Latest entries</h2>
-          <Link href="/transactions" className="text-sm font-semibold text-brand">See all</Link>
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><ListOrdered className="h-5 w-5 text-brand" />{t("Latest entries")}</h2>
+          <Link href="/transactions" className="text-sm font-semibold text-brand">{t("See all")}</Link>
         </div>
         {recent.length === 0 ? (
-          <Empty>No entries yet. Add your first one with &ldquo;Money In&rdquo; or &ldquo;Money Out&rdquo;.</Empty>
+          <Empty>{t("No entries yet. Add your first one with “Money In” or “Money Out”.")}</Empty>
         ) : (
           <div className="overflow-x-auto">
             <table className="table">
               <thead>
-                <tr><th>Date</th><th>Type</th><th>From → To</th><th>Note</th><th className="num">Amount</th></tr>
+                <tr><th>{t("Date")}</th><th>{t("Type")}</th><th>{t("From")} → {t("To")}</th><th>{t("Note")}</th><th className="num">{t("Amount")}</th></tr>
               </thead>
               <tbody>
                 {recent.map((t) => (

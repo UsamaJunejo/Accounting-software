@@ -3,6 +3,8 @@ import { ArrowRightLeft, BarChart3, BookUser, ShieldCheck, Smartphone, Target, t
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { Logo } from "@/components/logo";
+import { getT } from "@/lib/lang";
+import { LangSwitch } from "@/components/lang-switch";
 
 const FEATURES: [string, string, LucideIcon][] = [
   ["Payments & receipts in seconds", "Record money in and out with one simple form. Attach a note and colour-highlight important entries.", ArrowRightLeft],
@@ -15,28 +17,30 @@ const FEATURES: [string, string, LucideIcon][] = [
 
 export default async function Home() {
   if (await currentUser()) redirect("/dashboard");
+  const t = await getT();
   return (
     <div className="bg-white">
       <header className="bg-ink text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Logo className="text-xl" />
           <div className="flex gap-2">
-            <Link href="/login" className="btn text-white hover:bg-white/10">Sign in</Link>
-            <Link href="/signup" className="btn-primary">Start free</Link>
+            <LangSwitch lang={t.lang} className="text-white hover:bg-white/10" />
+            <Link href="/login" className="btn text-white hover:bg-white/10">{t("Sign in")}</Link>
+            <Link href="/signup" className="btn-primary">{t("Start free")}</Link>
           </div>
         </div>
         <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:pt-20">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-brand">Accounting for Pakistani small businesses</p>
+          <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-brand">{t("Accounting for Pakistani small businesses")}</p>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
-            Your business ka hisaab, sorted. Keep every rupee in order.
+            {t("Your business ka hisaab, sorted. Keep every rupee in order.")}
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-slate-300">
             Record sales, expenses and udhaar, see your profit, and keep a clean khata for every customer, all in
             PKR and without needing to know accounting.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/signup" className="btn-primary px-6 py-3 text-base">Create free account</Link>
-            <Link href="/login" className="btn border border-white/30 px-6 py-3 text-base text-white hover:bg-white/10">I have an account</Link>
+            <Link href="/signup" className="btn-primary px-6 py-3 text-base">{t("Create free account")}</Link>
+            <Link href="/login" className="btn border border-white/30 px-6 py-3 text-base text-white hover:bg-white/10">{t("I have an account")}</Link>
           </div>
         </div>
       </header>

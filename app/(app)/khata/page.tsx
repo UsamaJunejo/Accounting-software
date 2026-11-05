@@ -6,6 +6,7 @@ import { accountsWithBalances, khata, subcategories } from "@/lib/books";
 import { addAccount } from "@/app/actions/books";
 import { Empty, Flash, Money, PageHeader } from "@/components/ui";
 import { money } from "@/lib/format";
+import { getT } from "@/lib/lang";
 
 export const metadata = { title: "Khata" };
 
@@ -13,6 +14,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const user = await requireUser();
   const sp = await searchParams;
   const d = await db();
+  const t = await getT();
   const people = await khata(d, user.id);
   const accs = await accountsWithBalances(d, user.id);
   const subs = await subcategories(d, user.id);
@@ -43,12 +45,12 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   }) => (
     <section className="card overflow-hidden">
       <div className="flex items-center justify-between bg-ink px-4 py-3 text-white">
-        <h2 className="flex items-center gap-2 font-semibold"><Icon className="h-5 w-5 text-brand" />{title}</h2>
+        <h2 className="flex items-center gap-2 font-semibold"><Icon className="h-5 w-5 text-brand" />{t(title)}</h2>
         <Money value={rows.reduce((s, r) => s + r.balance, 0)} className="font-semibold" />
       </div>
-      <p className="px-4 pt-3 text-xs text-slate-500">{hint}</p>
+      <p className="px-4 pt-3 text-xs text-slate-500">{t(hint)}</p>
       {rows.length === 0 ? (
-        <Empty>Nobody added yet.</Empty>
+        <Empty>{t("Nobody added yet.")}</Empty>
       ) : (
         <ul>
           {rows.map((r) => (
@@ -82,9 +84,9 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
         <form action={addAccount} className="flex flex-wrap gap-2 bg-slate-50 p-3">
           <input type="hidden" name="subcategory" value={sub.id} />
           <input type="hidden" name="back" value="/khata" />
-          <input name="name" required placeholder="Name" className="input max-w-48" />
-          <input name="phone" placeholder="Mobile" className="input max-w-40" />
-          <button className="btn-dark"><UserPlus className="h-4 w-4" />Add</button>
+          <input name="name" required placeholder={t("Name")} className="input max-w-48" />
+          <input name="phone" placeholder={t("Mobile")} className="input max-w-40" />
+          <button className="btn-dark"><UserPlus className="h-4 w-4" />{t("Add")}</button>
         </form>
       )}
     </section>
@@ -93,7 +95,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const small = "inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold hover:border-brand";
   return (
     <>
-      <PageHeader title="Khata" subtitle="Who owes you, and whom you owe." />
+      <PageHeader title={t("Khata")} subtitle={t("Who owes you, and whom you owe.")} />
       <Flash sp={sp} />
       <div className="grid gap-5 lg:grid-cols-2">
         <Section
@@ -104,8 +106,8 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           hint="Udhaar sale: goods given on credit. Payment received: customer paid you."
           actions={(pid) => (
             <>
-              <Link className={small} href={`/voucher?type=transfer&from=${sales}&to=${pid}`}><ShoppingBag className="h-3.5 w-3.5" />Udhaar sale</Link>
-              <Link className={small} href={`/voucher?type=receipt&from=${pid}&to=${cash}`}><Banknote className="h-3.5 w-3.5" />Payment received</Link>
+              <Link className={small} href={`/voucher?type=transfer&from=${sales}&to=${pid}`}><ShoppingBag className="h-3.5 w-3.5" />{t("Udhaar sale")}</Link>
+              <Link className={small} href={`/voucher?type=receipt&from=${pid}&to=${cash}`}><Banknote className="h-3.5 w-3.5" />{t("Payment received")}</Link>
             </>
           )}
         />
@@ -117,8 +119,8 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           hint="Bought on credit: stock received, not paid yet. Paid: you paid the supplier."
           actions={(pid) => (
             <>
-              <Link className={small} href={`/voucher?type=transfer&from=${pid}&to=${purchases}`}><PackagePlus className="h-3.5 w-3.5" />Bought on credit</Link>
-              <Link className={small} href={`/voucher?type=payment&from=${cash}&to=${pid}`}><Banknote className="h-3.5 w-3.5" />Paid</Link>
+              <Link className={small} href={`/voucher?type=transfer&from=${pid}&to=${purchases}`}><PackagePlus className="h-3.5 w-3.5" />{t("Bought on credit")}</Link>
+              <Link className={small} href={`/voucher?type=payment&from=${cash}&to=${pid}`}><Banknote className="h-3.5 w-3.5" />{t("Paid")}</Link>
             </>
           )}
         />
