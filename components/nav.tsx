@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BarChart3, BookUser, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Wallet, X } from "lucide-react";
+import { BarChart3, BookUser, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, ShieldCheck, Wallet, X } from "lucide-react";
 
 const ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
@@ -15,10 +15,11 @@ const ITEMS = [
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 
-export function Nav() {
+export function Nav({ isAdmin = false }: { isAdmin?: boolean }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  const links = ITEMS.map(({ href, label, Icon }) => {
+  const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", Icon: ShieldCheck }] : ITEMS;
+  const links = items.map(({ href, label, Icon }) => {
     const active = path === href || path.startsWith(href + "/");
     return (
       <Link

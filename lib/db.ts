@@ -13,6 +13,8 @@ export interface Db {
   q<T = Row>(text: string, params?: unknown[]): Promise<T[]>;
   /** Run several queries as one all-or-nothing unit. */
   tx<T>(fn: (db: Db) => Promise<T>): Promise<T>;
+  /** Run a script of several SQL statements (no parameters). */
+  exec(sql: string): Promise<void>;
 }
 
 export const SCHEMA = `
@@ -96,29 +98,79 @@ ALTER TABLE subcategories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS schema_migrations ENABLE ROW LEVEL SECURITY;
 `;
+
+// ---------- Database updates ("migrations") ----------
+// Each entry changes the database structure once. Never edit an old entry; add a new one.
+// Version 1 is SCHEMA above.
+
+export const MIGRATIONS: string[] = [
+  /* 2: password recovery, admins, sign-out-everywhere, login limits */ `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_hash TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1;
+  -- The first person who signed up runs the site.
+  UPDATE users SET is_admin = true WHERE id = (SELECT MIN(id) FROM users);
+  CREATE TABLE IF NOT EXISTS auth_attempts (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    key TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_auth_attempts ON auth_attempts(key, created_at);
+  ALTER TABLE auth_attempts ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
+  `,
+];
+
+export const LATEST_VERSION = MIGRATIONS.length + 1;
+
+/** Bring the database up to date. Safe to run on every start. */
+export async function migrate(d: Db) {
+  await d.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())");
+  const [{ v }] = await d.q<{ v: number | null }>("SELECT MAX(version) AS v FROM schema_migrations");
+  if ((v ?? 0) >= LATEST_VERSION) return;
+  await d.tx(async (t) => {
+    // Only one server at a time may update the database.
+    await t.q("SELECT pg_advisory_xact_lock(727274)");
+    const [{ v: now }] = await t.q<{ v: number | null }>("SELECT MAX(version) AS v FROM schema_migrations");
+    let version = now ?? 0;
+    if (version === 0) {
+      const [{ exists }] = await t.q<{ exists: boolean }>("SELECT to_regclass('public.audit_log') IS NOT NULL AS exists");
+      if (!exists) await t.exec(SCHEMA); // brand-new database
+      await t.q("INSERT INTO schema_migrations (version) VALUES (1)");
+      version = 1;
+    }
+    for (let next = version + 1; next <= LATEST_VERSION; next++) {
+      await t.exec(MIGRATIONS[next - 2]);
+      await t.q("INSERT INTO schema_migrations (version) VALUES ($1)", [next]);
+    }
+  });
+}
 
 // ---------- Embedded Postgres (dev & tests) ----------
 
-type PGliteLike = {
-  query<T>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
-  exec(text: string): Promise<unknown>;
-  transaction<T>(fn: (tx: { query<R>(t: string, p?: unknown[]): Promise<{ rows: R[] }> }) => Promise<T>): Promise<T>;
+type PgRunner = {
+  query<R>(t: string, p?: unknown[]): Promise<{ rows: R[] }>;
+  exec(t: string): Promise<unknown>;
 };
+type PGliteLike = PgRunner & { transaction<T>(fn: (tx: PgRunner) => Promise<T>): Promise<T> };
 
 function wrapPglite(pg: PGliteLike): Db {
-  const make = (runner: { query<R>(t: string, p?: unknown[]): Promise<{ rows: R[] }> }, inTx: boolean): Db => ({
+  const make = (runner: PgRunner, inTx: boolean): Db => ({
     q: async <T>(text: string, params: unknown[] = []) => (await runner.query<T>(text, params)).rows,
     tx: (fn) => (inTx ? fn(make(runner, true)) : pg.transaction((t) => fn(make(t, true)))),
+    exec: async (sql) => void (await runner.exec(sql)),
   });
   return make(pg, false);
 }
 
 export async function openPglite(dataDir?: string): Promise<Db> {
   const { PGlite } = await import("@electric-sql/pglite");
-  const pg = new PGlite(dataDir) as unknown as PGliteLike;
-  await pg.exec(SCHEMA);
-  return wrapPglite(pg);
+  const d = wrapPglite(new PGlite(dataDir) as unknown as PGliteLike);
+  await migrate(d);
+  return d;
 }
 
 // ---------- Real Postgres (Supabase) ----------
@@ -139,13 +191,11 @@ async function openPostgres(url: string): Promise<Db> {
       (await runner.unsafe(text, params as never[])) as unknown as T[],
     tx: async <T>(fn: (db: Db) => Promise<T>) =>
       inTx ? fn(make(runner, true)) : ((await sql.begin((t) => fn(make(t as unknown as Runner, true)))) as T),
+    exec: async (script) => void (await runner.unsafe(script)),
   });
-  // Create tables only the first time (avoids clashes when many servers start at once).
-  const [{ ready }] = (await sql.unsafe("SELECT to_regclass('public.audit_log') IS NOT NULL AS ready")) as unknown as {
-    ready: boolean;
-  }[];
-  if (!ready) await sql.unsafe(SCHEMA);
-  return make(sql as unknown as Runner, false);
+  const d = make(sql as unknown as Runner, false);
+  await migrate(d);
+  return d;
 }
 
 // ---------- Shared instance ----------

@@ -20,6 +20,9 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           <input name="password" type="password" required autoComplete="current-password" className="input" />
         </div>
         <button className="btn-primary w-full py-2.5">Sign in</button>
+        <p className="text-center text-sm">
+          <Link href="/forgot" className="font-semibold text-brand">Forgot password?</Link>
+        </p>
       </form>
     </AuthCard>
   );

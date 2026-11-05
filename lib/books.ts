@@ -71,7 +71,9 @@ export async function createUser(
 ): Promise<number> {
   return d.tx(async (t) => {
     const [row] = await t.q<IdRow>(
-      "INSERT INTO users (name, email, phone, business_name, password_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      // The very first person to sign up becomes the site admin.
+      `INSERT INTO users (name, email, phone, business_name, password_hash, is_admin)
+       VALUES ($1, $2, $3, $4, $5, NOT EXISTS (SELECT 1 FROM users)) RETURNING id`,
       [u.name, u.email.toLowerCase(), u.phone || null, u.businessName || null, u.passwordHash],
     );
     await seedDefaults(t, row.id);

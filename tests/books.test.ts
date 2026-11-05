@@ -121,3 +121,28 @@ test("monthly totals match the profit & loss report", async () => {
     assert.equal(m.get(month)?.expense ?? 0, is.totalExpense, month);
   }
 });
+
+import { newRecoveryCode, normalizeRecoveryCode, isLimited, recordFailure } from "../lib/security.ts";
+
+test("recovery codes are readable and forgiving to type", () => {
+  const c = newRecoveryCode();
+  assert.match(c, /^FC-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  assert.equal(normalizeRecoveryCode(c.toLowerCase().replace(/-/g, " ")), c);
+  assert.equal(normalizeRecoveryCode("FC-123"), "");
+});
+
+test("too many failed logins are blocked", async () => {
+  const { d } = await setup();
+  for (let i = 0; i < 7; i++) await recordFailure(d, "login:a@b.pk");
+  assert.equal(await isLimited(d, "login:a@b.pk"), false);
+  await recordFailure(d, "login:a@b.pk");
+  assert.equal(await isLimited(d, "login:a@b.pk"), true);
+  assert.equal(await isLimited(d, "login:other@b.pk"), false);
+});
+
+test("only the first user becomes admin", async () => {
+  const { d, uid } = await setup();
+  const other = await createUser(d, { name: "B", email: "b2@example.com", passwordHash: "x" });
+  const rows = await d.q<{ id: number; is_admin: boolean }>("SELECT id, is_admin FROM users ORDER BY id");
+  assert.deepEqual(rows, [{ id: uid, is_admin: true }, { id: other, is_admin: false }]);
+});

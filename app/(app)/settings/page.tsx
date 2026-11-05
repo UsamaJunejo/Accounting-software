@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Database, Download, KeyRound, UserRound } from "lucide-react";
+import { Database, Download, KeyRound, LifeBuoy, UserRound } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { changePassword, updateProfile } from "@/app/actions/auth";
 import { Flash, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Settings" };
 
-export default async function Settings({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
+export default async function Settings({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string; must?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   return (
@@ -24,12 +24,22 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <button className="btn-primary">Save profile</button>
         </form>
         <div className="space-y-5">
-          <form action={changePassword} className="card space-y-4 p-5">
+          <form action={changePassword} className={`card space-y-4 p-5 ${sp.must ? "border-2 border-red-400" : ""}`}>
+            {sp.must && <p className="text-sm font-semibold text-red-600">Enter the temporary password you were given, then choose your own.</p>}
             <h2 className="flex items-center gap-2 font-semibold text-ink"><KeyRound className="h-5 w-5 text-brand" />Change password</h2>
             <div><label className="label">Current password</label><input type="password" name="current" required className="input" autoComplete="current-password" /></div>
             <div><label className="label">New password</label><input type="password" name="next" required minLength={8} className="input" autoComplete="new-password" /></div>
             <button className="btn-dark">Change password</button>
           </form>
+          <div className="card space-y-3 p-5">
+            <h2 className="flex items-center gap-2 font-semibold text-ink"><LifeBuoy className="h-5 w-5 text-brand" />Recovery code</h2>
+            <p className="text-sm text-slate-600">
+              {user.has_recovery
+                ? "You have a recovery code saved. Lost it? Make a new one (the old one will stop working)."
+                : "You don't have a recovery code yet. Without it, you can't reset a forgotten password yourself."}
+            </p>
+            <Link href="/recovery-code" className="btn-ghost"><KeyRound className="h-4 w-4" />{user.has_recovery ? "Make a new code" : "Create recovery code"}</Link>
+          </div>
           <div className="card space-y-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold text-ink"><Database className="h-5 w-5 text-brand" />Your data</h2>
             <p className="text-sm text-slate-600">Download your data as files that open in Excel or Google Sheets. Keep a copy as a backup.</p>

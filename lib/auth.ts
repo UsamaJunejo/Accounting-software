@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
@@ -13,8 +14,10 @@ function secret() {
   return new TextEncoder().encode(s || "dev-only-secret-do-not-use-in-production");
 }
 
+/** Log in. The session remembers the user's "session version": bumping it logs out every device. */
 export async function startSession(userId: number) {
-  const token = await new SignJWT({ uid: userId })
+  const [u] = await (await db()).q<{ session_version: number }>("SELECT session_version FROM users WHERE id = $1", [userId]);
+  const token = await new SignJWT({ uid: userId, sv: u?.session_version ?? 1 })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE}s`)
@@ -32,25 +35,45 @@ export async function endSession() {
   (await cookies()).delete(COOKIE);
 }
 
-export type User = { id: number; name: string; email: string; phone: string | null; business_name: string | null; currency: string };
+export type User = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  business_name: string | null;
+  currency: string;
+  is_admin: boolean;
+  must_change_password: boolean;
+  has_recovery: boolean;
+};
 
-export async function currentUser(): Promise<User | null> {
+// Cached per request so the layout and page share one lookup.
+export const currentUser = cache(async (): Promise<User | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
-    const [u] = await (await db()).q<User>(
-      "SELECT id, name, email, phone, business_name, currency FROM users WHERE id = $1",
+    const [u] = await (await db()).q<User & { session_version: number }>(
+      `SELECT id, name, email, phone, business_name, currency, is_admin, must_change_password,
+              recovery_hash IS NOT NULL AS has_recovery, session_version
+       FROM users WHERE id = $1`,
       [Number(payload.uid)],
     );
-    return u ?? null;
+    if (!u || u.session_version !== Number(payload.sv ?? 1)) return null;
+    return u;
   } catch {
     return null;
   }
-}
+});
 
 export async function requireUser(): Promise<User> {
   const u = await currentUser();
   if (!u) redirect("/login");
+  return u;
+}
+
+export async function requireAdmin(): Promise<User> {
+  const u = await requireUser();
+  if (!u.is_admin) redirect("/dashboard");
   return u;
 }
