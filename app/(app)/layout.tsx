@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { sharingBadge } from "@/lib/sharing";
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
@@ -7,11 +9,12 @@ import { KeyRound, LogOut, ShieldAlert, Store } from "lucide-react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const badge = await sharingBadge(await db(), user.id);
   return (
     <div>
       <header className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between bg-ink px-4 text-white">
         <div className="flex items-center gap-2">
-          <Nav isAdmin={user.is_admin} />
+          <Nav isAdmin={user.is_admin} badge={badge} />
           <Link href="/dashboard" className="text-lg">
             <Logo />
           </Link>

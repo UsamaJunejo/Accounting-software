@@ -122,6 +122,38 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE auth_attempts ENABLE ROW LEVEL SECURITY;
   ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;
   `,
+  /* 3: sharing ledgers */ `
+  CREATE TABLE IF NOT EXISTS shares (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    can_add BOOLEAN NOT NULL DEFAULT false,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (account_id, user_id),
+    CHECK (owner_id <> user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_shares_user ON shares(user_id);
+  CREATE INDEX IF NOT EXISTS idx_shares_owner ON shares(owner_id);
+  -- Entries suggested by the person an account is shared with, waiting for the owner.
+  CREATE TABLE IF NOT EXISTS shared_entries (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    share_id INTEGER NOT NULL REFERENCES shares(id) ON DELETE CASCADE,
+    direction TEXT NOT NULL CHECK (direction IN ('increase','decrease')),
+    amount BIGINT NOT NULL CHECK (amount > 0),
+    date DATE NOT NULL,
+    note TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+    remarks TEXT,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    decided_at TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS idx_shared_entries_share ON shared_entries(share_id, status);
+  ALTER TABLE shares ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE shared_entries ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

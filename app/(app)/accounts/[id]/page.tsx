@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { MessageCircle, Pencil } from "lucide-react";
+import { MessageCircle, Pencil, Share2 } from "lucide-react";
+import { sharesOfAccount } from "@/lib/sharing";
+import { removeShare, shareAccount } from "@/app/actions/sharing";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountStatement } from "@/lib/books";
 import { money, prettyDate, today } from "@/lib/format";
-import { DateRange, Empty, LinkButton, Money, PageHeader } from "@/components/ui";
+import { DateRange, Empty, Flash, LinkButton, Money, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 
 export default async function Statement({
@@ -13,7 +15,7 @@ export default async function Statement({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; error?: string; ok?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
@@ -26,6 +28,7 @@ export default async function Statement({
   } catch {
     notFound();
   }
+  const shares = await sharesOfAccount(await db(), user.id, s.account.id);
   const a = s.account;
   const isParty = a.category === "Receivables" || a.category === "Payables";
   const phone = a.phone?.replace(/\D/g, "").replace(/^0/, "92");
@@ -85,6 +88,44 @@ export default async function Statement({
           </div>
         )}
       </div>
+      <section id="sharing" className="card no-print mt-6 overflow-hidden">
+        <h2 className="flex items-center gap-2 px-4 py-3 font-semibold text-ink"><Share2 className="h-5 w-5 text-brand" />Share this account</h2>
+        <p className="px-4 text-sm text-slate-600">
+          Let a partner, staff member or customer see this account&apos;s statement. They need a FinanceChachu account.
+          If you let them add entries, each one waits for your approval in <Link href="/shared" className="font-semibold text-brand">Shared</Link>.
+        </p>
+        <Flash sp={sp} />
+        <form action={shareAccount} className="flex flex-wrap items-end gap-3 p-4">
+          <input type="hidden" name="account" value={a.id} />
+          <div className="min-w-56 flex-1">
+            <label className="label">Their email</label>
+            <input name="email" type="email" required className="input" placeholder="name@example.com" />
+          </div>
+          <label className="flex items-center gap-2 pb-2 text-sm">
+            <input type="checkbox" name="can_add" /> Can add entries
+          </label>
+          <button className="btn-dark"><Share2 className="h-4 w-4" />Share</button>
+        </form>
+        {shares.length > 0 && (
+          <ul className="border-t border-[var(--line)]">
+            {shares.map((sh) => (
+              <li key={sh.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-2 text-sm">
+                <div>
+                  <b>{sh.user_name}</b> <span className="text-slate-500">{sh.user_email}</span>
+                  <div className="text-xs text-slate-500">
+                    {sh.status === "pending" ? "Invitation sent" : "Accepted"} · {sh.can_add ? "can add entries" : "view only"}
+                  </div>
+                </div>
+                <form action={removeShare}>
+                  <input type="hidden" name="id" value={sh.id} />
+                  <input type="hidden" name="account" value={a.id} />
+                  <button className="text-sm font-semibold text-red-600">Stop sharing</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }

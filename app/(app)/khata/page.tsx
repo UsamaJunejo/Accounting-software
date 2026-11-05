@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Banknote, MessageCircle, PackagePlus, ShoppingBag, Truck, UserPlus, Users } from "lucide-react";
+import { Banknote, MessageCircle, PackagePlus, Share2, ShoppingBag, Truck, UserPlus, Users } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, khata, subcategories } from "@/lib/books";
@@ -72,6 +72,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
                   </a>
                 )}
                 {actions(r.id)}
+                <Link href={`/accounts/${r.id}#sharing`} title="Share with this person" aria-label="Share" className="inline-flex rounded-md p-1.5 text-slate-500 hover:bg-slate-100"><Share2 className="h-4 w-4" /></Link>
               </div>
             </li>
           ))}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BarChart3, BookUser, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, ShieldCheck, Wallet, X } from "lucide-react";
+import { BarChart3, BookUser, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X } from "lucide-react";
 
 const ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
@@ -11,11 +11,12 @@ const ITEMS = [
   { href: "/transactions", label: "Entries", Icon: ListOrdered },
   { href: "/accounts", label: "Accounts", Icon: Wallet },
   { href: "/khata", label: "Khata", Icon: BookUser },
+  { href: "/shared", label: "Shared", Icon: Share2 },
   { href: "/reports", label: "Reports", Icon: BarChart3 },
   { href: "/settings", label: "Settings", Icon: Settings },
 ];
 
-export function Nav({ isAdmin = false }: { isAdmin?: boolean }) {
+export function Nav({ isAdmin = false, badge = 0 }: { isAdmin?: boolean; badge?: number }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", Icon: ShieldCheck }] : ITEMS;
@@ -32,6 +33,9 @@ export function Nav({ isAdmin = false }: { isAdmin?: boolean }) {
       >
         <Icon className="h-5 w-5" strokeWidth={1.8} />
         {label}
+        {href === "/shared" && badge > 0 && (
+          <span className="ml-auto rounded-full bg-red-500 px-2 text-xs font-bold text-white">{badge}</span>
+        )}
       </Link>
     );
   });
@@ -39,6 +43,7 @@ export function Nav({ isAdmin = false }: { isAdmin?: boolean }) {
     <>
       <button onClick={() => setOpen(!open)} className="no-print rounded-lg p-2 text-white hover:bg-white/10 lg:hidden" aria-label="Menu">
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {!open && badge > 0 && <span className="absolute ml-3 -mt-6 h-2.5 w-2.5 rounded-full bg-red-500" />}
       </button>
       {open && <nav className="no-print absolute inset-x-0 top-14 z-20 space-y-1 bg-ink p-3 shadow-lg lg:hidden">{links}</nav>}
       <nav className="no-print fixed bottom-0 left-0 top-14 hidden w-56 space-y-1 bg-ink p-3 lg:block">{links}</nav>
