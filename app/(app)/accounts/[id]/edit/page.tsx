@@ -1,0 +1,70 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { accountsWithBalances, categories, subcategories } from "@/lib/books";
+import { deleteAccount, updateAccount } from "@/app/actions/books";
+import { Flash, PageHeader } from "@/components/ui";
+
+export default async function EditAccount({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
+  const user = await requireUser();
+  const { id } = await params;
+  const sp = await searchParams;
+  const d = db();
+  const a = accountsWithBalances(d, user.id).find((x) => x.id === Number(id));
+  if (!a) notFound();
+  const cats = categories(d, user.id);
+  const subs = subcategories(d, user.id);
+
+  return (
+    <>
+      <PageHeader title={`Edit: ${a.name}`} />
+      <Flash sp={sp} />
+      <form action={updateAccount} className="card mb-4 grid max-w-2xl gap-4 p-5">
+        <input type="hidden" name="id" value={a.id} />
+        <div>
+          <label className="label">Name</label>
+          <input name="name" defaultValue={a.name} required className="input" />
+        </div>
+        <div>
+          <label className="label">Sub-category (move account)</label>
+          <select name="subcategory" defaultValue={a.subcategory_id} className="input">
+            {cats.map((c) => (
+              <optgroup key={c.id} label={c.name}>
+                {subs.filter((s) => s.category_id === c.id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Mobile</label>
+            <input name="phone" defaultValue={a.phone ?? ""} className="input" placeholder="03XX-XXXXXXX" />
+          </div>
+          <div>
+            <label className="label">Monthly budget (PKR)</label>
+            <input name="budget" inputMode="decimal" defaultValue={a.budget_monthly ? (a.budget_monthly / 100).toFixed(2) : ""} className="input" />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="archived" defaultChecked={!!a.archived} /> Archived (hide from lists, keep history)
+        </label>
+        <div className="flex gap-2">
+          <button className="btn-primary">Save</button>
+          <Link href={`/accounts/${a.id}`} className="btn-ghost">View statement</Link>
+        </div>
+      </form>
+      <form action={deleteAccount} className="max-w-2xl">
+        <input type="hidden" name="id" value={a.id} />
+        <button className="btn-danger">Delete account</button>
+        <p className="mt-1 text-xs text-slate-500">Only possible if it has no entries. Otherwise archive it.</p>
+      </form>
+    </>
+  );
+}
