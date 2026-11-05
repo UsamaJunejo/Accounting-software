@@ -39,6 +39,8 @@ const UR: Record<string, string> = {
   "What you own": "آپ کے اثاثے",
   "Quick actions": "فوری کام",
   Invoice: "بل",
+  Scheduled: "طے شدہ اندراجات",
+  Notifications: "اطلاعات",
   "Your assets, by category": "زمرے کے لحاظ سے آپ کے اثاثے",
   "Category balances": "زمروں کے بیلنس",
   "What you own, owe and put in, side by side": "اثاثے، واجبات اور سرمایہ ساتھ ساتھ",

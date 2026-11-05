@@ -2,18 +2,25 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sharingBadge } from "@/lib/sharing";
+import { runDueSchedules } from "@/lib/schedules";
+import { getNotifications } from "@/lib/notifications";
+import { today } from "@/lib/format";
 import { getT } from "@/lib/lang";
 import { LangSwitch } from "@/components/lang-switch";
 
-const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Shared", "Reports", "Settings", "Admin"];
+const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Scheduled", "Shared", "Reports", "Settings", "Admin"];
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
-import { KeyRound, LogOut, ShieldAlert, Store } from "lucide-react";
+import { Bell, KeyRound, LogOut, ShieldAlert, Store } from "lucide-react";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const badge = await sharingBadge(await db(), user.id);
+  const d = await db();
+  // Add any automatic scheduled entries that have come due since the last visit.
+  await runDueSchedules(d, user.id, today()).catch(() => 0);
+  const badge = await sharingBadge(d, user.id);
+  const alerts = (await getNotifications(d, user.id, today())).filter((n) => n.urgent).length;
   const t = await getT();
   return (
     <div>
@@ -26,6 +33,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <div className="flex items-center gap-1 text-sm sm:gap-3">
           <span className="hidden items-center gap-1.5 text-muted sm:flex"><Store className="h-4 w-4" />{user.business_name || user.name}</span>
+          <Link href="/notifications" className="relative rounded p-2 text-ink hover:bg-ink-soft" aria-label={`Notifications${alerts ? ` (${alerts})` : ""}`}>
+            <Bell className="h-5 w-5" />
+            {alerts > 0 && <span className="absolute -end-0.5 -top-0.5 min-w-5 rounded-full bg-khata px-1 text-center text-xs font-bold leading-5 text-white">{alerts}</span>}
+          </Link>
           <LangSwitch lang={t.lang} className="text-ink hover:bg-ink-soft" />
           <form action={logout}>
             <button className="flex items-center gap-1.5 rounded px-2 py-1.5 text-ink hover:bg-ink-soft sm:px-3" aria-label="Sign out"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">{t("Sign out")}</span></button>

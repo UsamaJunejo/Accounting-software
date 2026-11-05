@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { cancelInvoice as cancel, createInvoice as create, type InvoiceItem } from "@/lib/invoices";
+import { cancelInvoice as cancel, createInvoice as create, recordInvoicePayment, type InvoiceItem } from "@/lib/invoices";
 import { toPaisa } from "@/lib/format";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -56,4 +56,19 @@ export async function cancelInvoice(form: FormData) {
   }
   revalidatePath("/", "layout");
   redirect(`/invoices/${id}?${error ? `error=${encodeURIComponent(error)}` : "ok=Invoice cancelled"}`);
+}
+
+export async function payInvoice(form: FormData) {
+  const u = await requireUser();
+  const id = Number(form.get("id"));
+  let error = "";
+  try {
+    const amount = toPaisa(str(form, "amount"));
+    if (Number.isNaN(amount)) throw new Error("Please enter a valid amount");
+    await recordInvoicePayment(await db(), u.id, id, { amount, date: str(form, "date"), intoAccountId: Number(form.get("into")) });
+  } catch (e) {
+    error = (e as Error).message;
+  }
+  revalidatePath("/", "layout");
+  redirect(`/invoices/${id}?${error ? `error=${encodeURIComponent(error)}` : "ok=Payment recorded"}`);
 }

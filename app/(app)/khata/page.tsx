@@ -97,7 +97,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const small = "inline-flex items-center gap-1 rounded-md border border-rule-strong bg-white px-2 py-1 text-xs font-semibold hover:border-brand";
   return (
     <>
-      <PageHeader title={t("Khata")} subtitle={t("Who owes you, and whom you owe.")} />
+      <PageHeader title={t("Khata")} subtitle={t("Who owes you, and whom you owe.")} actions={<Link href="/reports/late-payers" className="btn-ghost">Who is late paying</Link>} />
       <Flash sp={sp} />
       {customers.some((c) => c.balance > 0) && (
         <div className="card mb-5 p-5">

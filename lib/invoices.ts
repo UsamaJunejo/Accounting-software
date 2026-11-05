@@ -135,13 +135,33 @@ export type Invoice = {
   business_address: string | null;
   business_ntn: string | null;
   currency: string;
+  paid: number;
+};
+
+export type InvoiceStatus = "paid" | "part" | "unpaid" | "overdue" | "cancelled";
+
+export function invoiceStatus(inv: Pick<Invoice, "cancelled" | "paid" | "total" | "due_date">, today: string): InvoiceStatus {
+  if (inv.cancelled) return "cancelled";
+  if (inv.paid >= inv.total) return "paid";
+  if (inv.due_date && inv.due_date < today) return "overdue";
+  return inv.paid > 0 ? "part" : "unpaid";
+}
+
+export const STATUS_LABEL: Record<InvoiceStatus, string> = {
+  paid: "Paid",
+  part: "Part paid",
+  unpaid: "Unpaid",
+  overdue: "Overdue",
+  cancelled: "Cancelled",
 };
 
 const SELECT = `SELECT i.id, i.number, i.customer_account_id, i.customer_name, i.customer_phone,
   to_char(i.date, 'YYYY-MM-DD') AS date, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, i.items,
   i.tax_percent::float8 AS tax_percent, i.discount::float8 AS discount, i.subtotal::float8 AS subtotal,
   i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.share_token, i.cancelled,
-  COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn, u.currency
+  COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn, u.currency,
+  COALESCE((SELECT SUM(p.amount) FROM invoice_payments p LEFT JOIN transactions t ON t.id = p.transaction_id
+            WHERE p.invoice_id = i.id AND (p.transaction_id IS NULL OR t.deleted_at IS NULL)), 0)::float8 AS paid
   FROM invoices i JOIN users u ON u.id = i.user_id`;
 
 const parse = (r: Invoice & { items: unknown }): Invoice => ({ ...r, items: typeof r.items === "string" ? JSON.parse(r.items) : r.items } as Invoice);
@@ -173,7 +193,8 @@ export async function cancelInvoice(d: Db, userId: number, id: number) {
       "SELECT transaction_id AS t1, tax_transaction_id AS t2 FROM invoices WHERE id = $1",
       [id],
     );
-    for (const t of [r.t1, r.t2]) {
+    const pays = await x.q<{ t: number | null }>("SELECT transaction_id AS t FROM invoice_payments WHERE invoice_id = $1", [id]);
+    for (const t of [r.t1, r.t2, ...pays.map((p) => p.t)]) {
       if (t) {
         const [live] = await x.q("SELECT 1 FROM transactions WHERE id = $1 AND deleted_at IS NULL", [t]);
         if (live) await deleteTransaction(x, userId, t);
@@ -181,4 +202,43 @@ export async function cancelInvoice(d: Db, userId: number, id: number) {
     }
     await x.q("UPDATE invoices SET cancelled = true WHERE id = $1", [id]);
   });
+}
+
+// ---------- Payments against an invoice ----------
+
+export async function recordInvoicePayment(
+  d: Db,
+  userId: number,
+  invoiceId: number,
+  p: { amount: number; date: string; intoAccountId: number },
+) {
+  const inv = await getInvoice(d, userId, invoiceId);
+  if (!inv) throw new Error("Invoice not found");
+  if (inv.cancelled) throw new Error("This invoice was cancelled");
+  if (!Number.isSafeInteger(p.amount) || p.amount <= 0) throw new Error("Amount must be more than zero");
+  const due = inv.total - inv.paid;
+  if (p.amount > due) throw new Error("That's more than the balance due");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw new Error("Invalid date");
+  // Money comes from the customer's khata (or straight from Sales if the invoice wasn't put in the books).
+  const from = inv.customer_account_id ?? (await ensureAccount(d, userId, "Income", "Sales", "Sales"));
+  await d.tx(async (x) => {
+    const txnId = await addTransaction(x, userId, {
+      type: "receipt",
+      date: p.date,
+      amount: p.amount,
+      fromAccountId: from,
+      toAccountId: p.intoAccountId,
+      note: `Payment for invoice #${inv.number}`,
+    });
+    await x.q("INSERT INTO invoice_payments (invoice_id, transaction_id, amount, date) VALUES ($1, $2, $3, $4)", [invoiceId, txnId, p.amount, p.date]);
+  });
+}
+
+export async function invoicePayments(d: Db, userId: number, invoiceId: number) {
+  return d.q<{ id: number; amount: number; date: string; deleted: boolean }>(
+    `SELECT p.id, p.amount::float8 AS amount, to_char(p.date, 'YYYY-MM-DD') AS date, (t.deleted_at IS NOT NULL) AS deleted
+     FROM invoice_payments p JOIN invoices i ON i.id = p.invoice_id LEFT JOIN transactions t ON t.id = p.transaction_id
+     WHERE p.invoice_id = $1 AND i.user_id = $2 ORDER BY p.date, p.id`,
+    [invoiceId, userId],
+  );
 }

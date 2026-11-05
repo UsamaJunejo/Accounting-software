@@ -226,6 +226,40 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS color TEXT;
   ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS icon TEXT;
   `,
+  /* 7: scheduled (repeating) entries and invoice payments */ `
+  CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('payment','receipt','transfer')),
+    amount BIGINT NOT NULL CHECK (amount > 0),
+    from_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    to_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    note TEXT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+    frequency TEXT NOT NULL CHECK (frequency IN ('weekly','monthly','yearly')),
+    next_date DATE NOT NULL,
+    end_date DATE,
+    auto BOOLEAN NOT NULL DEFAULT true,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CHECK (from_account_id <> to_account_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_schedules_due ON schedules(user_id, active, next_date);
+  ALTER TABLE transactions ADD COLUMN IF NOT EXISTS schedule_id INTEGER REFERENCES schedules(id) ON DELETE SET NULL;
+
+  CREATE TABLE IF NOT EXISTS invoice_payments (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    amount BIGINT NOT NULL CHECK (amount > 0),
+    date DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_invoice_payments ON invoice_payments(invoice_id);
+
+  ALTER TABLE schedules ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE invoice_payments ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

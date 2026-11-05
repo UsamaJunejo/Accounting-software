@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/logo";
 import {
+  CalendarClock,
   BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
 } from "lucide-react";
 
@@ -15,6 +16,7 @@ const ITEMS = [
   { href: "/accounts", label: "Accounts", Icon: Wallet },
   { href: "/khata", label: "Khata", Icon: BookUser },
   { href: "/invoices", label: "Invoices", Icon: FileText },
+  { href: "/scheduled", label: "Scheduled", Icon: CalendarClock },
   { href: "/shared", label: "Shared", Icon: Share2 },
   { href: "/reports", label: "Reports", Icon: BarChart3 },
   { href: "/settings", label: "Settings", Icon: Settings },

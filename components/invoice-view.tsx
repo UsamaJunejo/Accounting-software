@@ -7,6 +7,9 @@ import { currencySymbol } from "@/lib/currencies";
 export function InvoiceView({ inv }: { inv: Invoice }) {
   return (
     <div className="card relative mx-auto max-w-3xl overflow-hidden bg-white p-6 sm:p-10 print:max-w-none print:p-0">
+      {!inv.cancelled && inv.paid >= inv.total && (
+        <div className="pointer-events-none absolute end-8 top-28 -rotate-12 rounded-xl border-4 border-ledger px-4 py-1 text-3xl font-black text-ledger/80">PAID</div>
+      )}
       {inv.cancelled && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="-rotate-12 rounded-xl border-4 border-khata px-6 py-2 text-5xl font-black text-khata/70">CANCELLED</span>
@@ -54,6 +57,12 @@ export function InvoiceView({ inv }: { inv: Invoice }) {
         <div className="flex justify-between border-t border-rule-strong pt-2 text-lg font-bold text-ink">
           <span>Total</span><span className="tabular-nums">{currencySymbol(inv.currency)} {money(inv.total)}</span>
         </div>
+        {inv.paid > 0 && !inv.cancelled && (
+          <>
+            <div className="flex justify-between"><span>Paid</span><span className="tabular-nums">− {money(inv.paid)}</span></div>
+            <div className="flex justify-between font-bold text-khata"><span>Balance due</span><span className="tabular-nums">{currencySymbol(inv.currency)} {money(Math.max(0, inv.total - inv.paid))}</span></div>
+          </>
+        )}
       </div>
       {inv.notes && <div className="mt-6 whitespace-pre-line rounded-lg bg-paper p-3 text-sm text-body">{inv.notes}</div>}
       <div className="mt-10 text-center text-xs text-muted/80">
