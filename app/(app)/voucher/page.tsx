@@ -32,19 +32,19 @@ export default async function Voucher({
 }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const d = db();
-  const editing = sp.edit ? getTransaction(d, user.id, Number(sp.edit)) : undefined;
+  const d = await db();
+  const editing = sp.edit ? await getTransaction(d, user.id, Number(sp.edit)) : undefined;
   if (sp.edit && (!editing || editing.deleted_at)) notFound();
   const type = (editing?.type ?? (TABS.some((t) => t.type === sp.type) ? sp.type : "payment")) as TxnType;
   const tab = TABS.find((t) => t.type === type)!;
 
-  const accounts = accountsWithBalances(d, user.id);
+  const accounts = await accountsWithBalances(d, user.id);
   const cash = accounts.find((a) => a.category === "Cash")?.id;
   const bank = accounts.find((a) => a.category === "Bank")?.id;
   const pre = (v?: string) => (v && accounts.some((a) => a.id === Number(v)) ? Number(v) : undefined);
   const defFrom = editing?.from_account_id ?? pre(sp.from) ?? (type === "payment" || type === "transfer" ? cash : undefined);
   const defTo = editing?.to_account_id ?? pre(sp.to) ?? (type === "receipt" ? cash : type === "transfer" ? bank : undefined);
-  const recent = listTransactions(d, user.id, { type, limit: 10 });
+  const recent = await listTransactions(d, user.id, { type, limit: 10 });
 
   return (
     <>

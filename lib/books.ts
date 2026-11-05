@@ -1,5 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
-import { tx } from "./db.ts";
+import type { Db } from "./db.ts";
 
 export type Kind = "asset" | "liability" | "equity" | "income" | "expense";
 export type TxnType = "payment" | "receipt" | "transfer";
@@ -19,6 +18,9 @@ export const KIND_LABEL: Record<Kind, string> = {
 export function signedBalance(kind: Kind, moneyIn: number, moneyOut: number): number {
   return kind === "asset" || kind === "expense" ? moneyIn - moneyOut : moneyOut - moneyIn;
 }
+
+const MIN_DATE = "0001-01-01";
+const MAX_DATE = "9999-12-31";
 
 // Ready-made chart of accounts for a Pakistani small business.
 const DEFAULTS: { name: string; kind: Kind; subs: [string, string[]][] }[] = [
@@ -43,31 +45,37 @@ const DEFAULTS: { name: string; kind: Kind; subs: [string, string[]][] }[] = [
   },
 ];
 
-export function seedDefaults(d: DatabaseSync, userId: number) {
-  const insCat = d.prepare("INSERT INTO categories (user_id, name, kind, sort) VALUES (?, ?, ?, ?)");
-  const insSub = d.prepare("INSERT INTO subcategories (user_id, category_id, name) VALUES (?, ?, ?)");
-  const insAcc = d.prepare("INSERT INTO accounts (user_id, subcategory_id, name) VALUES (?, ?, ?)");
-  DEFAULTS.forEach((c, i) => {
-    const catId = Number(insCat.run(userId, c.name, c.kind, i).lastInsertRowid);
+type IdRow = { id: number };
+
+export async function seedDefaults(d: Db, userId: number) {
+  for (const [i, c] of DEFAULTS.entries()) {
+    const [cat] = await d.q<IdRow>(
+      "INSERT INTO categories (user_id, name, kind, sort) VALUES ($1, $2, $3, $4) RETURNING id",
+      [userId, c.name, c.kind, i],
+    );
     for (const [sub, accs] of c.subs) {
-      const subId = Number(insSub.run(userId, catId, sub).lastInsertRowid);
-      for (const a of accs) insAcc.run(userId, subId, a);
+      const [s] = await d.q<IdRow>(
+        "INSERT INTO subcategories (user_id, category_id, name) VALUES ($1, $2, $3) RETURNING id",
+        [userId, cat.id, sub],
+      );
+      for (const a of accs) {
+        await d.q("INSERT INTO accounts (user_id, subcategory_id, name) VALUES ($1, $2, $3)", [userId, s.id, a]);
+      }
     }
-  });
+  }
 }
 
-export function createUser(
-  d: DatabaseSync,
+export async function createUser(
+  d: Db,
   u: { name: string; email: string; phone?: string; businessName?: string; passwordHash: string },
-): number {
-  return tx(d, () => {
-    const id = Number(
-      d
-        .prepare("INSERT INTO users (name, email, phone, business_name, password_hash) VALUES (?, ?, ?, ?, ?)")
-        .run(u.name, u.email.toLowerCase(), u.phone || null, u.businessName || null, u.passwordHash).lastInsertRowid,
+): Promise<number> {
+  return d.tx(async (t) => {
+    const [row] = await t.q<IdRow>(
+      "INSERT INTO users (name, email, phone, business_name, password_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [u.name, u.email.toLowerCase(), u.phone || null, u.businessName || null, u.passwordHash],
     );
-    seedDefaults(d, id);
-    return id;
+    await seedDefaults(t, row.id);
+    return row.id;
   });
 }
 
@@ -78,7 +86,7 @@ export type AccountRow = {
   name: string;
   phone: string | null;
   budget_monthly: number | null;
-  archived: number;
+  archived: boolean;
   subcategory_id: number;
   subcategory: string;
   category_id: number;
@@ -90,48 +98,49 @@ export type AccountRow = {
 };
 
 /** Every account with its totals. Optional date window (inclusive, YYYY-MM-DD). */
-export function accountsWithBalances(
-  d: DatabaseSync,
+export async function accountsWithBalances(
+  d: Db,
   userId: number,
   opts: { from?: string; to?: string } = {},
-): AccountRow[] {
-  const from = opts.from ?? "0000-01-01";
-  const to = opts.to ?? "9999-12-31";
-  const rows = d
-    .prepare(
-      `SELECT a.id, a.name, a.phone, a.budget_monthly, a.archived,
-              s.id AS subcategory_id, s.name AS subcategory,
-              c.id AS category_id, c.name AS category, c.kind,
-              COALESCE((SELECT SUM(amount) FROM transactions t WHERE t.to_account_id = a.id
-                        AND t.deleted_at IS NULL AND t.date BETWEEN ? AND ?), 0) AS money_in,
-              COALESCE((SELECT SUM(amount) FROM transactions t WHERE t.from_account_id = a.id
-                        AND t.deleted_at IS NULL AND t.date BETWEEN ? AND ?), 0) AS money_out
-       FROM accounts a
-       JOIN subcategories s ON s.id = a.subcategory_id
-       JOIN categories c ON c.id = s.category_id
-       WHERE a.user_id = ?
-       ORDER BY c.sort, c.name, s.name, a.name`,
-    )
-    .all(from, to, from, to, userId) as Omit<AccountRow, "balance">[];
+): Promise<AccountRow[]> {
+  const rows = await d.q<Omit<AccountRow, "balance">>(
+    `WITH t AS (
+       SELECT from_account_id, to_account_id, amount FROM transactions
+       WHERE user_id = $1 AND deleted_at IS NULL AND date BETWEEN $2::date AND $3::date
+     ),
+     ins AS (SELECT to_account_id AS id, SUM(amount) AS s FROM t GROUP BY to_account_id),
+     outs AS (SELECT from_account_id AS id, SUM(amount) AS s FROM t GROUP BY from_account_id)
+     SELECT a.id, a.name, a.phone, a.budget_monthly::float8 AS budget_monthly, a.archived,
+            s.id AS subcategory_id, s.name AS subcategory,
+            c.id AS category_id, c.name AS category, c.kind,
+            COALESCE(ins.s, 0)::float8 AS money_in,
+            COALESCE(outs.s, 0)::float8 AS money_out
+     FROM accounts a
+     JOIN subcategories s ON s.id = a.subcategory_id
+     JOIN categories c ON c.id = s.category_id
+     LEFT JOIN ins ON ins.id = a.id
+     LEFT JOIN outs ON outs.id = a.id
+     WHERE a.user_id = $1
+     ORDER BY c.sort, c.name, s.name, a.name`,
+    [userId, opts.from ?? MIN_DATE, opts.to ?? MAX_DATE],
+  );
   return rows.map((r) => ({ ...r, balance: signedBalance(r.kind, r.money_in, r.money_out) }));
 }
 
 export type Category = { id: number; name: string; kind: Kind; sort: number };
 export type Subcategory = { id: number; name: string; category_id: number };
 
-export function categories(d: DatabaseSync, userId: number): Category[] {
-  return d.prepare("SELECT id, name, kind, sort FROM categories WHERE user_id = ? ORDER BY sort, name").all(userId) as Category[];
+export function categories(d: Db, userId: number): Promise<Category[]> {
+  return d.q<Category>("SELECT id, name, kind, sort FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
 }
 
-export function subcategories(d: DatabaseSync, userId: number): Subcategory[] {
-  return d
-    .prepare("SELECT id, name, category_id FROM subcategories WHERE user_id = ? ORDER BY name")
-    .all(userId) as Subcategory[];
+export function subcategories(d: Db, userId: number): Promise<Subcategory[]> {
+  return d.q<Subcategory>("SELECT id, name, category_id FROM subcategories WHERE user_id = $1 ORDER BY name", [userId]);
 }
 
-export function categoryTotals(d: DatabaseSync, userId: number, opts: { from?: string; to?: string } = {}) {
-  const accs = accountsWithBalances(d, userId, opts);
-  return categories(d, userId).map((c) => ({
+export async function categoryTotals(d: Db, userId: number, opts: { from?: string; to?: string } = {}) {
+  const [accs, cats] = await Promise.all([accountsWithBalances(d, userId, opts), categories(d, userId)]);
+  return cats.map((c) => ({
     ...c,
     balance: accs.filter((a) => a.category_id === c.id).reduce((s, a) => s + a.balance, 0),
     accounts: accs.filter((a) => a.category_id === c.id).length,
@@ -140,86 +149,99 @@ export function categoryTotals(d: DatabaseSync, userId: number, opts: { from?: s
 
 // ---------- Chart of accounts editing ----------
 
-function own(d: DatabaseSync, table: "categories" | "subcategories" | "accounts", id: number, userId: number) {
-  const r = d.prepare(`SELECT id FROM ${table} WHERE id = ? AND user_id = ?`).get(id, userId);
-  if (!r) throw new Error("Not found");
+async function own(d: Db, table: "categories" | "subcategories" | "accounts", id: number, userId: number) {
+  if (!Number.isInteger(id)) throw new Error("Not found");
+  const r = await d.q(`SELECT id FROM ${table} WHERE id = $1 AND user_id = $2`, [id, userId]);
+  if (!r.length) throw new Error("Not found");
 }
 
-export function addCategory(d: DatabaseSync, userId: number, name: string, kind: Kind) {
-  const max = d.prepare("SELECT COALESCE(MAX(sort), 0) AS m FROM categories WHERE user_id = ?").get(userId) as { m: number };
-  return Number(
-    d.prepare("INSERT INTO categories (user_id, name, kind, sort) VALUES (?, ?, ?, ?)").run(userId, name, kind, max.m + 1)
-      .lastInsertRowid,
+export async function addCategory(d: Db, userId: number, name: string, kind: Kind) {
+  if (!(kind in KIND_LABEL)) throw new Error("Choose a type");
+  const [row] = await d.q<IdRow>(
+    `INSERT INTO categories (user_id, name, kind, sort)
+     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1)) RETURNING id`,
+    [userId, name, kind],
   );
+  return row.id;
 }
 
-export function addSubcategory(d: DatabaseSync, userId: number, categoryId: number, name: string) {
-  own(d, "categories", categoryId, userId);
-  return Number(
-    d.prepare("INSERT INTO subcategories (user_id, category_id, name) VALUES (?, ?, ?)").run(userId, categoryId, name)
-      .lastInsertRowid,
+export async function addSubcategory(d: Db, userId: number, categoryId: number, name: string) {
+  await own(d, "categories", categoryId, userId);
+  const [row] = await d.q<IdRow>(
+    "INSERT INTO subcategories (user_id, category_id, name) VALUES ($1, $2, $3) RETURNING id",
+    [userId, categoryId, name],
   );
+  return row.id;
 }
 
-export function addAccount(
-  d: DatabaseSync,
+export async function addAccount(
+  d: Db,
   userId: number,
   subcategoryId: number,
   name: string,
   extra: { phone?: string | null; budgetMonthly?: number | null } = {},
 ) {
-  own(d, "subcategories", subcategoryId, userId);
-  return Number(
-    d
-      .prepare("INSERT INTO accounts (user_id, subcategory_id, name, phone, budget_monthly) VALUES (?, ?, ?, ?, ?)")
-      .run(userId, subcategoryId, name, extra.phone || null, extra.budgetMonthly || null).lastInsertRowid,
+  await own(d, "subcategories", subcategoryId, userId);
+  const [row] = await d.q<IdRow>(
+    "INSERT INTO accounts (user_id, subcategory_id, name, phone, budget_monthly) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+    [userId, subcategoryId, name, extra.phone || null, extra.budgetMonthly || null],
   );
+  return row.id;
 }
 
-export function updateAccount(
-  d: DatabaseSync,
+export async function updateAccount(
+  d: Db,
   userId: number,
   id: number,
   f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean },
 ) {
-  own(d, "accounts", id, userId);
-  own(d, "subcategories", f.subcategoryId, userId);
-  d.prepare(
-    "UPDATE accounts SET name = ?, subcategory_id = ?, phone = ?, budget_monthly = ?, archived = ? WHERE id = ? AND user_id = ?",
-  ).run(f.name, f.subcategoryId, f.phone || null, f.budgetMonthly || null, f.archived ? 1 : 0, id, userId);
+  await own(d, "accounts", id, userId);
+  await own(d, "subcategories", f.subcategoryId, userId);
+  await d.q(
+    "UPDATE accounts SET name = $1, subcategory_id = $2, phone = $3, budget_monthly = $4, archived = $5 WHERE id = $6 AND user_id = $7",
+    [f.name, f.subcategoryId, f.phone || null, f.budgetMonthly || null, !!f.archived, id, userId],
+  );
 }
 
-export function renameCategory(d: DatabaseSync, userId: number, id: number, name: string) {
-  d.prepare("UPDATE categories SET name = ? WHERE id = ? AND user_id = ?").run(name, id, userId);
+export async function renameCategory(d: Db, userId: number, id: number, name: string) {
+  if (!name) throw new Error("Name is required");
+  await d.q("UPDATE categories SET name = $1 WHERE id = $2 AND user_id = $3", [name, id, userId]);
 }
 
-export function renameSubcategory(d: DatabaseSync, userId: number, id: number, name: string, categoryId: number) {
-  own(d, "categories", categoryId, userId);
-  d.prepare("UPDATE subcategories SET name = ?, category_id = ? WHERE id = ? AND user_id = ?").run(name, categoryId, id, userId);
+export async function renameSubcategory(d: Db, userId: number, id: number, name: string, categoryId: number) {
+  if (!name) throw new Error("Name is required");
+  await own(d, "categories", categoryId, userId);
+  await d.q("UPDATE subcategories SET name = $1, category_id = $2 WHERE id = $3 AND user_id = $4", [
+    name,
+    categoryId,
+    id,
+    userId,
+  ]);
 }
 
 /** Only accounts that were never used can be deleted; otherwise archive them. */
-export function deleteAccount(d: DatabaseSync, userId: number, id: number) {
-  own(d, "accounts", id, userId);
-  const used = d
-    .prepare("SELECT COUNT(*) AS n FROM transactions WHERE from_account_id = ? OR to_account_id = ?")
-    .get(id, id) as { n: number };
+export async function deleteAccount(d: Db, userId: number, id: number) {
+  await own(d, "accounts", id, userId);
+  const [used] = await d.q<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM transactions WHERE from_account_id = $1 OR to_account_id = $1",
+    [id],
+  );
   if (used.n > 0) throw new Error("This account has entries. Archive it instead of deleting.");
-  d.prepare("DELETE FROM accounts WHERE id = ?").run(id);
+  await d.q("DELETE FROM accounts WHERE id = $1", [id]);
 }
 
-export function deleteSubcategory(d: DatabaseSync, userId: number, id: number) {
-  own(d, "subcategories", id, userId);
-  const n = d.prepare("SELECT COUNT(*) AS n FROM accounts WHERE subcategory_id = ?").get(id) as { n: number };
+export async function deleteSubcategory(d: Db, userId: number, id: number) {
+  await own(d, "subcategories", id, userId);
+  const [n] = await d.q<{ n: number }>("SELECT COUNT(*)::int AS n FROM accounts WHERE subcategory_id = $1", [id]);
   if (n.n > 0) throw new Error("Move or delete its accounts first.");
-  d.prepare("DELETE FROM subcategories WHERE id = ?").run(id);
+  await d.q("DELETE FROM subcategories WHERE id = $1", [id]);
 }
 
-export function deleteCategory(d: DatabaseSync, userId: number, id: number) {
-  own(d, "categories", id, userId);
-  const n = d.prepare("SELECT COUNT(*) AS n FROM subcategories WHERE category_id = ?").get(id) as { n: number };
+export async function deleteCategory(d: Db, userId: number, id: number) {
+  await own(d, "categories", id, userId);
+  const [n] = await d.q<{ n: number }>("SELECT COUNT(*)::int AS n FROM subcategories WHERE category_id = $1", [id]);
   if (n.n > 0) throw new Error("Delete its sub-categories first.");
-  d.prepare("DELETE FROM categories WHERE id = ?").run(id);
+  await d.q("DELETE FROM categories WHERE id = $1", [id]);
 }
 
 // ---------- Transactions ----------
@@ -234,67 +256,65 @@ export type TxnInput = {
   highlight?: string | null;
 };
 
-function validate(d: DatabaseSync, userId: number, t: TxnInput) {
+async function validate(d: Db, userId: number, t: TxnInput) {
   if (!["payment", "receipt", "transfer"].includes(t.type)) throw new Error("Invalid entry type");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date)) throw new Error("Invalid date");
-  if (!Number.isInteger(t.amount) || t.amount <= 0) throw new Error("Amount must be more than zero");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || Number.isNaN(Date.parse(t.date))) throw new Error("Invalid date");
+  if (!Number.isSafeInteger(t.amount) || t.amount <= 0) throw new Error("Amount must be more than zero");
   if (t.fromAccountId === t.toAccountId) throw new Error("'From' and 'To' must be different accounts");
-  own(d, "accounts", t.fromAccountId, userId);
-  own(d, "accounts", t.toAccountId, userId);
+  await own(d, "accounts", t.fromAccountId, userId);
+  await own(d, "accounts", t.toAccountId, userId);
 }
 
-function audit(d: DatabaseSync, userId: number, action: string, txnId: number | null, details: unknown) {
-  d.prepare("INSERT INTO audit_log (user_id, action, transaction_id, details) VALUES (?, ?, ?, ?)").run(
+function audit(d: Db, userId: number, action: string, txnId: number | null, details: unknown) {
+  return d.q("INSERT INTO audit_log (user_id, action, transaction_id, details) VALUES ($1, $2, $3, $4)", [
     userId,
     action,
     txnId,
     JSON.stringify(details),
-  );
+  ]);
 }
 
-export function addTransaction(d: DatabaseSync, userId: number, t: TxnInput): number {
-  validate(d, userId, t);
-  return tx(d, () => {
-    const id = Number(
-      d
-        .prepare(
-          `INSERT INTO transactions (user_id, type, date, amount, from_account_id, to_account_id, note, highlight)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(userId, t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null)
-        .lastInsertRowid,
+export async function addTransaction(d: Db, userId: number, t: TxnInput): Promise<number> {
+  await validate(d, userId, t);
+  return d.tx(async (x) => {
+    const [row] = await x.q<IdRow>(
+      `INSERT INTO transactions (user_id, type, date, amount, from_account_id, to_account_id, note, highlight)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [userId, t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null],
     );
-    audit(d, userId, "create", id, t);
-    return id;
+    await audit(x, userId, "create", row.id, t);
+    return row.id;
   });
 }
 
-export function updateTransaction(d: DatabaseSync, userId: number, id: number, t: TxnInput) {
-  validate(d, userId, t);
-  const before = getTransaction(d, userId, id);
+export async function updateTransaction(d: Db, userId: number, id: number, t: TxnInput) {
+  await validate(d, userId, t);
+  const before = await getTransaction(d, userId, id);
   if (!before || before.deleted_at) throw new Error("Entry not found");
-  tx(d, () => {
-    d.prepare(
-      `UPDATE transactions SET type = ?, date = ?, amount = ?, from_account_id = ?, to_account_id = ?,
-              note = ?, highlight = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`,
-    ).run(t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null, id, userId);
-    audit(d, userId, "update", id, { before, after: t });
+  await d.tx(async (x) => {
+    await x.q(
+      `UPDATE transactions SET type = $1, date = $2, amount = $3, from_account_id = $4, to_account_id = $5,
+              note = $6, highlight = $7, updated_at = now() WHERE id = $8 AND user_id = $9`,
+      [t.type, t.date, t.amount, t.fromAccountId, t.toAccountId, t.note || null, t.highlight || null, id, userId],
+    );
+    await audit(x, userId, "update", id, { before, after: t });
   });
 }
 
-export function deleteTransaction(d: DatabaseSync, userId: number, id: number) {
-  const before = getTransaction(d, userId, id);
+export async function deleteTransaction(d: Db, userId: number, id: number) {
+  const before = await getTransaction(d, userId, id);
   if (!before || before.deleted_at) throw new Error("Entry not found");
-  tx(d, () => {
-    d.prepare("UPDATE transactions SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?").run(id, userId);
-    audit(d, userId, "delete", id, before);
+  await d.tx(async (x) => {
+    await x.q("UPDATE transactions SET deleted_at = now() WHERE id = $1 AND user_id = $2", [id, userId]);
+    await audit(x, userId, "delete", id, before);
   });
 }
 
-export function restoreTransaction(d: DatabaseSync, userId: number, id: number) {
-  tx(d, () => {
-    d.prepare("UPDATE transactions SET deleted_at = NULL WHERE id = ? AND user_id = ?").run(id, userId);
-    audit(d, userId, "restore", id, null);
+export async function restoreTransaction(d: Db, userId: number, id: number) {
+  await d.tx(async (x) => {
+    const r = await x.q("UPDATE transactions SET deleted_at = NULL WHERE id = $1 AND user_id = $2 RETURNING id", [id, userId]);
+    if (!r.length) throw new Error("Entry not found");
+    await audit(x, userId, "restore", id, null);
   });
 }
 
@@ -313,56 +333,56 @@ export type TxnRow = {
   deleted_at: string | null;
 };
 
-const TXN_SELECT = `SELECT t.id, t.type, t.date, t.amount, t.from_account_id, t.to_account_id,
-  fa.name AS from_name, ta.name AS to_name, t.note, t.highlight, t.created_at, t.deleted_at
+const TXN_SELECT = `SELECT t.id, t.type, to_char(t.date, 'YYYY-MM-DD') AS date, t.amount::float8 AS amount,
+  t.from_account_id, t.to_account_id, fa.name AS from_name, ta.name AS to_name, t.note, t.highlight,
+  to_char(t.created_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS created_at,
+  to_char(t.deleted_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS deleted_at
   FROM transactions t
   JOIN accounts fa ON fa.id = t.from_account_id
   JOIN accounts ta ON ta.id = t.to_account_id`;
 
-export function getTransaction(d: DatabaseSync, userId: number, id: number): TxnRow | undefined {
-  return d.prepare(`${TXN_SELECT} WHERE t.id = ? AND t.user_id = ?`).get(id, userId) as TxnRow | undefined;
+export async function getTransaction(d: Db, userId: number, id: number): Promise<TxnRow | undefined> {
+  if (!Number.isInteger(id)) return undefined;
+  const [row] = await d.q<TxnRow>(`${TXN_SELECT} WHERE t.id = $1 AND t.user_id = $2`, [id, userId]);
+  return row;
 }
 
 export function listTransactions(
-  d: DatabaseSync,
+  d: Db,
   userId: number,
   f: { type?: TxnType; from?: string; to?: string; search?: string; deleted?: boolean; limit?: number } = {},
-): TxnRow[] {
-  const where = ["t.user_id = ?", f.deleted ? "t.deleted_at IS NOT NULL" : "t.deleted_at IS NULL"];
-  const args: (string | number)[] = [userId];
-  if (f.type) (where.push("t.type = ?"), args.push(f.type));
-  if (f.from) (where.push("t.date >= ?"), args.push(f.from));
-  if (f.to) (where.push("t.date <= ?"), args.push(f.to));
+): Promise<TxnRow[]> {
+  const args: unknown[] = [userId];
+  const p = (v: unknown) => (args.push(v), `$${args.length}`);
+  const where = ["t.user_id = $1", f.deleted ? "t.deleted_at IS NOT NULL" : "t.deleted_at IS NULL"];
+  if (f.type) where.push(`t.type = ${p(f.type)}`);
+  if (f.from) where.push(`t.date >= ${p(f.from)}::date`);
+  if (f.to) where.push(`t.date <= ${p(f.to)}::date`);
   if (f.search) {
-    where.push("(t.note LIKE ? OR fa.name LIKE ? OR ta.name LIKE ?)");
-    const q = `%${f.search}%`;
-    args.push(q, q, q);
+    const q = p(`%${f.search}%`);
+    where.push(`(t.note ILIKE ${q} OR fa.name ILIKE ${q} OR ta.name ILIKE ${q})`);
   }
-  args.push(f.limit ?? 500);
-  return d
-    .prepare(`${TXN_SELECT} WHERE ${where.join(" AND ")} ORDER BY t.date DESC, t.id DESC LIMIT ?`)
-    .all(...args) as TxnRow[];
+  const order = f.deleted ? "t.deleted_at DESC" : "t.date DESC, t.id DESC";
+  return d.q<TxnRow>(`${TXN_SELECT} WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ${p(f.limit ?? 500)}`, args);
 }
 
 /** One account's statement with opening balance and running balance. */
-export function accountStatement(d: DatabaseSync, userId: number, accountId: number, from: string, to: string) {
-  const acc = accountsWithBalances(d, userId).find((a) => a.id === accountId);
+export async function accountStatement(d: Db, userId: number, accountId: number, from: string, to: string) {
+  const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === accountId);
   if (!acc) throw new Error("Account not found");
-  const prev = d
-    .prepare(
-      `SELECT COALESCE(SUM(CASE WHEN to_account_id = ? THEN amount ELSE 0 END), 0) AS i,
-              COALESCE(SUM(CASE WHEN from_account_id = ? THEN amount ELSE 0 END), 0) AS o
-       FROM transactions WHERE user_id = ? AND deleted_at IS NULL AND date < ?
-         AND (to_account_id = ? OR from_account_id = ?)`,
-    )
-    .get(accountId, accountId, userId, from, accountId, accountId) as { i: number; o: number };
+  const [prev] = await d.q<{ i: number; o: number }>(
+    `SELECT COALESCE(SUM(CASE WHEN to_account_id = $1 THEN amount ELSE 0 END), 0)::float8 AS i,
+            COALESCE(SUM(CASE WHEN from_account_id = $1 THEN amount ELSE 0 END), 0)::float8 AS o
+     FROM transactions WHERE user_id = $2 AND deleted_at IS NULL AND date < $3::date
+       AND (to_account_id = $1 OR from_account_id = $1)`,
+    [accountId, userId, from],
+  );
   const opening = signedBalance(acc.kind, prev.i, prev.o);
-  const rows = d
-    .prepare(
-      `${TXN_SELECT} WHERE t.user_id = ? AND t.deleted_at IS NULL AND t.date BETWEEN ? AND ?
-       AND (t.to_account_id = ? OR t.from_account_id = ?) ORDER BY t.date, t.id`,
-    )
-    .all(userId, from, to, accountId, accountId) as TxnRow[];
+  const rows = await d.q<TxnRow>(
+    `${TXN_SELECT} WHERE t.user_id = $1 AND t.deleted_at IS NULL AND t.date BETWEEN $2::date AND $3::date
+     AND (t.to_account_id = $4 OR t.from_account_id = $4) ORDER BY t.date, t.id`,
+    [userId, from, to, accountId],
+  );
   let running = opening;
   const lines = rows.map((r) => {
     const moneyIn = r.to_account_id === accountId ? r.amount : 0;
@@ -375,8 +395,7 @@ export function accountStatement(d: DatabaseSync, userId: number, accountId: num
 
 // ---------- Reports ----------
 
-export function incomeStatement(d: DatabaseSync, userId: number, from: string, to: string) {
-  const accs = accountsWithBalances(d, userId, { from, to });
+export function summarizeIncome(accs: AccountRow[]) {
   const income = accs.filter((a) => a.kind === "income" && a.balance !== 0);
   const expense = accs.filter((a) => a.kind === "expense" && a.balance !== 0);
   const totalIncome = income.reduce((s, a) => s + a.balance, 0);
@@ -384,8 +403,30 @@ export function incomeStatement(d: DatabaseSync, userId: number, from: string, t
   return { income, expense, totalIncome, totalExpense, profit: totalIncome - totalExpense };
 }
 
-export function balanceSheet(d: DatabaseSync, userId: number, asOf: string) {
-  const accs = accountsWithBalances(d, userId, { to: asOf });
+export async function incomeStatement(d: Db, userId: number, from: string, to: string) {
+  return summarizeIncome(await accountsWithBalances(d, userId, { from, to }));
+}
+
+/** Income and expense per month for the given month ranges, in one query. */
+export async function monthlyTotals(d: Db, userId: number, from: string, to: string) {
+  const rows = await d.q<{ month: string; income: number; expense: number }>(
+    `SELECT to_char(t.date, 'YYYY-MM') AS month,
+            COALESCE(SUM(CASE WHEN fc.kind = 'income' THEN t.amount END), 0)::float8
+              - COALESCE(SUM(CASE WHEN tc.kind = 'income' THEN t.amount END), 0)::float8 AS income,
+            COALESCE(SUM(CASE WHEN tc.kind = 'expense' THEN t.amount END), 0)::float8
+              - COALESCE(SUM(CASE WHEN fc.kind = 'expense' THEN t.amount END), 0)::float8 AS expense
+     FROM transactions t
+     JOIN accounts fa ON fa.id = t.from_account_id JOIN subcategories fs ON fs.id = fa.subcategory_id JOIN categories fc ON fc.id = fs.category_id
+     JOIN accounts ta ON ta.id = t.to_account_id JOIN subcategories ts ON ts.id = ta.subcategory_id JOIN categories tc ON tc.id = ts.category_id
+     WHERE t.user_id = $1 AND t.deleted_at IS NULL AND t.date BETWEEN $2::date AND $3::date
+     GROUP BY 1`,
+    [userId, from, to],
+  );
+  return new Map(rows.map((r) => [r.month, r]));
+}
+
+export async function balanceSheet(d: Db, userId: number, asOf: string) {
+  const accs = await accountsWithBalances(d, userId, { to: asOf });
   const pick = (k: Kind) => accs.filter((a) => a.kind === k && a.balance !== 0);
   const sum = (xs: AccountRow[]) => xs.reduce((s, a) => s + a.balance, 0);
   const assets = pick("asset");
@@ -409,21 +450,24 @@ export function balanceSheet(d: DatabaseSync, userId: number, asOf: string) {
 }
 
 /** Accounts with a monthly budget and how much was spent this month. */
-export function budgets(d: DatabaseSync, userId: number, monthStart: string, monthEnd: string) {
-  return accountsWithBalances(d, userId, { from: monthStart, to: monthEnd })
+export async function budgets(d: Db, userId: number, monthStart: string, monthEnd: string) {
+  return (await accountsWithBalances(d, userId, { from: monthStart, to: monthEnd }))
     .filter((a) => a.budget_monthly)
     .map((a) => ({ ...a, budget: a.budget_monthly as number, spent: a.balance }));
 }
 
 /** Customers / suppliers khata: everyone in Receivables & Payables. */
-export function khata(d: DatabaseSync, userId: number) {
-  return accountsWithBalances(d, userId).filter(
+export async function khata(d: Db, userId: number) {
+  return (await accountsWithBalances(d, userId)).filter(
     (a) => !a.archived && (a.category === "Receivables" || a.category === "Payables"),
   );
 }
 
-export function auditLog(d: DatabaseSync, userId: number, limit = 200) {
-  return d
-    .prepare("SELECT id, action, transaction_id, details, created_at FROM audit_log WHERE user_id = ? ORDER BY id DESC LIMIT ?")
-    .all(userId, limit) as { id: number; action: string; transaction_id: number | null; details: string; created_at: string }[];
+export function auditLog(d: Db, userId: number, limit = 200) {
+  return d.q<{ id: number; action: string; transaction_id: number | null; details: string; created_at: string }>(
+    `SELECT id, action, transaction_id, details,
+            to_char(created_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS created_at
+     FROM audit_log WHERE user_id = $1 ORDER BY id DESC LIMIT $2`,
+    [userId, limit],
+  );
 }

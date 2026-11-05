@@ -13,9 +13,9 @@ const ACTION_LABEL: Record<string, string> = { create: "Added", update: "Edited"
 export default async function Deleted({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const d = db();
-  const rows = listTransactions(d, user.id, { deleted: true });
-  const log = auditLog(d, user.id, 100);
+  const d = await db();
+  const rows = await listTransactions(d, user.id, { deleted: true });
+  const log = await auditLog(d, user.id, 100);
   return (
     <>
       <PageHeader title="Deleted entries & history" subtitle="Nothing is ever lost. Deleted entries can be restored." />

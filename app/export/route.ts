@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const user = await currentUser();
   if (!user) return NextResponse.redirect(new URL("/login", req.url));
   const p = req.nextUrl.searchParams;
-  const rows = listTransactions(db(), user.id, {
+  const rows = await listTransactions(await db(), user.id, {
     from: p.get("from") || undefined,
     to: p.get("to") || undefined,
     type: (p.get("type") as TxnType) || undefined,

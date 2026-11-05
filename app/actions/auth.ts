@@ -18,8 +18,15 @@ export async function signup(form: FormData) {
   if (!name || !email || !password) fail("/signup", "Please fill in name, email and password.");
   if (!/^\S+@\S+\.\S+$/.test(email)) fail("/signup", "Please enter a valid email.");
   if (password.length < 8) fail("/signup", "Password must be at least 8 characters.");
-  if (db().prepare("SELECT 1 FROM users WHERE email = ?").get(email)) fail("/signup", "An account with this email already exists.");
-  const id = createUser(db(), { name, email, phone, businessName, passwordHash: await bcrypt.hash(password, 10) });
+  const d = await db();
+  if ((await d.q("SELECT 1 FROM users WHERE email = $1", [email])).length)
+    fail("/signup", "An account with this email already exists.");
+  let id = 0;
+  try {
+    id = await createUser(d, { name, email, phone, businessName, passwordHash: await bcrypt.hash(password, 10) });
+  } catch {
+    fail("/signup", "Could not create the account. Please try again.");
+  }
   await startSession(id);
   redirect("/dashboard?welcome=1");
 }
@@ -27,9 +34,10 @@ export async function signup(form: FormData) {
 export async function login(form: FormData) {
   const email = str(form, "email").toLowerCase();
   const password = str(form, "password");
-  const u = db().prepare("SELECT id, password_hash FROM users WHERE email = ?").get(email) as
-    | { id: number; password_hash: string }
-    | undefined;
+  const [u] = await (await db()).q<{ id: number; password_hash: string }>(
+    "SELECT id, password_hash FROM users WHERE email = $1",
+    [email],
+  );
   if (!u || !(await bcrypt.compare(password, u.password_hash))) fail("/login", "Wrong email or password.");
   await startSession(u!.id);
   redirect("/dashboard");
@@ -44,18 +52,22 @@ export async function updateProfile(form: FormData) {
   const u = await requireUser();
   const name = str(form, "name");
   if (!name) fail("/settings", "Name is required.");
-  db()
-    .prepare("UPDATE users SET name = ?, phone = ?, business_name = ? WHERE id = ?")
-    .run(name, str(form, "phone") || null, str(form, "business") || null, u.id);
+  await (await db()).q("UPDATE users SET name = $1, phone = $2, business_name = $3 WHERE id = $4", [
+    name,
+    str(form, "phone") || null,
+    str(form, "business") || null,
+    u.id,
+  ]);
   redirect("/settings?ok=Profile saved");
 }
 
 export async function changePassword(form: FormData) {
   const u = await requireUser();
-  const row = db().prepare("SELECT password_hash FROM users WHERE id = ?").get(u.id) as { password_hash: string };
+  const d = await db();
+  const [row] = await d.q<{ password_hash: string }>("SELECT password_hash FROM users WHERE id = $1", [u.id]);
   if (!(await bcrypt.compare(str(form, "current"), row.password_hash))) fail("/settings", "Current password is wrong.");
   const next = str(form, "next");
   if (next.length < 8) fail("/settings", "New password must be at least 8 characters.");
-  db().prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(await bcrypt.hash(next, 10), u.id);
+  await d.q("UPDATE users SET password_hash = $1 WHERE id = $2", [await bcrypt.hash(next, 10), u.id]);
   redirect("/settings?ok=Password changed");
 }

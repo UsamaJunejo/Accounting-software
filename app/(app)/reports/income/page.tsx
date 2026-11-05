@@ -14,7 +14,7 @@ export default async function Income({ searchParams }: { searchParams: Promise<{
   const [a, b] = monthRange();
   const from = sp.from || a;
   const to = sp.to || b;
-  const r = incomeStatement(db(), user.id, from, to);
+  const r = await incomeStatement(await db(), user.id, from, to);
   return (
     <>
       <PageHeader title="Profit & Loss" subtitle={`${user.business_name || user.name} · ${prettyDate(from)} to ${prettyDate(to)}`} actions={<PrintButton />} />

@@ -1,6 +1,7 @@
 node_modules
 .next
-data/*.db*
+data/*
+!data/.gitkeep
 .env*
 next-env.d.ts
 *.tsbuildinfo

@@ -19,7 +19,7 @@ export default async function Transactions({
   const from = sp.from ?? mStart;
   const to = sp.to ?? mEnd;
   const type = ["payment", "receipt", "transfer"].includes(sp.type ?? "") ? (sp.type as TxnType) : undefined;
-  const rows = listTransactions(db(), user.id, { from, to, type, search: sp.q, limit: 2000 });
+  const rows = await listTransactions(await db(), user.id, { from, to, type, search: sp.q, limit: 2000 });
   const total = (t: TxnType) => rows.filter((r) => r.type === t).reduce((s, r) => s + r.amount, 0);
   const qs = new URLSearchParams({ from, to, ...(type ? { type } : {}), ...(sp.q ? { q: sp.q } : {}) }).toString();
 

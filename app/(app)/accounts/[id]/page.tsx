@@ -22,7 +22,7 @@ export default async function Statement({
   const from = sp.from || `${to.slice(0, 4)}-01-01`;
   let s;
   try {
-    s = accountStatement(db(), user.id, Number(id), from, to);
+    s = await accountStatement(await db(), user.id, Number(id), from, to);
   } catch {
     notFound();
   }

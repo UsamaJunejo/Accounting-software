@@ -1,43 +1,67 @@
-# Putting FinanceChachu online (Railway)
+# Putting FinanceChachu online for free (Vercel + Supabase)
 
-Railway runs the website 24/7 and keeps your data on a disk. It costs about **USD 5/month**
-(Hobby plan). Everything below is done in the browser, no coding needed.
+- **Supabase** stores your data (free: 500 MB).
+- **Vercel** runs the website (free Hobby plan, for non-commercial use; upgrade to Pro when you charge customers).
 
-## 1. Create the project
-1. Go to **https://railway.com** and sign up with your **GitHub** account.
-2. Click **New Project → Deploy from GitHub repo** and choose **Accounting-software**.
-   If asked, allow Railway to access the repository.
-3. Open the new service, go to **Settings → Source**, and set the branch to the one that has
-   this code (e.g. `main` after merging, or `ccr-4c8824ba-q4ul6t`).
+Everything is done in the browser. Takes about 15 minutes.
 
-Railway reads `railway.json` and builds with the `Dockerfile` automatically.
+## 1. Create the database (Supabase)
+1. Go to **https://supabase.com** → **Start your project** → sign in with GitHub.
+2. **New project**:
+   - Name: `financechachu`
+   - **Database password**: click *Generate a password* and **save it somewhere safe**.
+   - **Region: South Asia (Mumbai)**, closest to Pakistan, so the site is fast.
+   - Click **Create new project** and wait ~2 minutes.
+3. Click the **Connect** button at the top of the project page.
+4. Under **Transaction pooler** (port **6543**), copy the connection string. It looks like:
+   `postgresql://postgres.abcdxyz:[YOUR-PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres`
+5. Replace `[YOUR-PASSWORD]` with the password from step 2. This full line is your **DATABASE_URL**.
+   Keep it secret: anyone with it can read your data.
 
-## 2. Add the secret key
-In the service, open **Variables → New Variable**:
+You don't need to create any tables. The app creates them on first visit.
 
-| Name | Value |
-|---|---|
-| `SESSION_SECRET` | a long random string (at least 40 characters). Keep it private. |
+## 2. Put the website online (Vercel)
+1. Go to **https://vercel.com** → **Sign Up** → **Continue with GitHub**.
+2. **Add New… → Project** → find **Accounting-software** → **Import**.
+3. Open **Environment Variables** and add two:
 
-## 3. Add storage for your data (important!)
-Without this, **all data is lost every time the site restarts.**
-1. Right-click the service (or use the **+ / Add** menu) → **Volume**.
-2. Set **Mount path** to `/data`.
+   | Name | Value |
+   |---|---|
+   | `DATABASE_URL` | the line from step 1.5 |
+   | `SESSION_SECRET` | a long random string (40+ characters). Keep it private. |
 
-## 4. Get your web address
-**Settings → Networking → Generate Domain.** You'll get a link like
-`financechachu-production.up.railway.app`. Open it and create your account.
+4. Click **Deploy**. After ~2 minutes you get a link like `financechachu.vercel.app`. Open it and sign up.
 
-Later you can connect your own domain (e.g. `financechachu.pk`) under **Settings → Networking → Custom Domain**.
+Vercel publishes the **main** branch as the live site. Every new change merged into `main`
+goes live automatically.
+
+## 3. Keep the free database awake
+Free Supabase databases pause after **7 days** with no activity. Two things prevent this:
+
+1. **Vercel Cron (automatic):** `vercel.json` makes Vercel visit `/api/health` every day.
+   That page runs a tiny database query. Check it under Vercel → your project → **Settings → Cron Jobs**.
+2. **GitHub Action (backup):** `.github/workflows/keep-alive.yml` does the same every 3 days.
+   Turn it on: GitHub repo → **Settings → Secrets and variables → Actions → Variables** →
+   **New repository variable**: `SITE_URL` = your Vercel link (e.g. `https://financechachu.vercel.app`).
+   Test it: **Actions** tab → *Keep database awake* → **Run workflow**.
+
+Note: GitHub turns off scheduled workflows if the repository has no commits for 60 days.
+The Vercel cron keeps working regardless.
+
+If the database ever does pause, open Supabase and click **Restore project**. No data is lost.
 
 ## Checking it works
-- `https://<your-domain>/api/health` should show `{"ok":true}`.
-- If the site doesn't start, open **Deployments → View logs**.
+- `https://<your-site>/api/health` shows `{"ok":true,...}`.
+- Problems? Vercel → your project → **Logs**.
 
 ## Backups
-Your whole database is one file: `/data/app.db`. Railway can back up volumes
-(**Volume → Backups**); turn on daily backups.
+The free Supabase plan has no automatic backups. Until you upgrade, download a copy
+now and then from Supabase → **Database → Backups**, or use *All entries → Download*
+inside the app.
+
+## Your own domain (optional)
+Vercel → project → **Settings → Domains** → add e.g. `financechachu.pk` and follow the instructions.
 
 ## Other hosts
-The `Dockerfile` works on any host that runs Docker (Render, Fly.io, a VPS). Just:
-set `SESSION_SECRET`, attach a persistent disk at `/data`, and expose port `3000`.
+The `Dockerfile` runs anywhere Docker runs (Railway, Render, Fly.io, a VPS). Set `DATABASE_URL`
+and `SESSION_SECRET` and expose port `3000`.

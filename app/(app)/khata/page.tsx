@@ -12,10 +12,10 @@ export const metadata = { title: "Khata" };
 export default async function Khata({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const d = db();
-  const people = khata(d, user.id);
-  const accs = accountsWithBalances(d, user.id);
-  const subs = subcategories(d, user.id);
+  const d = await db();
+  const people = await khata(d, user.id);
+  const accs = await accountsWithBalances(d, user.id);
+  const subs = await subcategories(d, user.id);
   const custSub = subs.find((s) => s.name.startsWith("Customers"));
   const supSub = subs.find((s) => s.name === "Suppliers");
   const id = (name: string) => accs.find((a) => a.name === name)?.id ?? "";

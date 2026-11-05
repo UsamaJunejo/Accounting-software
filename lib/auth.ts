@@ -39,9 +39,10 @@ export async function currentUser(): Promise<User | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret());
-    const u = db()
-      .prepare("SELECT id, name, email, phone, business_name, currency FROM users WHERE id = ?")
-      .get(Number(payload.uid)) as User | undefined;
+    const [u] = await (await db()).q<User>(
+      "SELECT id, name, email, phone, business_name, currency FROM users WHERE id = $1",
+      [Number(payload.uid)],
+    );
     return u ?? null;
   } catch {
     return null;

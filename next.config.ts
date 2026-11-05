@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Creates a small self-contained server in .next/standalone for hosting.
+  // Self-contained server in .next/standalone (used by the Dockerfile; Vercel ignores it).
   output: "standalone",
-  serverExternalPackages: ["node:sqlite"],
+  // Embedded Postgres used for local development only.
+  serverExternalPackages: ["@electric-sql/pglite"],
 };
 
 export default nextConfig;

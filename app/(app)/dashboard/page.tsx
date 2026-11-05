@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountsWithBalances, budgets, categoryTotals, incomeStatement, listTransactions } from "@/lib/books";
+import { accountsWithBalances, budgets, categories, listTransactions, monthlyTotals, summarizeIncome } from "@/lib/books";
 import { money, monthRange, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, LinkButton, Money, PageHeader, TypeBadge } from "@/components/ui";
 import { ExpensePie, MonthlyBars } from "@/components/charts";
@@ -32,21 +32,32 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const [mStart, mEnd] = monthRange();
   const from = sp.from || mStart;
   const to = sp.to || mEnd;
-  const d = db();
+  const d = await db();
 
-  const all = accountsWithBalances(d, user.id, { to });
-  const period = accountsWithBalances(d, user.id, { from, to });
+  const base = new Date(to + "T00:00:00Z");
+  const monthStarts = [5, 4, 3, 2, 1, 0].map((i) => new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - i, 1)));
+  const [bStart, bEnd] = monthRange(today());
+
+  // Load everything in parallel: one round trip each.
+  const [all, period, cats0, monthly, budgetRows, recent] = await Promise.all([
+    accountsWithBalances(d, user.id, { to }),
+    accountsWithBalances(d, user.id, { from, to }),
+    categories(d, user.id),
+    monthlyTotals(d, user.id, monthStarts[0].toISOString().slice(0, 10), monthRange(to)[1]),
+    budgets(d, user.id, bStart, bEnd),
+    listTransactions(d, user.id, { limit: 8 }),
+  ]);
   const sumBy = (rows: typeof all, f: (a: (typeof all)[0]) => boolean) => rows.filter(f).reduce((s, a) => s + a.balance, 0);
 
   const cashBank = sumBy(all, (a) => a.category === "Cash" || a.category === "Bank");
   const receivable = sumBy(all, (a) => a.category === "Receivables");
   const payable = sumBy(all, (a) => a.category === "Payables");
-  const pl = incomeStatement(d, user.id, from, to);
+  const pl = summarizeIncome(period);
 
-  const cats = categoryTotals(d, user.id, { to }).map((c) =>
+  const cats = cats0.map((c) =>
     c.kind === "income" || c.kind === "expense"
       ? { ...c, balance: sumBy(period, (a) => a.category_id === c.id), note: "this period" }
-      : { ...c, note: "balance" },
+      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: "balance" },
   );
 
   const expensePie = period
@@ -57,22 +68,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const rest = expensePie.slice(7).reduce((s, x) => s + x.value, 0);
   if (rest) top.push({ name: "Others", value: rest });
 
-  const months: { month: string; income: number; expense: number }[] = [];
-  const base = new Date(to + "T00:00:00Z");
-  for (let i = 5; i >= 0; i--) {
-    const dt = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - i, 1));
-    const [a, b] = monthRange(dt.toISOString().slice(0, 10));
-    const r = incomeStatement(d, user.id, a, b);
-    months.push({
+  const months = monthStarts.map((dt) => {
+    const m = monthly.get(dt.toISOString().slice(0, 7));
+    return {
       month: dt.toLocaleString("en", { month: "short", timeZone: "UTC" }),
-      income: r.totalIncome / 100,
-      expense: r.totalExpense / 100,
-    });
-  }
-
-  const [bStart, bEnd] = monthRange(today());
-  const budgetRows = budgets(d, user.id, bStart, bEnd);
-  const recent = listTransactions(d, user.id, { limit: 8 });
+      income: (m?.income ?? 0) / 100,
+      expense: (m?.expense ?? 0) / 100,
+    };
+  });
 
   return (
     <>

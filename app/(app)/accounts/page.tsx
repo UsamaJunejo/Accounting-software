@@ -12,10 +12,10 @@ export const metadata = { title: "Accounts" };
 export default async function Accounts({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string; archived?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const d = db();
-  const cats = categories(d, user.id);
-  const subs = subcategories(d, user.id);
-  const accs = accountsWithBalances(d, user.id).filter((a) => sp.archived || !a.archived);
+  const d = await db();
+  const cats = await categories(d, user.id);
+  const subs = await subcategories(d, user.id);
+  const accs = (await accountsWithBalances(d, user.id)).filter((a) => sp.archived || !a.archived);
 
   return (
     <>

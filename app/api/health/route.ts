@@ -3,8 +3,13 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-// Used by the hosting service to check the site is alive.
-export function GET() {
-  db().prepare("SELECT 1").get();
-  return NextResponse.json({ ok: true });
+// Used to check the site is alive. It also runs a tiny database query, which keeps
+// the free Supabase database from pausing (see vercel.json and .github/workflows).
+export async function GET() {
+  try {
+    await (await db()).q("SELECT 1");
+    return NextResponse.json({ ok: true, time: new Date().toISOString() });
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 503 });
+  }
 }

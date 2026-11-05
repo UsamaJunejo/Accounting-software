@@ -17,11 +17,11 @@ export default async function EditAccount({
   const user = await requireUser();
   const { id } = await params;
   const sp = await searchParams;
-  const d = db();
-  const a = accountsWithBalances(d, user.id).find((x) => x.id === Number(id));
+  const d = await db();
+  const a = (await accountsWithBalances(d, user.id)).find((x) => x.id === Number(id));
   if (!a) notFound();
-  const cats = categories(d, user.id);
-  const subs = subcategories(d, user.id);
+  const cats = await categories(d, user.id);
+  const subs = await subcategories(d, user.id);
 
   return (
     <>

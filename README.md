@@ -18,29 +18,30 @@ customers and suppliers, and see profit, balance sheet and reports. All amounts 
 ### Better than the original
 - Real double-entry accounting underneath, so the Balance Sheet always balances (checked automatically).
 - Money stored in paisa (whole numbers), so totals never have rounding errors.
+- Runs on Postgres (Supabase), with the database locked against public API access.
 - Deleted entries can be restored, and every add/edit/delete is logged.
 - Ready-made Pakistani accounts: JazzCash, Easypaisa, Sales Tax Payable, Khata, etc.
 - Khata with WhatsApp balance reminders.
 - Works well on phones; every report prints or saves as PDF.
 
-## Run it
+## Run it on your computer
 
-Needs Node.js 22.13 or newer.
+Needs Node.js 22 or newer. No database setup needed: a built-in Postgres stores data in `./data/pglite`.
 
 ```bash
 npm install
-cp .env.example .env      # then set SESSION_SECRET to a long random string
 npm run dev               # http://localhost:3000
 ```
 
-Production: `npm run build && npm start`, or see **DEPLOY.md** to put it online. Data is kept in one SQLite file (`data/app.db`,
-or `DATABASE_PATH`). Back up that file to back up everything.
-
 Tests: `npm test`
+
+## Put it online
+Free with **Vercel + Supabase**. Step-by-step: see **[DEPLOY.md](DEPLOY.md)**.
+Includes an automatic daily "ping" so the free database never pauses.
 
 ## Code map
 - `lib/books.ts`: all accounting rules (balances, reports, entries). Start here.
-- `lib/db.ts`: database tables.
+- `lib/db.ts`: database tables and connection (Supabase Postgres, or built-in for local use).
 - `lib/auth.ts`: login sessions.
 - `app/(app)/*`: the pages you see after logging in.
 - `app/actions/*`: what happens when a form is submitted.

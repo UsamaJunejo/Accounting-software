@@ -12,7 +12,7 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
   const user = await requireUser();
   const sp = await searchParams;
   const date = sp.date || today();
-  const r = balanceSheet(db(), user.id, date);
+  const r = await balanceSheet(await db(), user.id, date);
   return (
     <>
       <PageHeader title="Balance Sheet" subtitle={`${user.business_name || user.name} · as of ${prettyDate(date)}`} actions={<PrintButton />} />

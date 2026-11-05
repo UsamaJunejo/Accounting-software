@@ -16,8 +16,8 @@ export default async function Ledger({ searchParams }: { searchParams: Promise<{
   const to = sp.to || today();
   const from = sp.from || "2000-01-01";
   const sort = sp.sort && SORTS[sp.sort] ? sp.sort : "name";
-  const d = db();
-  let rows = accountsWithBalances(d, user.id, { from, to }).filter((a) => !a.archived);
+  const d = await db();
+  let rows = (await accountsWithBalances(d, user.id, { from, to })).filter((a) => !a.archived);
   if (sp.hideZero) rows = rows.filter((r) => r.money_in || r.money_out);
   const cmp = sort === "high" ? (a: (typeof rows)[0], b: (typeof rows)[0]) => b.balance - a.balance
     : sort === "low" ? (a: (typeof rows)[0], b: (typeof rows)[0]) => a.balance - b.balance
@@ -43,7 +43,7 @@ export default async function Ledger({ searchParams }: { searchParams: Promise<{
           </>
         }
       />
-      {categories(d, user.id).map((c) => {
+      {(await categories(d, user.id)).map((c) => {
         const r = rows.filter((x) => x.category_id === c.id).sort(cmp);
         if (!r.length) return null;
         return (
