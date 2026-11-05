@@ -97,7 +97,9 @@ import { money, toPaisa, monthRange } from "../lib/format.ts";
 
 test("money formatting and parsing", async () => {
   assert.equal(money(12345678), "123,456.78");
-  assert.equal(money(-150000), "(1,500.00)");
+  assert.equal(money(-150000), "−1,500.00");
+  assert.equal(money(-150000, { brackets: true }), "(1,500.00)");
+  assert.equal(money(12345678, { style: "lakh" }), "1,23,456.78");
   assert.equal(toPaisa("1,500.5"), 150050);
   assert.ok(Number.isNaN(toPaisa("abc")));
   assert.ok(Number.isNaN(toPaisa("-5")));
@@ -145,4 +147,12 @@ test("only the first user becomes admin", async () => {
   const other = await createUser(d, { name: "B", email: "b2@example.com", passwordHash: "x" });
   const rows = await d.q<{ id: number; is_admin: boolean }>("SELECT id, is_admin FROM users ORDER BY id");
   assert.deepEqual(rows, [{ id: uid, is_admin: true }, { id: other, is_admin: false }]);
+});
+
+import { friendlyDate } from "../lib/format.ts";
+test("friendly dates", () => {
+  assert.equal(friendlyDate("2026-05-10", "2026-05-10"), "Today");
+  assert.equal(friendlyDate("2026-05-09", "2026-05-10"), "Yesterday");
+  assert.equal(friendlyDate("2026-03-02", "2026-05-10"), "2 Mar");
+  assert.equal(friendlyDate("2025-12-31", "2026-05-10"), "31 Dec 2025");
 });

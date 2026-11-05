@@ -1,9 +1,17 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Eraser, FileText, Save, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check, Eraser, FileText, Save, Trash2, type LucideIcon } from "lucide-react";
+import { DateField } from "@/components/date-field";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountsWithBalances, getTransaction, listAttachments, listTransactions, MAX_ATTACHMENTS, projects, type TxnType } from "@/lib/books";
+import { accountsWithBalances, getTransaction, lastAccounts, listAttachments, listTransactions, MAX_ATTACHMENTS, projects, type TxnType } from "@/lib/books";
+
+// What the two account boxes are called, in plain words, for each kind of entry.
+const LABELS: Record<TxnType, [string, string]> = {
+  payment: ["Paid from", "Paid for / to"],
+  receipt: ["Received from", "Received into"],
+  transfer: ["Move from", "Move to"],
+};
 import { deleteAttachment, saveTransaction } from "@/app/actions/books";
 import { MoneyFields } from "@/components/money-fields";
 import { getT } from "@/lib/lang";
@@ -47,8 +55,10 @@ export default async function Voucher({
   const cash = accounts.find((a) => a.category === "Cash")?.id;
   const bank = accounts.find((a) => a.category === "Bank")?.id;
   const pre = (v?: string) => (v && accounts.some((a) => a.id === Number(v)) ? Number(v) : undefined);
-  const defFrom = editing?.from_account_id ?? pre(sp.from) ?? (type === "payment" || type === "transfer" ? cash : undefined);
-  const defTo = editing?.to_account_id ?? pre(sp.to) ?? (type === "receipt" ? cash : type === "transfer" ? bank : undefined);
+  // Start from what the user picked last time for this kind of entry.
+  const last = editing ? undefined : await lastAccounts(d, user.id, type);
+  const defFrom = editing?.from_account_id ?? pre(sp.from) ?? pre(String(last?.from_account_id ?? "")) ?? (type === "payment" || type === "transfer" ? cash : undefined);
+  const defTo = editing?.to_account_id ?? pre(sp.to) ?? (type === "receipt" ? pre(String(last?.to_account_id ?? "")) ?? cash : type === "transfer" ? pre(String(last?.to_account_id ?? "")) ?? bank : undefined);
   const [recent, projectList, existing] = await Promise.all([
     listTransactions(d, user.id, { type, limit: 10 }),
     projects(d, user.id),
@@ -83,10 +93,7 @@ export default async function Voucher({
           foreignAmount={editing?.foreign_amount ? (editing.foreign_amount / 100).toFixed(2) : ""}
           rate={editing?.rate ? String(editing.rate) : ""}
         />
-        <div>
-          <label className="label">{t("Date")}</label>
-          <input type="date" name="date" required defaultValue={editing?.date ?? today()} className="input" />
-        </div>
+        <DateField defaultValue={editing?.date ?? today()} label={t("Date")} />
         <div>
           <label className="label">{t("Project (optional)")}</label>
           <select name="project" defaultValue={editing?.project_id ?? ""} className="input">
@@ -97,11 +104,11 @@ export default async function Voucher({
           </select>
         </div>
         <div>
-          <label className="label">{t(type === "receipt" ? "Received from" : "From (money leaves)")}</label>
+          <label className="label">{t(LABELS[type][0])}</label>
           <AccountSelect name="from" accounts={accounts} value={defFrom} />
         </div>
         <div>
-          <label className="label">{t(type === "payment" ? "Paid to / for" : "To (money goes into)")}</label>
+          <label className="label">{t(LABELS[type][1])}</label>
           <AccountSelect name="to" accounts={accounts} value={defTo} />
         </div>
         <div className="sm:col-span-2">
@@ -149,7 +156,14 @@ export default async function Voucher({
           ) : (
             <button type="reset" className="btn-ghost"><Eraser className="h-4 w-4" />{t("Clear")}</button>
           )}
-          <button className="btn-primary px-8"><Save className="h-4 w-4" />{t(editing ? "Save changes" : "Save")}</button>
+          {editing ? (
+            <button className="btn-primary px-8"><Save className="h-4 w-4" />{t("Save changes")}</button>
+          ) : (
+            <>
+              <button name="next" value="close" className="btn-ghost"><Check className="h-4 w-4" />{t("Save & close")}</button>
+              <button name="next" value="again" className="btn-primary px-6"><Save className="h-4 w-4" />{t("Save & add another")}</button>
+            </>
+          )}
         </div>
         <p className="text-xs text-muted sm:col-span-2">
           {t("Can't find the account?")} <Link href="/accounts" className="font-semibold text-brand">{t("Add it here")}</Link>.

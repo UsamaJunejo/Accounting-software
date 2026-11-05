@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { db } from "./db.ts";
 import { planOf, type Plan } from "./billing.ts";
-import { today } from "./format.ts";
+import { numberStyle, today } from "./format.ts";
 
 const COOKIE = "session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -57,6 +57,7 @@ export type User = {
   trial_end: string | null;
   paid_until: string | null;
   plan: Plan;
+  num_format: "intl" | "lakh";
 };
 
 // Cached per request so the layout and page share one lookup.
@@ -70,11 +71,12 @@ export const currentUser = cache(async (): Promise<User | null> => {
               recovery_hash IS NOT NULL AS has_recovery, session_version, level, address, ntn,
               nok_name, nok_relation, nok_phone, nok_email,
               to_char(trial_ends_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD') AS trial_end,
-              to_char(paid_until, 'YYYY-MM-DD') AS paid_until
+              to_char(paid_until, 'YYYY-MM-DD') AS paid_until, num_format
        FROM users WHERE id = $1`,
       [Number(payload.uid)],
     );
     if (!u || u.session_version !== Number(payload.sv ?? 1)) return null;
+    numberStyle().v = u.num_format;
     return { ...u, plan: planOf(u, today()) };
   } catch {
     return null;

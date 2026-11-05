@@ -61,3 +61,19 @@ export function defaultIconKey(name = "", kind = "") {
 export function colorAt(index: number) {
   return CATEGORY_COLORS[index % CATEGORY_COLORS.length] ?? OTHER_COLOR;
 }
+
+/** Plain-language names for the standard categories (the accounting word is shown as a hint elsewhere). */
+const FRIENDLY: Record<string, string> = {
+  receivables: "Customers owe you",
+  payables: "You owe suppliers",
+  liabilities: "Loans & dues",
+  equity: "Owner's money",
+  assets: "Things you own",
+};
+export function friendlyCategory(name: string) {
+  return FRIENDLY[name.toLowerCase()] ?? name;
+}
+/** The accounting term, shown small under a friendly name. */
+export function accountingTerm(name: string) {
+  return FRIENDLY[name.toLowerCase()] ? name : null;
+}

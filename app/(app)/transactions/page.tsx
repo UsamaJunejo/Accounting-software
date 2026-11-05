@@ -89,7 +89,7 @@ export default async function Transactions({
         <div className="card p-3"><div className="text-muted">Transfers</div><div className="font-bold">{money(total("transfer"))}</div></div>
       </div>
       <div className="card overflow-hidden">
-        <TxnTable rows={rows} back={`/transactions?${qs}`} />
+        <TxnTable rows={rows} back={`/transactions?${qs}`} groupByDay />
       </div>
     </>
   );

@@ -62,7 +62,14 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
                 {r.phone && <div className="text-xs text-muted">{r.phone}</div>}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Money value={r.balance} className="mr-2 font-bold" />
+                <span className="me-2 text-end">
+                  <Money value={Math.abs(r.balance)} className="font-bold" />
+                  {r.balance !== 0 && (
+                    <span className={`block text-xs ${(r.category === "Receivables") === r.balance > 0 ? "text-inflow" : "text-khata"}`}>
+                      {(r.category === "Receivables") === r.balance > 0 ? t("You'll get") : t("You'll give")}
+                    </span>
+                  )}
+                </span>
                 {r.phone && (
                   <a
                     href={`https://wa.me/${r.phone.replace(/\D/g, "").replace(/^0/, "92")}?text=${encodeURIComponent(`Assalam-o-Alaikum ${r.name}, your balance with ${user.business_name || user.name} is ${currencySymbol(user.currency)} ${money(Math.abs(r.balance))}. Thank you.`)}`}

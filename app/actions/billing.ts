@@ -17,7 +17,7 @@ async function run(path: string, fn: () => Promise<unknown>, ok: string) {
     error = e instanceof Error ? e.message : "Something went wrong";
   }
   revalidatePath("/", "layout");
-  redirect(`${path}${path.includes("?") ? "&" : "?"}${error ? `error=${encodeURIComponent(error)}` : `ok=${encodeURIComponent(ok)}`}`);
+  redirect(`${path}${path.includes("?") ? "&" : "?"}${error ? `n=${Date.now()}&error=${encodeURIComponent(error)}` : `n=${Date.now()}&ok=${encodeURIComponent(ok)}`}`);
 }
 
 // Paying is allowed even when the plan has run out (that's the point), so this uses requireUser.

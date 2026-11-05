@@ -44,3 +44,12 @@ test("reminders don't add by themselves; Add now and Skip work", async () => {
   await assert.rejects(() => postReminder(d, other, id));
   await assert.rejects(() => addSchedule(d, other, { type: "payment", amount: 1, fromAccountId: acc("Cash"), toAccountId: acc("Rent"), frequency: "monthly", startDate: "2026-05-10", auto: true }));
 });
+
+import { getNotifications, urgentCount } from "../lib/notifications.ts";
+test("bell count matches the urgent notifications", async () => {
+  const { d, uid, acc } = await setup();
+  await addSchedule(d, uid, { type: "payment", amount: 500, fromAccountId: acc("Cash"), toAccountId: acc("Electricity"), frequency: "monthly", startDate: "2026-05-01", auto: false });
+  const list = await getNotifications(d, uid, "2026-05-02");
+  assert.equal(await urgentCount(d, uid, "2026-05-02", false), list.filter((n) => n.urgent).length);
+  assert.equal(await urgentCount(d, uid, "2026-05-02", false), 1);
+});

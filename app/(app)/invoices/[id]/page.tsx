@@ -13,6 +13,7 @@ import { Flash, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { InvoiceView } from "@/components/invoice-view";
 import { CodeBox } from "@/components/code-box";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
   const user = await requireUser();
@@ -41,7 +42,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             {!inv.cancelled && (
               <form action={cancelInvoice}>
                 <input type="hidden" name="id" value={inv.id} />
-                <button className="btn-danger"><Ban className="h-4 w-4" />Cancel invoice</button>
+                <ConfirmButton className="btn-danger" message={`Cancel invoice #${inv.number}? Its entries (and any payments on it) are removed from your books.`} confirmLabel="Cancel invoice"><Ban className="h-4 w-4" />Cancel invoice</ConfirmButton>
               </form>
             )}
           </>

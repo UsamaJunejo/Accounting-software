@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, subcategories } from "@/lib/books";
 import { categoryColorMap } from "@/lib/palette";
-import { colorAt, defaultIconKey } from "@/lib/look";
+import { colorAt, defaultIconKey, friendlyCategory } from "@/lib/look";
 import { currencySymbol } from "@/lib/currencies";
 import { Flash, Money, PageHeader } from "@/components/ui";
 import { CategoryBadge } from "@/components/icons";
@@ -39,7 +39,7 @@ export default async function SubcategoryPage({ params, searchParams }: { params
 
   return (
     <>
-      <Crumbs items={[{ href: "/accounts", label: "Accounts" }, { href: `/accounts/category/${cat.id}`, label: cat.name }, { label: sub.name }]} />
+      <Crumbs items={[{ href: "/accounts", label: "Accounts" }, { href: `/accounts/category/${cat.id}`, label: friendlyCategory(cat.name) }, { label: sub.name }]} />
       <PageHeader
         title={sub.name}
         subtitle={`${mine.length} ${mine.length === 1 ? "account" : "accounts"} in ${cat.name}`}

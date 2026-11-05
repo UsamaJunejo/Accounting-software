@@ -1,5 +1,6 @@
 "use client";
 
+import { useNumFormat } from "@/components/num-format";
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
@@ -22,7 +23,16 @@ const short = (v: number) => {
   if (a >= 1_000) return `${(v / 1_000).toFixed(0)}k`;
   return String(Math.round(v));
 };
-const full = (v: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigits: 0 }).format(v);
+const FULL = {
+  intl: new Intl.NumberFormat("en-PK", { maximumFractionDigits: 0 }),
+  lakh: new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }),
+};
+let fmtNow: "intl" | "lakh" = "intl";
+const full = (v: number) => FULL[fmtNow].format(v);
+/** Charts read the user's number style from the layout. */
+function useFmt() {
+  fmtNow = useNumFormat();
+}
 const day = (iso: string) => new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 type TipItem = { dataKey?: string | number; name?: string; value?: number | string; color?: string };
@@ -65,6 +75,7 @@ export function BalanceLine({
   name?: string;
   empty?: string;
 }) {
+  useFmt();
   if (!data.length) return <Empty text={empty} />;
   const pts = data.map((d) => ({ date: d.date, balance: d.balance / 100 }));
   const min = Math.min(...pts.map((p) => p.balance));
@@ -94,6 +105,7 @@ export function InOutBars({
   cur: string;
   labels?: { in: string; out: string };
 }) {
+  useFmt();
   const pts = data.map((d) => ({ label: d.label, in: d.in / 100, out: d.out / 100 }));
   return (
     <div>
@@ -131,6 +143,7 @@ export function RankedBars({
   empty?: string;
   color?: string;
 }) {
+  useFmt();
   if (!data.length) return <Empty text={empty} />;
   const pts = data.map((d) => ({ name: d.name, value: d.value / 100 }));
   const height = Math.max(120, pts.length * 34 + 24);
@@ -161,6 +174,7 @@ type Slice = { name: string; value: number; color: string };
 /** Donut: what you own, split by category. Each slice keeps its category's colour, and a legend
  *  with names and amounts sits beside it, so identity never depends on colour alone. */
 export function CategoryDonut({ data, cur, empty = "Nothing to show yet.", label = "Share by category" }: { data: Slice[]; cur: string; empty?: string; label?: string }) {
+  useFmt();
   const rows = data.filter((d) => d.value > 0);
   if (!rows.length) return <Empty text={empty} />;
   const total = rows.reduce((s, d) => s + d.value, 0);
@@ -197,6 +211,7 @@ export function CategoryDonut({ data, cur, empty = "Nothing to show yet.", label
 
 /** Bars per category, above or below zero, each in its category colour (MunshiBaba's bar graph). */
 export function CategoryBars({ data, cur }: { data: Slice[]; cur: string }) {
+  useFmt();
   const pts = data.map((d) => ({ ...d, value: d.value / 100 }));
   const hasNeg = pts.some((d) => d.value < 0);
   return (

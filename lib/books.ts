@@ -303,6 +303,7 @@ async function validate(d: Db, userId: number, t: TxnInput) {
   if (!["payment", "receipt", "transfer"].includes(t.type)) throw new Error("Invalid entry type");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || Number.isNaN(Date.parse(t.date))) throw new Error("Invalid date");
   if (!Number.isSafeInteger(t.amount) || t.amount <= 0) throw new Error("Amount must be more than zero");
+  if (!t.fromAccountId || !t.toAccountId) throw new Error("Choose both accounts: where the money came from and where it went");
   if (t.fromAccountId === t.toAccountId) throw new Error("'From' and 'To' must be different accounts");
   await own(d, "accounts", t.fromAccountId, userId);
   await own(d, "accounts", t.toAccountId, userId);
@@ -749,4 +750,59 @@ export async function cashBankDaily(d: Db, userId: number, from: string, to: str
     days.push({ date, inflow: r?.i ?? 0, outflow: r?.o ?? 0, balance });
   }
   return { opening, days };
+}
+
+// ---------- Helpers for the entry form ----------
+
+/** How often each account was used recently, so the picker can show favourites first. */
+export async function accountUsage(d: Db, userId: number) {
+  const rows = await d.q<{ id: number; n: number }>(
+    `SELECT id, COUNT(*)::int AS n FROM (
+       SELECT from_account_id AS id FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND created_at > now() - interval '180 days'
+       UNION ALL
+       SELECT to_account_id FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND created_at > now() - interval '180 days'
+     ) x GROUP BY id`,
+    [userId],
+  );
+  return new Map(rows.map((r) => [r.id, r.n]));
+}
+
+/** The accounts used in the user's last entry of this type, to pre-fill the next one. */
+export async function lastAccounts(d: Db, userId: number, type: TxnType) {
+  const [r] = await d.q<{ from_account_id: number; to_account_id: number }>(
+    "SELECT from_account_id, to_account_id FROM transactions WHERE user_id = $1 AND type = $2 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",
+    [userId, type],
+  );
+  return r;
+}
+
+// ---------- Shareable statement links (for customers / suppliers) ----------
+
+export async function statementLink(d: Db, userId: number, accountId: number, on: boolean) {
+  await own(d, "accounts", accountId, userId);
+  if (!on) {
+    await d.q("UPDATE accounts SET share_token = NULL WHERE id = $1", [accountId]);
+    return null;
+  }
+  const { randomBytes } = await import("node:crypto");
+  const [r] = await d.q<{ share_token: string }>(
+    "UPDATE accounts SET share_token = COALESCE(share_token, $2) WHERE id = $1 RETURNING share_token",
+    [accountId, randomBytes(18).toString("base64url")],
+  );
+  return r.share_token;
+}
+
+export async function accountByToken(d: Db, token: string) {
+  if (!/^[\w-]{20,40}$/.test(token)) return undefined;
+  const [r] = await d.q<{ id: number; user_id: number; business: string; phone: string | null; currency: string; num_format: "intl" | "lakh" }>(
+    `SELECT a.id, a.user_id, COALESCE(u.business_name, u.name) AS business, u.phone, u.currency, u.num_format
+     FROM accounts a JOIN users u ON u.id = a.user_id WHERE a.share_token = $1`,
+    [token],
+  );
+  return r;
+}
+
+export async function shareTokenOf(d: Db, userId: number, accountId: number) {
+  const [r] = await d.q<{ share_token: string | null }>("SELECT share_token FROM accounts WHERE id = $1 AND user_id = $2", [accountId, userId]);
+  return r?.share_token ?? null;
 }

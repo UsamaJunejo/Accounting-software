@@ -19,8 +19,11 @@ async function run(path: string, fn: (uid: number) => Promise<unknown>, ok: stri
     error = e instanceof Error ? e.message : "Something went wrong";
   }
   revalidatePath("/", "layout");
-  const sep = path.includes("?") ? "&" : "?";
-  redirect(`${path}${sep}${error ? `error=${encodeURIComponent(error)}` : `ok=${encodeURIComponent(ok)}`}`);
+  // The message goes before any "#section" part of the address, or the page would never see it.
+  const [base, hash] = path.split("#");
+  const sep = base.includes("?") ? "&" : "?";
+  const msg = error ? `error=${encodeURIComponent(error)}` : `ok=${encodeURIComponent(ok)}`;
+  redirect(`${base}${sep}n=${Date.now()}&${msg}${hash ? `#${hash}` : ""}`);
 }
 
 export async function shareAccount(form: FormData) {

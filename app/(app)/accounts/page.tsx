@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories } from "@/lib/books";
 import { categoryColorMap } from "@/lib/palette";
-import { colorAt } from "@/lib/look";
+import { accountingTerm, colorAt, friendlyCategory } from "@/lib/look";
 import { currencySymbol } from "@/lib/currencies";
 import { Flash, PageHeader } from "@/components/ui";
 import { DrillCharts, DrillTiles, type DrillItem } from "@/components/drill";
@@ -52,12 +52,12 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     return {
       key: String(c.id),
       href: `/accounts/category/${c.id}`,
-      name: c.name,
+      name: friendlyCategory(c.name),
       balance: mine.reduce((s, a) => s + a.balance, 0),
       color: colors.get(c.id) ?? colorAt(i),
       icon: c.icon,
       kind: c.kind,
-      note: `${mine.length} ${mine.length === 1 ? "account" : "accounts"}`,
+      note: [accountingTerm(c.name), `${mine.length} ${mine.length === 1 ? "account" : "accounts"}`].filter(Boolean).join(" | "),
     };
   });
   const balanceSheet = items.filter((i) => i.kind !== "income" && i.kind !== "expense");

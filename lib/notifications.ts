@@ -60,3 +60,24 @@ export async function getNotifications(d: Db, userId: number, today: string, isA
     out.push({ key: `pd${p.id}`, kind: "billing", urgent: false, title: p.status === "approved" ? `Payment approved: ${p.months} ${p.months === 1 ? "month" : "months"} added` : "Payment not approved", detail: p.status === "approved" ? "Thank you!" : p.note || "Please contact support", href: "/billing" });
   return out;
 }
+
+/** Just the number on the bell, in one quick query (the full list is built on the Notifications page). */
+export async function urgentCount(d: Db, userId: number, today: string, isAdmin: boolean) {
+  const [mStart, mEnd] = monthRange(today);
+  const [r] = await d.q<{ n: number }>(
+    `SELECT
+       (SELECT COUNT(*) FROM shared_entries e JOIN shares s ON s.id = e.share_id WHERE s.owner_id = $1 AND e.status = 'pending')
+     + (SELECT COUNT(*) FROM shares WHERE user_id = $1 AND status = 'pending')
+     + (SELECT COUNT(*) FROM schedules WHERE user_id = $1 AND active AND NOT auto AND next_date <= $2::date)
+     + (SELECT COUNT(*) FROM invoices i WHERE i.user_id = $1 AND NOT i.cancelled AND i.due_date < $2::date
+          AND i.total > COALESCE((SELECT SUM(p.amount) FROM invoice_payments p LEFT JOIN transactions t ON t.id = p.transaction_id
+                                  WHERE p.invoice_id = i.id AND (p.transaction_id IS NULL OR t.deleted_at IS NULL)), 0))
+     + (SELECT COUNT(*) FROM accounts a WHERE a.user_id = $1 AND a.budget_monthly IS NOT NULL AND a.budget_monthly <
+          COALESCE((SELECT SUM(amount) FROM transactions WHERE to_account_id = a.id AND deleted_at IS NULL AND date BETWEEN $3::date AND $4::date), 0)
+          - COALESCE((SELECT SUM(amount) FROM transactions WHERE from_account_id = a.id AND deleted_at IS NULL AND date BETWEEN $3::date AND $4::date), 0))
+     + (CASE WHEN $5::bool THEN (SELECT COUNT(*) FROM subscription_payments WHERE status = 'pending') ELSE 0 END)
+     AS n`,
+    [userId, today, mStart, mEnd, isAdmin],
+  );
+  return Number(r.n);
+}

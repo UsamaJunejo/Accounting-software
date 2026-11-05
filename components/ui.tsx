@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Inbox } from "lucide-react";
 import { money } from "@/lib/format";
+import { cache } from "react";
 import { currentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { accountUsage } from "@/lib/books";
+import { friendlyCategory } from "@/lib/look";
+import { AccountPicker, type PickerOption } from "@/components/account-picker";
+import { PeriodSelect } from "@/components/period-select";
+import { today as todayIso } from "@/lib/format";
 import { getT } from "@/lib/lang";
 import type { AccountRow } from "@/lib/books";
 
@@ -17,11 +24,8 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   );
 }
 
-export function Flash({ sp }: { sp: { error?: string; ok?: string } }) {
-  if (sp.error)
-    return <div className="mb-4 rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">{sp.error}</div>;
-  if (sp.ok)
-    return <div className="mb-4 rounded-lg border border-ledger/30 bg-ledger-soft px-4 py-3 text-sm text-ledger">{sp.ok}</div>;
+/** Messages are now shown as fading pop-ups by <Toaster /> in the layout; this stays for older pages. */
+export function Flash(_: { sp: { error?: string; ok?: string } }) {
   return null;
 }
 
@@ -30,12 +34,13 @@ export function Money({ value, className = "" }: { value: number; className?: st
 }
 
 /** Account dropdown grouped by category, the way users think about them. */
-/** Account dropdown. Grouped by category, except in the Simple (1-level) view. */
+const usageFor = cache(async (userId: number) => accountUsage(await db(), userId));
+
+/** Account chooser: searchable, most-used first, grouped by category (flat in the Simple view). */
 export async function AccountSelect({
   name,
   accounts,
   value,
-  required = true,
   placeholder,
 }: {
   name: string;
@@ -44,50 +49,26 @@ export async function AccountSelect({
   required?: boolean;
   placeholder?: string;
 }) {
-  const level = (await currentUser())?.level ?? 3;
-  placeholder = placeholder ?? (await getT())("Select account");
+  const user = await currentUser();
+  const level = user?.level ?? 3;
+  const t = await getT();
+  const uses = user ? await usageFor(user.id) : new Map<number, number>();
   const visible = accounts.filter((a) => !a.archived || a.id === value);
-  if (level === 1)
-    return (
-      <select name={name} defaultValue={value ?? ""} required={required} className="input">
-        <option value="" disabled>{placeholder}</option>
-        {[...visible].sort((a, b) => a.name.localeCompare(b.name)).map((a) => (
-          <option key={a.id} value={a.id}>{a.name}</option>
-        ))}
-      </select>
-    );
-  const groups = new Map<string, AccountRow[]>();
-  for (const a of visible) groups.set(a.category, [...(groups.get(a.category) ?? []), a]);
-  return (
-    <select name={name} defaultValue={value ?? ""} required={required} className="input">
-      <option value="" disabled>
-        {placeholder}
-      </option>
-      {[...groups].map(([cat, accs]) => (
-        <optgroup key={cat} label={cat}>
-          {accs.map((a) => (
-            <option key={a.id} value={a.id}>
-              {level === 3 ? `${a.name} — ${a.subcategory}` : a.name}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  );
+  const options: PickerOption[] = (level === 1 ? [...visible].sort((a, b) => a.name.localeCompare(b.name)) : visible).map((a) => ({
+    id: a.id,
+    name: a.name,
+    group: level === 1 ? "All accounts" : friendlyCategory(a.category),
+    hint: level === 3 ? a.subcategory : undefined,
+    uses: uses.get(a.id) ?? 0,
+  }));
+  return <AccountPicker name={name} options={options} value={value} placeholder={placeholder ?? t("Select account")} />;
 }
 
 export async function DateRange({ from, to, extra }: { from: string; to: string; extra?: React.ReactNode }) {
   const t = await getT();
   return (
     <form className="card no-print mb-5 flex flex-wrap items-end gap-3 p-4">
-      <div>
-        <label className="label">{t("From")}</label>
-        <input type="date" name="from" defaultValue={from} className="input" />
-      </div>
-      <div>
-        <label className="label">{t("To")}</label>
-        <input type="date" name="to" defaultValue={to} className="input" />
-      </div>
+      <PeriodSelect from={from} to={to} today={todayIso()} />
       {extra}
       <button className="btn-dark">{t("Show")}</button>
     </form>

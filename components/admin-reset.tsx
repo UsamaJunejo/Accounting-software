@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { KeyRound } from "lucide-react";
 import { adminResetPassword, type AdminState } from "@/app/actions/auth";
 import { CodeBox } from "@/components/code-box";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export function AdminReset({ id, name, phone }: { id: number; name: string; phone: string | null }) {
   const [state, action, pending] = useActionState<AdminState, FormData>(adminResetPassword, {});
@@ -25,18 +26,13 @@ export function AdminReset({ id, name, phone }: { id: number; name: string; phon
     );
   }
   return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (!confirm(`Reset the password for ${name}? Their current password will stop working.`)) e.preventDefault();
-      }}
-    >
+    <form action={action}>
       <input type="hidden" name="id" value={id} />
       {state.error && <p className="mb-1 text-xs text-khata">{state.error}</p>}
-      <button className="btn-ghost text-xs" disabled={pending}>
+      <ConfirmButton className="btn-ghost text-xs" message={`Reset the password for ${name}? Their current password will stop working.`} confirmLabel="Reset password">
         <KeyRound className="h-4 w-4" />
-        Reset password
-      </button>
+        {pending ? "Resetting…" : "Reset password"}
+      </ConfirmButton>
     </form>
   );
 }

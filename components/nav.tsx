@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Logo } from "@/components/logo";
 import {
   CalendarClock,
@@ -27,6 +27,13 @@ const ITEMS = [
 export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boolean; badge?: number; labels?: Record<string, string> }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  // The phone bottom bar's "More" button opens this menu.
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("open-menu", show);
+    return () => window.removeEventListener("open-menu", show);
+  }, []);
+  useEffect(() => setOpen(false), [path]);
   const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", Icon: ShieldCheck }] : ITEMS;
   const links = items.map(({ href, label, Icon }) => {
     const active = path === href || path.startsWith(href + "/");
@@ -54,7 +61,7 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         {!open && badge > 0 && <span className="absolute end-1 top-1 h-2.5 w-2.5 rounded-full bg-khata" />}
       </button>
-      {open && <nav className="glass-nav no-print absolute inset-x-0 top-14 z-20 space-y-0.5 p-3 shadow-lg lg:hidden">{links}</nav>}
+      {open && <nav className="glass-nav no-print fixed inset-x-0 bottom-0 top-14 z-50 space-y-0.5 overflow-y-auto p-3 pb-24 shadow-lg lg:hidden">{links}</nav>}
       <aside className="glass-nav no-print fixed inset-y-0 start-0 z-40 hidden w-60 flex-col border-e border-nav-border lg:flex">
         <Link href="/dashboard" className="flex h-14 items-center px-5 text-lg text-nav-logo">
           <Logo dark />

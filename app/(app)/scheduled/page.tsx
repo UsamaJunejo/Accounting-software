@@ -6,6 +6,7 @@ import { FREQ_LABEL, listSchedules } from "@/lib/schedules";
 import { addSchedule, deleteSchedule, toggleSchedule } from "@/app/actions/schedules";
 import { money, prettyDate, today } from "@/lib/format";
 import { AccountSelect, Empty, Flash, PageHeader, TypeBadge } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export const metadata = { title: "Scheduled entries" };
 
@@ -93,7 +94,7 @@ export default async function Scheduled({ searchParams }: { searchParams: Promis
                     </form>
                     <form action={deleteSchedule} className="inline">
                       <input type="hidden" name="id" value={r.id} />
-                      <button className="inline-flex rounded-md p-1.5 text-khata hover:bg-khata-soft" title="Delete" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                      <ConfirmButton className="inline-flex rounded-md p-2 text-khata hover:bg-khata-soft" message="Delete this scheduled entry? Entries already added stay in your books." confirmLabel="Delete"><Trash2 className="h-4 w-4" /><span className="sr-only">Delete</span></ConfirmButton>
                     </form>
                   </td>
                 </tr>

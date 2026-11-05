@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { accountsWithBalances, categories, subcategories } from "@/lib/books";
 import { deleteAccount, updateAccount } from "@/app/actions/books";
 import { Flash, PageHeader } from "@/components/ui";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export default async function EditAccount({
   params,
@@ -63,7 +64,7 @@ export default async function EditAccount({
       </form>
       <form action={deleteAccount} className="max-w-2xl">
         <input type="hidden" name="id" value={a.id} />
-        <button className="btn-danger"><Trash2 className="h-4 w-4" />Delete account</button>
+        <ConfirmButton className="btn-danger" message={`Delete the account "${a.name}"? This cannot be undone.`} confirmLabel="Delete"><Trash2 className="h-4 w-4" />Delete account</ConfirmButton>
         <p className="mt-1 text-xs text-muted">Only possible if it has no entries. Otherwise archive it.</p>
       </form>
     </>

@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { MessageCircle, Pencil, Share2 } from "lucide-react";
 import { sharesOfAccount } from "@/lib/sharing";
+import { headers } from "next/headers";
+import { friendlyCategory } from "@/lib/look";
+import { setStatementLink } from "@/app/actions/books";
 import { currencySymbol } from "@/lib/currencies";
 import { removeShare, shareAccount } from "@/app/actions/sharing";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountStatement } from "@/lib/books";
+import { accountStatement, shareTokenOf } from "@/lib/books";
 import { money, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, Flash, LinkButton, Money, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { BalanceLine } from "@/components/charts";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export default async function Statement({
   params,
@@ -34,15 +38,22 @@ export default async function Statement({
   const a = s.account;
   const isParty = a.category === "Receivables" || a.category === "Payables";
   const phone = a.phone?.replace(/\D/g, "").replace(/^0/, "92");
+  const token = isParty ? await shareTokenOf(await db(), user.id, a.id) : null;
+  const h = await headers();
+  const link = token ? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}/s/${token}` : "";
+  const cur = currencySymbol(user.currency);
   const waText = encodeURIComponent(
-    `Assalam-o-Alaikum ${a.name}, your balance with ${user.business_name || user.name} is ${currencySymbol(user.currency)} ${money(Math.abs(s.closing))} as of ${prettyDate(to)}. Thank you.`,
+    `Assalam-o-Alaikum ${a.name}, your balance with ${user.business_name || user.name} is ${cur} ${money(Math.abs(s.closing))} as of ${prettyDate(to)}.${link ? `\nFull statement: ${link}` : ""}\nThank you.`,
   );
+  // Khata wording: lena (you will receive) / dena (you will give).
+  const isCustomer = a.category === "Receivables";
+  const lena = isParty && s.closing !== 0 ? ((isCustomer ? s.closing > 0 : s.closing < 0) ? "receive" : "give") : null;
 
   return (
     <>
       <PageHeader
         title={a.name}
-        subtitle={`${a.category} › ${a.subcategory} · Statement ${prettyDate(from)} to ${prettyDate(to)}`}
+        subtitle={`${friendlyCategory(a.category)} › ${a.subcategory} | Statement ${prettyDate(from)} to ${prettyDate(to)}`}
         actions={
           <>
             {isParty && phone && (
@@ -56,6 +67,29 @@ export default async function Statement({
           </>
         }
       />
+      {isParty && (
+        <section className={`mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5 text-white ${lena === "give" ? "bg-khata" : "bg-brand"}`}>
+          <div>
+            <div className="text-white/85">{lena === "receive" ? `You will receive from ${a.name}` : lena === "give" ? `You will give to ${a.name}` : "All settled"}</div>
+            <div className="text-4xl font-bold tabular-nums" dir="ltr">{cur} {money(Math.abs(s.closing))}</div>
+          </div>
+          <form action={setStatementLink} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="id" value={a.id} />
+            {token ? (
+              <>
+                <a href={`/s/${token}`} target="_blank" rel="noreferrer" className="rounded-md bg-white/15 px-3 py-2 text-sm font-semibold hover:bg-white/25">Open statement link</a>
+                <input type="hidden" name="on" value="0" />
+                <button className="rounded-md px-3 py-2 text-sm text-white/85 underline hover:text-white">Turn link off</button>
+              </>
+            ) : (
+              <>
+                <input type="hidden" name="on" value="1" />
+                <button className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-ink">Make a statement link to send</button>
+              </>
+            )}
+          </form>
+        </section>
+      )}
       <DateRange from={from} to={to} />
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
         <div className="card p-3"><div className="text-muted">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
@@ -132,7 +166,7 @@ export default async function Statement({
                 <form action={removeShare}>
                   <input type="hidden" name="id" value={sh.id} />
                   <input type="hidden" name="account" value={a.id} />
-                  <button className="text-sm font-semibold text-khata">Stop sharing</button>
+                  <ConfirmButton className="text-sm font-semibold text-khata" message={`Stop sharing "${a.name}" with ${sh.user_name}? They will no longer see it.`} confirmLabel="Stop sharing">Stop sharing</ConfirmButton>
                 </form>
               </li>
             ))}

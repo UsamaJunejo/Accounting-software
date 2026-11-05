@@ -42,7 +42,7 @@ export async function createInvoice(_prev: InvoiceFormState, form: FormData): Pr
     return { error: e instanceof Error ? e.message : "Could not save the invoice" };
   }
   revalidatePath("/", "layout");
-  redirect(`/invoices/${id}?ok=Invoice created`);
+  redirect(`/invoices/${id}?n=${Date.now()}&ok=Invoice created`);
 }
 
 export async function cancelInvoice(form: FormData) {
@@ -55,7 +55,7 @@ export async function cancelInvoice(form: FormData) {
     error = (e as Error).message;
   }
   revalidatePath("/", "layout");
-  redirect(`/invoices/${id}?${error ? `error=${encodeURIComponent(error)}` : "ok=Invoice cancelled"}`);
+  redirect(`/invoices/${id}?${error ? `n=${Date.now()}&error=${encodeURIComponent(error)}` : `n=${Date.now()}&ok=Invoice cancelled`}`);
 }
 
 export async function payInvoice(form: FormData) {
@@ -70,5 +70,5 @@ export async function payInvoice(form: FormData) {
     error = (e as Error).message;
   }
   revalidatePath("/", "layout");
-  redirect(`/invoices/${id}?${error ? `error=${encodeURIComponent(error)}` : "ok=Payment recorded"}`);
+  redirect(`/invoices/${id}?${error ? `n=${Date.now()}&error=${encodeURIComponent(error)}` : `n=${Date.now()}&ok=Payment recorded`}`);
 }

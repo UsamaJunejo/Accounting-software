@@ -1,6 +1,7 @@
 import { KIND_LABEL, type Kind } from "@/lib/books";
 import * as A from "@/app/actions/books";
 import { LookPicker } from "@/components/look-picker";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export function AddCategoryForm({ back }: { back: string }) {
   return (
@@ -127,7 +128,7 @@ export function EditGroupForm({
       <form action={kind === "category" ? A.deleteCategory : A.deleteSubcategory} className="border-t border-rule pt-4">
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="back" value={deleteBack} />
-        <button className="btn-danger w-full">Delete {kind === "category" ? "category" : "sub-category"}</button>
+        <ConfirmButton className="btn-danger w-full" message={`Delete "${name}"? This cannot be undone.`} confirmLabel="Delete">Delete {kind === "category" ? "category" : "sub-category"}</ConfirmButton>
         <p className="mt-1 text-sm text-muted">Only possible when it&apos;s empty. Move or delete what&apos;s inside first.</p>
       </form>
     </div>

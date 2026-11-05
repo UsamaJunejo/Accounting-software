@@ -22,8 +22,8 @@ async function run(path: string, fn: (uid: number, d: Db) => Promise<unknown>, o
   }
   revalidatePath("/", "layout");
   const sep = path.includes("?") ? "&" : "?";
-  if (error) redirect(`${path}${sep}error=${encodeURIComponent(error)}`);
-  redirect(ok ? `${path}${sep}ok=${encodeURIComponent(ok + (extra?.() ?? ""))}` : path);
+  if (error) redirect(`${path}${sep}n=${Date.now()}&error=${encodeURIComponent(error)}`);
+  redirect(ok ? `${path}${sep}n=${Date.now()}&ok=${encodeURIComponent(ok + (extra?.() ?? ""))}` : path);
 }
 
 function txnFrom(form: FormData, primary: string): B.TxnInput {
@@ -61,7 +61,7 @@ function txnFrom(form: FormData, primary: string): B.TxnInput {
 export async function saveTransaction(form: FormData) {
   const id = int(form, "id");
   const type = str(form, "type") || "payment";
-  const back = id ? `/voucher?edit=${id}` : `/voucher?type=${type}`;
+  const back = id ? `/voucher?edit=${id}` : form.get("next") === "close" ? "/transactions" : `/voucher?type=${type}`;
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   let note = "";
   await run(
@@ -105,11 +105,14 @@ export async function updateProject(form: FormData) {
 }
 
 export async function deleteTransaction(form: FormData) {
-  await run(str(form, "back") || "/transactions", (uid, d) => B.deleteTransaction(d, uid, int(form, "id")), "Entry deleted");
+  const id = int(form, "id");
+  const back = str(form, "back") || "/transactions";
+  await run(`${back}${back.includes("?") ? "&" : "?"}undo=${id}`, (uid, d) => B.deleteTransaction(d, uid, id), "Entry deleted");
 }
 
 export async function restoreTransaction(form: FormData) {
-  await run("/reports/deleted", (uid, d) => B.restoreTransaction(d, uid, int(form, "id")), "Entry restored");
+  const back = str(form, "back");
+  await run(back && back.startsWith("/") ? back : "/reports/deleted", (uid, d) => B.restoreTransaction(d, uid, int(form, "id")), "Entry restored");
 }
 
 const look = (form: FormData) => ({ color: str(form, "color") || null, icon: str(form, "icon") || null });
@@ -181,10 +184,10 @@ export async function deleteAccount(form: FormData) {
   try {
     await B.deleteAccount(await db(), u.id, id);
   } catch (e) {
-    redirect(`/accounts/${id}/edit?error=${encodeURIComponent((e as Error).message)}`);
+    redirect(`/accounts/${id}/edit?n=${Date.now()}&error=${encodeURIComponent((e as Error).message)}`);
   }
   revalidatePath("/", "layout");
-  redirect("/accounts?ok=Account deleted");
+  redirect(`/accounts?n=${Date.now()}&ok=Account deleted`);
 }
 
 export async function renameCategory(form: FormData) {
@@ -205,4 +208,9 @@ export async function deleteCategory(form: FormData) {
 
 export async function deleteSubcategory(form: FormData) {
   await run(str(form, "back") || "/accounts", (uid, d) => B.deleteSubcategory(d, uid, int(form, "id")), "Sub-category deleted");
+}
+
+export async function setStatementLink(form: FormData) {
+  const id = int(form, "id");
+  await run(`/accounts/${id}`, (uid, d) => B.statementLink(d, uid, id, form.get("on") === "1"), form.get("on") === "1" ? "Statement link ready" : "Statement link turned off");
 }

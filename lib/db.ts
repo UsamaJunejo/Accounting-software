@@ -300,6 +300,10 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
   ALTER TABLE subscription_payments ENABLE ROW LEVEL SECURITY;
   `,
+  /* 10: number style (lakh) and shareable statement links */ `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS num_format TEXT NOT NULL DEFAULT 'intl' CHECK (num_format IN ('intl','lakh'));
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

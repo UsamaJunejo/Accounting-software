@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Coins, Database, Palette, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, UserRound } from "lucide-react";
+import { Coins, Database, Hash, Palette, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, UserRound } from "lucide-react";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { CurrencySettings } from "@/components/currency-settings";
@@ -7,7 +7,7 @@ import { setScheme } from "@/app/actions/lang";
 import { SCHEMES } from "@/lib/schemes";
 import { getScheme } from "@/lib/lang";
 import { db } from "@/lib/db";
-import { changePassword, updateLevel, updateNextOfKin, updateProfile } from "@/app/actions/auth";
+import { changePassword, updateLevel, updateNextOfKin, updateNumberStyle, updateProfile } from "@/app/actions/auth";
 import { Flash, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Settings" };
@@ -54,6 +54,19 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Coins className="h-5 w-5 text-brand" />Currency</h2>
           <CurrencySettings current={user.currency} hasEntries={hasEntries} />
         </div>
+        <form action={updateNumberStyle} className="card space-y-3 p-5">
+          <h2 className="flex items-center gap-2 font-semibold text-ink"><Hash className="h-5 w-5 text-brand" />How numbers look</h2>
+          {[
+            ["intl", "1,234,567.00", "International style, like most banks"],
+            ["lakh", "12,34,567.00", "Lakh & crore style, like a shop khata"],
+          ].map(([v, ex, d]) => (
+            <label key={v} className="flex items-center gap-3 rounded-lg border border-rule p-3 text-sm has-[:checked]:border-peacock has-[:checked]:bg-peacock-soft">
+              <input type="radio" name="num_format" value={v} defaultChecked={user.num_format === v} />
+              <span><b className="text-lg text-ink">{ex}</b><br /><span className="text-muted">{d}</span></span>
+            </label>
+          ))}
+          <button className="btn-dark">Save number style</button>
+        </form>
         <form action={updateLevel} className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Layers className="h-5 w-5 text-brand" />How detailed should your accounts be?</h2>
           {[

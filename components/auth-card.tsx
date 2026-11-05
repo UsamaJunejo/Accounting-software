@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { LangSwitch } from "@/components/lang-switch";
 import { getLang } from "@/lib/lang";
+import { Suspense } from "react";
+import { Toaster } from "@/components/toaster";
+import { SubmitGuard } from "@/components/submit-guard";
 
 export async function AuthCard({ title, children, footer }: { title: string; children: React.ReactNode; footer: React.ReactNode }) {
   const lang = await getLang();
@@ -17,6 +20,10 @@ export async function AuthCard({ title, children, footer }: { title: string; chi
           {children}
         </div>
         <p className="mt-5 text-center text-[15px] text-body">{footer}</p>
+        <Suspense>
+          <Toaster />
+          <SubmitGuard />
+        </Suspense>
       </div>
     </div>
   );

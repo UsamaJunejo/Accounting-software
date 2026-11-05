@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { CURRENCIES } from "@/lib/currencies";
 import { updateCurrency } from "@/app/actions/auth";
+import { ConfirmButton } from "@/components/confirm-button";
 
 export function CurrencySettings({ current, hasEntries }: { current: string; hasEntries: boolean }) {
   const [next, setNext] = useState(current);
@@ -26,13 +27,7 @@ export function CurrencySettings({ current, hasEntries }: { current: string; has
   }
 
   return (
-    <form
-      action={updateCurrency}
-      className="space-y-3"
-      onSubmit={(e) => {
-        if (changing && convert && !confirm(`Convert every amount from ${current} to ${next} at ${rate}? This changes all your records.`)) e.preventDefault();
-      }}
-    >
+    <form action={updateCurrency} className="space-y-3">
       <div>
         <label className="label" htmlFor="main-currency">Main currency</label>
         <select id="main-currency" name="currency" value={next} onChange={(e) => { setNext(e.target.value); setRate(""); setMsg(""); }} className="input">
@@ -62,7 +57,13 @@ export function CurrencySettings({ current, hasEntries }: { current: string; has
           )}
         </div>
       )}
-      <button className="btn-dark" disabled={!changing}>Save currency</button>
+      {changing && convert ? (
+        <ConfirmButton className="btn-dark" message={`Convert every amount from ${current} to ${next} at ${rate || "?"}? This changes all your records.`} confirmLabel="Convert my records" danger={false}>
+          Save currency
+        </ConfirmButton>
+      ) : (
+        <button className="btn-dark" disabled={!changing}>Save currency</button>
+      )}
     </form>
   );
 }

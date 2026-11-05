@@ -2,14 +2,18 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, budgets, cashBankDaily, categories, listTransactions, monthlyTotals, summarizeIncome } from "@/lib/books";
-import { money, monthRange, prettyDate, today } from "@/lib/format";
-import { DateRange, Empty, Money, PageHeader, TypeBadge } from "@/components/ui";
+import { friendlyDate, money, monthRange, prettyDate, today } from "@/lib/format";
+import { DateRange, Empty, Money, PageHeader } from "@/components/ui";
+import { TxnTable } from "@/components/txn-table";
 import { BalanceLine, CategoryBars, CategoryDonut, InOutBars, RankedBars } from "@/components/charts";
 import { categoryColor } from "@/lib/palette";
 import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { CategoryBadge } from "@/components/icons";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, FileText } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, Circle, CircleCheck, FileText } from "lucide-react";
+import { cookies } from "next/headers";
+import { hideChecklist } from "@/app/actions/lang";
+import { friendlyCategory } from "@/lib/look";
 
 const QUICK = [
   { href: "/voucher?type=receipt", label: "Money In", Icon: ArrowDownLeft },
@@ -77,18 +81,47 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   });
   const net = cashBank + receivable - payable;
 
+  // "Getting started" checklist for new users; disappears when done or hidden.
+  const anyEntry = all.some((a) => a.money_in || a.money_out);
+  const steps = [
+    { title: "Add the cash you have today", how: "Money In from Owner Capital to Cash", href: "/voucher?type=receipt", done: anyEntry },
+    { title: "Add your first customer", how: "Khata → add their name and mobile", href: "/khata", done: all.some((a) => a.category === "Receivables") },
+    { title: "Record a sale", how: "Money In from Sales, or make an invoice", href: "/voucher?type=receipt", done: all.some((a) => a.kind === "income" && a.balance > 0) },
+    { title: "Save your recovery code", how: "So you can get back in if you forget your password", href: "/recovery-code", done: user.has_recovery },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  const showStart = doneCount < steps.length && (await cookies()).get("hide-start")?.value !== "1";
+
   return (
     <>
       <PageHeader
         title={`${t("Assalam-o-Alaikum")}, ${user.name.split(" ")[0]}`}
         subtitle={`${prettyDate(from)} ${t("to")} ${prettyDate(to)}`}
       />
-      {sp.welcome && (
-        <div className="card mb-5 border-ink/30 bg-ink-soft p-4 text-sm text-body">
-          <b>Your accounts are ready.</b> Cash, Bank, JazzCash, Easypaisa, Sales, Rent and more are set up. Start with the cash
-          you have today: add a <Link className="font-semibold underline" href="/voucher?type=receipt">Money In</Link> entry from
-          &ldquo;Owner Capital&rdquo; to &ldquo;Cash&rdquo;.
-        </div>
+      {showStart && (
+        <section className="card mb-6 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Getting started</h2>
+              <p className="text-sm text-muted">{doneCount} of {steps.length} done. Four small steps and your books are set up.</p>
+            </div>
+            <form action={hideChecklist}><button className="text-sm font-semibold text-muted underline hover:text-ink">Hide this</button></form>
+          </div>
+          <div className="my-3 h-2 rounded-full bg-paper"><div className="h-2 rounded-full bg-ledger" style={{ width: `${(doneCount / steps.length) * 100}%` }} /></div>
+          <ol className="grid gap-2 sm:grid-cols-2">
+            {steps.map((s) => (
+              <li key={s.title}>
+                <Link href={s.href} className={`flex items-start gap-3 rounded-lg border p-3 ${s.done ? "border-ledger/30 bg-ledger-soft/60" : "border-rule bg-white/60 hover:border-peacock"}`}>
+                  {s.done ? <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-ledger" /> : <Circle className="mt-0.5 h-5 w-5 shrink-0 text-muted" />}
+                  <span>
+                    <span className={`block font-semibold ${s.done ? "text-ledger line-through decoration-1" : "text-ink"}`}>{s.title}</span>
+                    {!s.done && <span className="block text-sm text-muted">{s.how}</span>}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
       <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* The balance card, like the top of a banking app. */}
@@ -191,7 +224,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <Link href={`/accounts/category/${c.id}`} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
                 <CategoryBadge name={c.name} kind={c.kind} size="lg" color={c.color} />
                 <span className="min-w-0">
-                  <span className="block truncate text-[15px] text-body">{c.name}</span>
+                  <span className="block truncate text-[15px] text-body">{friendlyCategory(c.name)}</span>
                   <span className="block text-lg font-bold text-ink"><Money value={c.balance} /></span>
                   {c.note && <span className="block text-xs text-muted">{c.note}</span>}
                 </span>
@@ -222,24 +255,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         {recent.length === 0 ? (
           <Empty>{t("No entries yet. Add your first one with “Money In” or “Money Out”.")}</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
-                <tr><th>{t("Date")}</th><th className="hidden sm:table-cell">{t("Type")}</th><th>{t("From")} → {t("To")}</th><th className="hidden md:table-cell">{t("Note")}</th><th className="num">{t("Amount")}</th></tr>
-              </thead>
-              <tbody>
-                {recent.map((t) => (
-                  <tr key={t.id} style={t.highlight ? { background: t.highlight + "33" } : undefined}>
-                    <td className="whitespace-nowrap">{prettyDate(t.date)}</td>
-                    <td className="hidden sm:table-cell"><TypeBadge type={t.type} /></td>
-                    <td>{t.from_name} → {t.to_name}</td>
-                    <td className="hidden text-muted md:table-cell">{t.note}</td>
-                    <td className="num font-medium">{money(t.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <TxnTable rows={recent} back="/dashboard" />
         )}
       </div>
     </>

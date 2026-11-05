@@ -190,3 +190,27 @@ a { text-underline-offset: 3px; }
   body { background-image: none; }
   .card { box-shadow: none; background: #fff; }
 }
+
+/* A form is being sent: the button dims and shows a small spinner (see SubmitGuard). */
+button[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.75;
+}
+button[aria-busy="true"]::after {
+  content: "";
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-inline-start: 0.4em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: fc-spin 0.7s linear infinite;
+}
+@keyframes fc-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy="true"]::after { animation-duration: 2s; }
+}

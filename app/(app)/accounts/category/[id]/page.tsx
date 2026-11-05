@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, KIND_LABEL, subcategories } from "@/lib/books";
 import { categoryColorMap } from "@/lib/palette";
-import { colorAt, defaultIconKey } from "@/lib/look";
+import { accountingTerm, colorAt, defaultIconKey, friendlyCategory } from "@/lib/look";
 import { currencySymbol } from "@/lib/currencies";
 import { Flash, Money, PageHeader } from "@/components/ui";
 import { CategoryBadge } from "@/components/icons";
@@ -55,10 +55,10 @@ export default async function CategoryPage({ params, searchParams }: { params: P
 
   return (
     <>
-      <Crumbs items={[{ href: "/accounts", label: "Accounts" }, { label: cat.name }]} />
+      <Crumbs items={[{ href: "/accounts", label: "Accounts" }, { label: friendlyCategory(cat.name) }]} />
       <PageHeader
-        title={cat.name}
-        subtitle={`${KIND_LABEL[cat.kind]} · ${mine.length} ${mine.length === 1 ? "account" : "accounts"}`}
+        title={friendlyCategory(cat.name)}
+        subtitle={`${accountingTerm(cat.name) ? `${cat.name}, ` : ""}${KIND_LABEL[cat.kind]} | ${mine.length} ${mine.length === 1 ? "account" : "accounts"}`}
         actions={
           <Dialog title={`Edit ${cat.name}`} triggerClass="btn-ghost" trigger={<><Pencil className="h-4 w-4" />Edit category</>}>
             <EditGroupForm kind="category" id={cat.id} name={cat.name} color={cat.color} icon={cat.icon} back={here} deleteBack="/accounts" />

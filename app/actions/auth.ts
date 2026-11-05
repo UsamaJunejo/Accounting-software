@@ -19,7 +19,7 @@ import {
 } from "@/lib/security";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-const fail = (path: string, msg: string): never => redirect(`${path}${path.includes("?") ? "&" : "?"}error=${encodeURIComponent(msg)}`);
+const fail = (path: string, msg: string): never => redirect(`${path}${path.includes("?") ? "&" : "?"}n=${Date.now()}&error=${encodeURIComponent(msg)}`);
 const MIN_PASSWORD = 8;
 
 export async function signup(form: FormData) {
@@ -78,7 +78,7 @@ export async function updateProfile(form: FormData) {
     [name, str(form, "phone") || null, str(form, "business") || null, str(form, "address") || null, str(form, "ntn") || null, u.id],
   );
   revalidatePath("/", "layout");
-  redirect("/settings?ok=Profile saved");
+  redirect(`/settings?n=${Date.now()}&ok=Profile saved`);
 }
 
 export async function updateCurrency(form: FormData) {
@@ -94,7 +94,7 @@ export async function updateCurrency(form: FormData) {
     fail("/settings", (e as Error).message);
   }
   revalidatePath("/", "layout");
-  redirect(`/settings?ok=${encodeURIComponent(convert ? `Main currency is now ${next}. All records were converted.` : `Main currency is now ${next}.`)}`);
+  redirect(`/settings?n=${Date.now()}&ok=${encodeURIComponent(convert ? `Main currency is now ${next}. All records were converted.` : `Main currency is now ${next}.`)}`);
 }
 
 export async function updateNextOfKin(form: FormData) {
@@ -103,7 +103,15 @@ export async function updateNextOfKin(form: FormData) {
     "UPDATE users SET nok_name = $1, nok_relation = $2, nok_phone = $3, nok_email = $4 WHERE id = $5",
     [str(form, "nok_name") || null, str(form, "nok_relation") || null, str(form, "nok_phone") || null, str(form, "nok_email") || null, u.id],
   );
-  redirect("/settings?ok=Next of kin saved");
+  redirect(`/settings?n=${Date.now()}&ok=Next of kin saved`);
+}
+
+export async function updateNumberStyle(form: FormData) {
+  const u = await requireUser();
+  const v = form.get("num_format") === "lakh" ? "lakh" : "intl";
+  await (await db()).q("UPDATE users SET num_format = $1 WHERE id = $2", [v, u.id]);
+  revalidatePath("/", "layout");
+  redirect(`/settings?n=${Date.now()}&ok=Number style saved`);
 }
 
 export async function updateLevel(form: FormData) {
@@ -112,7 +120,7 @@ export async function updateLevel(form: FormData) {
   if (![1, 2, 3].includes(level)) fail("/settings", "Choose a level");
   await (await db()).q("UPDATE users SET level = $1 WHERE id = $2", [level, u.id]);
   revalidatePath("/", "layout");
-  redirect("/settings?ok=View updated");
+  redirect(`/settings?n=${Date.now()}&ok=View updated`);
 }
 
 /** Changing the password also logs out every other device. */
@@ -129,7 +137,7 @@ export async function changePassword(form: FormData) {
     [await bcrypt.hash(next, 10), u.id],
   );
   await startSession(u.id);
-  redirect("/settings?ok=Password changed. Other devices have been signed out.");
+  redirect(`/settings?n=${Date.now()}&ok=Password changed. Other devices have been signed out.`);
 }
 
 // ---------- Recovery code ----------
@@ -203,5 +211,5 @@ export async function adminSetAdmin(form: FormData) {
   const id = Number(form.get("id"));
   if (id === admin.id) fail("/admin", "You can't remove your own admin access.");
   await (await db()).q("UPDATE users SET is_admin = $1 WHERE id = $2", [form.get("make") === "1", id]);
-  redirect("/admin?ok=Saved");
+  redirect(`/admin?n=${Date.now()}&ok=Saved`);
 }

@@ -19,7 +19,7 @@ async function run(path: string, fn: (uid: number) => Promise<unknown>, ok: stri
     error = e instanceof Error ? e.message : "Something went wrong";
   }
   revalidatePath("/", "layout");
-  redirect(`${path}?${error ? `error=${encodeURIComponent(error)}` : `ok=${encodeURIComponent(ok)}`}`);
+  redirect(`${path}?${error ? `n=${Date.now()}&error=${encodeURIComponent(error)}` : `n=${Date.now()}&ok=${encodeURIComponent(ok)}`}`);
 }
 
 export async function addSchedule(form: FormData) {

@@ -1,64 +1,133 @@
 import Link from "next/link";
-import { FolderKanban, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, FolderKanban, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { deleteTransaction } from "@/app/actions/books";
-import { money, prettyDate } from "@/lib/format";
+import { friendlyDate, money, today } from "@/lib/format";
 import type { TxnRow } from "@/lib/books";
 import { Empty, TypeBadge } from "@/components/ui";
 import { getT } from "@/lib/lang";
 
-export async function TxnTable({ rows, back }: { rows: TxnRow[]; back: string }) {
-  const t = await getT();
-  if (!rows.length) return <Empty>No entries found.</Empty>;
+const tone = (type: string) => (type === "payment" ? "text-khata" : type === "receipt" ? "text-inflow" : "text-ink");
+
+function Extras({ t }: { t: TxnRow }) {
+  if (!t.currency && !t.project && !t.attachments) return null;
   return (
-    <div className="overflow-x-auto">
-      <table className="table">
-        <thead>
-          <tr>
-            <th className="hidden md:table-cell">#</th><th>{t("Date")}</th><th className="hidden sm:table-cell">{t("Type")}</th><th>{t("From")}</th><th>{t("To")}</th><th>{t("Note")}</th><th className="num">{t("Amount")}</th>
-            <th className="no-print"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((t) => (
-            <tr key={t.id} style={t.highlight ? { background: t.highlight + "33" } : undefined}>
-              <td className="hidden text-muted/80 md:table-cell">{t.id}</td>
-              <td className="whitespace-nowrap">{prettyDate(t.date)}</td>
-              <td className="hidden sm:table-cell"><TypeBadge type={t.type} /></td>
-              <td>{t.from_name}</td>
-              <td>{t.to_name}</td>
-              <td className="max-w-xs text-muted">
-                {t.note}
-                <div className="mt-0.5 flex flex-wrap gap-1.5 text-xs">
-                  {t.currency && (
-                    <span className="rounded bg-ink-soft px-1.5 text-ink">
-                      {t.currency} {money(t.foreign_amount ?? 0)} @ {t.rate}
-                    </span>
-                  )}
-                  {t.project && (
-                    <Link href={`/transactions?project=${t.project_id}`} className="inline-flex items-center gap-1 rounded bg-ink-soft px-1.5 text-ink">
-                      <FolderKanban className="h-3 w-3" />{t.project}
-                    </Link>
-                  )}
-                  {t.attachments > 0 && (
-                    <Link href={`/voucher?edit=${t.id}`} className="inline-flex items-center gap-1 rounded bg-paper px-1.5 text-body">
-                      <Paperclip className="h-3 w-3" />{t.attachments}
-                    </Link>
-                  )}
-                </div>
-              </td>
-              <td className="num font-medium">{money(t.amount)}</td>
-              <td className="no-print whitespace-nowrap text-right">
-                <Link href={`/voucher?edit=${t.id}`} title="Edit" aria-label="Edit" className="mr-1 inline-flex rounded-md p-1.5 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
-                <form action={deleteTransaction} className="inline">
-                  <input type="hidden" name="id" value={t.id} />
-                  <input type="hidden" name="back" value={back} />
-                  <button title="Delete" aria-label="Delete" className="inline-flex rounded-md p-1.5 text-khata hover:bg-khata-soft"><Trash2 className="h-4 w-4" /></button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="mt-0.5 flex flex-wrap gap-1.5 text-xs">
+      {t.currency && <span className="rounded bg-ink-soft px-1.5 text-ink">{t.currency} {money(t.foreign_amount ?? 0)} @ {t.rate}</span>}
+      {t.project && (
+        <Link href={`/transactions?project=${t.project_id}`} className="inline-flex items-center gap-1 rounded bg-ink-soft px-1.5 text-ink">
+          <FolderKanban className="h-3 w-3" />{t.project}
+        </Link>
+      )}
+      {t.attachments > 0 && (
+        <Link href={`/voucher?edit=${t.id}`} className="inline-flex items-center gap-1 rounded bg-paper px-1.5 text-body">
+          <Paperclip className="h-3 w-3" />{t.attachments}
+        </Link>
+      )}
     </div>
+  );
+}
+
+function Actions({ t, back }: { t: TxnRow; back: string }) {
+  return (
+    <span className="no-print inline-flex">
+      <Link href={`/voucher?edit=${t.id}`} title="Edit" aria-label="Edit entry" className="inline-flex rounded-md p-2 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
+      <form action={deleteTransaction} className="inline">
+        <input type="hidden" name="id" value={t.id} />
+        <input type="hidden" name="back" value={back} />
+        <button title="Delete" aria-label="Delete entry" className="inline-flex rounded-md p-2 text-khata hover:bg-khata-soft"><Trash2 className="h-4 w-4" /></button>
+      </form>
+    </span>
+  );
+}
+
+/**
+ * Entries list. On phones each entry is a card; on bigger screens a table.
+ * With groupByDay, entries sit under a heading per day with that day's money in and out.
+ */
+export async function TxnTable({ rows, back, groupByDay = false }: { rows: TxnRow[]; back: string; groupByDay?: boolean }) {
+  const tr = await getT();
+  if (!rows.length) return <Empty>No entries found.</Empty>;
+  const now = today();
+  const days: { date: string; rows: TxnRow[]; inflow: number; outflow: number }[] = [];
+  for (const r of rows) {
+    let g = days[days.length - 1];
+    if (!groupByDay) {
+      if (!g) days.push((g = { date: "", rows: [], inflow: 0, outflow: 0 }));
+    } else if (!g || g.date !== r.date) days.push((g = { date: r.date, rows: [], inflow: 0, outflow: 0 }));
+    g.rows.push(r);
+    if (r.type === "receipt") g.inflow += r.amount;
+    if (r.type === "payment") g.outflow += r.amount;
+  }
+  const DayHead = ({ g }: { g: (typeof days)[number] }) => (
+    <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <span className="font-semibold text-ink">{friendlyDate(g.date, now)}</span>
+      <span className="text-sm text-muted">
+        {g.inflow > 0 && <span className="me-3 text-inflow">In {money(g.inflow)}</span>}
+        {g.outflow > 0 && <span className="text-khata">Out {money(g.outflow)}</span>}
+      </span>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Phones: cards */}
+      <div className="sm:hidden">
+        {days.map((g, gi) => (
+          <section key={gi}>
+            {groupByDay && <div className="border-b border-rule bg-white/50 px-4 py-2"><DayHead g={g} /></div>}
+            <ul>
+              {g.rows.map((t) => (
+                <li key={t.id} className="flex items-start gap-3 border-b border-rule/70 px-4 py-3" style={t.highlight ? { background: t.highlight + "33" } : undefined}>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 text-[15px] text-ink">
+                      <span className="truncate">{t.from_name}</span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted" />
+                      <span className="truncate font-semibold">{t.to_name}</span>
+                    </div>
+                    <div className="text-sm text-muted">{groupByDay ? "" : `${friendlyDate(t.date, now)} `}{t.note}</div>
+                    <Extras t={t} />
+                  </div>
+                  <div className="text-end">
+                    <div className={`font-bold tabular-nums ${tone(t.type)}`} dir="ltr">{money(t.amount)}</div>
+                    <Actions t={t} back={back} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      {/* Bigger screens: table */}
+      <div className="hidden overflow-x-auto sm:block">
+        <table className="table">
+          <thead>
+            <tr>
+              {!groupByDay && <th>{tr("Date")}</th>}
+              <th>{tr("Type")}</th><th>{tr("From")}</th><th>{tr("To")}</th><th className="hidden md:table-cell">{tr("Note")}</th><th className="num">{tr("Amount")}</th>
+              <th className="no-print"></th>
+            </tr>
+          </thead>
+          {days.map((g, gi) => (
+            <tbody key={gi}>
+              {groupByDay && (
+                <tr><td colSpan={7} className="bg-white/50"><DayHead g={g} /></td></tr>
+              )}
+              {g.rows.map((t) => (
+                <tr key={t.id} style={t.highlight ? { background: t.highlight + "33" } : undefined}>
+                  {!groupByDay && <td className="whitespace-nowrap">{friendlyDate(t.date, now)}</td>}
+                  <td><TypeBadge type={t.type} /></td>
+                  <td>{t.from_name}</td>
+                  <td>{t.to_name}<div className="md:hidden"><Extras t={t} /></div></td>
+                  <td className="hidden max-w-xs text-muted md:table-cell">{t.note}<Extras t={t} /></td>
+                  <td className={`num font-semibold ${tone(t.type)}`}>{money(t.amount)}</td>
+                  <td className="whitespace-nowrap text-right"><Actions t={t} back={back} /></td>
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </table>
+      </div>
+    </>
   );
 }
