@@ -8,8 +8,8 @@ import {
 const C = {
   in: "#2a78d6",
   out: "#c2263a",
-  line: "#0b6e75",
-  bar: "#0b6e75",
+  line: "var(--color-brand)",
+  bar: "var(--color-brand)",
   grid: "#e6ecef",
   axis: "#5a6b73",
   text: "#24343b",

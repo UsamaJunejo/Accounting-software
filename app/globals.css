@@ -33,6 +33,10 @@
   --color-nav-active: #1e4b54;
   --color-nav-text: #d6e2e4;
   --color-nav-muted: #9fb4b8;
+  --color-brandx: #1e40d8;
+  --color-brandx-dark: #1733a8;
+  --color-brandx-soft: #e6ecfd;
+  --color-brandx-accent: #ffc83d;
   --color-nav-active-text: #ffffff;
   --color-nav-marker: #f2b705;
   --color-nav-border: transparent;
@@ -138,27 +142,28 @@ a { text-underline-offset: 3px; }
 
 
 /*
-  Colour themes. Each one swaps the side menu, the main action colour and the page tint.
-  Money in (blue), money out (crimson) and the category colours never change, so meaning stays the same.
+  Colour themes, banking-app style: one bold brand colour on the side menu, the balance card and
+  the main buttons. Money in (blue), money out (crimson) and category colours never change.
 */
-[data-scheme="navy"] {
-  --color-nav: #0f1e3a; --color-nav-hover: #1a2c50; --color-nav-active: #24396a;
-  --color-nav-text: #dbe3f0; --color-nav-muted: #a3b1c9; --color-nav-marker: #f5b700;
-  --color-peacock: #1d4ed8; --color-peacock-dark: #1e40af; --color-peacock-soft: #e3ebfb;
-  --color-brand: #1d4ed8; --color-paper: #f2f4f8;
+[data-scheme="royal"] {
+  --color-brandx: #1e40d8; --color-brandx-dark: #1733a8; --color-brandx-soft: #e6ecfd; --color-brandx-accent: #ffc83d;
 }
 [data-scheme="emerald"] {
-  --color-nav: #0b3b2e; --color-nav-hover: #12503f; --color-nav-active: #1a6651;
-  --color-nav-text: #d9ebe3; --color-nav-muted: #a3c7b8; --color-nav-marker: #f5c542;
-  --color-peacock: #13704a; --color-peacock-dark: #0d5537; --color-peacock-soft: #e0f2e9;
-  --color-brand: #13704a; --color-paper: #f1f5f3;
+  --color-brandx: #00795a; --color-brandx-dark: #005c44; --color-brandx-soft: #dff3ec; --color-brandx-accent: #ffd34d;
 }
-[data-scheme="light"] {
-  --color-nav: #ffffff; --color-nav-hover: #f1f4f9; --color-nav-active: #e8eefc;
-  --color-nav-text: #2b3a4a; --color-nav-muted: #5f6e7e; --color-nav-active-text: #1f3f99;
-  --color-nav-marker: #2f5bd3; --color-nav-border: #dce3e8; --color-nav-logo: #12303a;
-  --color-peacock: #2f5bd3; --color-peacock-dark: #2448ad; --color-peacock-soft: #e8eefc;
-  --color-brand: #2f5bd3; --color-paper: #f5f7fb;
+[data-scheme="magenta"] {
+  --color-brandx: #a01c78; --color-brandx-dark: #7c145c; --color-brandx-soft: #f8e4f1; --color-brandx-accent: #ffc83d;
+}
+[data-scheme] {
+  --color-nav: var(--color-brandx);
+  --color-nav-hover: color-mix(in srgb, #ffffff 12%, var(--color-brandx));
+  --color-nav-active: color-mix(in srgb, #ffffff 22%, var(--color-brandx));
+  --color-nav-text: #ffffff; --color-nav-muted: rgba(255, 255, 255, 0.82);
+  --color-nav-active-text: #ffffff; --color-nav-marker: var(--color-brandx-accent);
+  --color-nav-border: transparent; --color-nav-logo: #ffffff;
+  --color-peacock: var(--color-brandx); --color-peacock-dark: var(--color-brandx-dark); --color-peacock-soft: var(--color-brandx-soft);
+  --color-brand: var(--color-brandx);
+  --color-paper: color-mix(in srgb, var(--color-brandx) 5%, #f4f6fa);
 }
 
 /* Glass for the side menu and the top bar. */
@@ -174,7 +179,6 @@ a { text-underline-offset: 3px; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 1px 0 rgba(18, 48, 58, 0.06);
 }
-[data-scheme="light"] .glass-nav { background: rgba(255, 255, 255, 0.72); }
 
 /* If the browser can't blur, fall back to solid panels so text stays readable. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

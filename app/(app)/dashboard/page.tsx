@@ -9,23 +9,17 @@ import { categoryColor } from "@/lib/palette";
 import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { CategoryBadge } from "@/components/icons";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, FileText } from "lucide-react";
+
+const QUICK = [
+  { href: "/voucher?type=receipt", label: "Money In", Icon: ArrowDownLeft },
+  { href: "/voucher?type=payment", label: "Money Out", Icon: ArrowUpRight },
+  { href: "/voucher?type=transfer", label: "Transfer", Icon: ArrowLeftRight },
+  { href: "/invoices/new", label: "Invoice", Icon: FileText },
+  { href: "/khata", label: "Khata", Icon: BookUser },
+];
 
 export const metadata = { title: "Dashboard" };
-
-/** One line of the position ledger: label on the left, amount on the right, like a khata page. */
-function Row({ label, value, sign, href, cur }: { label: string; value: number; sign?: "+" | "−"; href: string; cur: string }) {
-  return (
-    <Link href={href} className="flex items-baseline justify-between gap-4 border-b border-rule py-2.5 hover:bg-ink-soft/40">
-      <span className="text-body">{label}</span>
-      <span className="tabular-nums text-lg text-ink" dir="ltr">
-        <span className="me-1 text-muted">{sign ?? ""}</span>
-        <span className="me-1 text-sm text-muted">{cur}</span>
-        <Money value={value} />
-      </span>
-    </Link>
-  );
-}
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; welcome?: string }> }) {
   const user = await requireUser();
@@ -88,12 +82,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <PageHeader
         title={`${t("Assalam-o-Alaikum")}, ${user.name.split(" ")[0]}`}
         subtitle={`${prettyDate(from)} ${t("to")} ${prettyDate(to)}`}
-        actions={
-          <>
-            <Link href="/voucher?type=receipt" className="btn-in"><ArrowDownLeft className="h-4 w-4" />{t("Money In")}</Link>
-            <Link href="/voucher?type=payment" className="btn-out"><ArrowUpRight className="h-4 w-4" />{t("Money Out")}</Link>
-          </>
-        }
       />
       {sp.welcome && (
         <div className="card mb-5 border-ink/30 bg-ink-soft p-4 text-sm text-body">
@@ -102,26 +90,48 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           &ldquo;Owner Capital&rdquo; to &ldquo;Cash&rdquo;.
         </div>
       )}
-      <DateRange from={from} to={to} />
-
-      <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="card p-5">
-          <h2 className="text-lg font-bold">{t("Where you stand")}</h2>
-          <p className="mb-2 text-sm text-muted">{t("Today, across all your accounts")}</p>
-          <Row label={t("Cash & bank")} value={cashBank} href="/accounts" cur={cur} />
-          <Row label={t("Customers owe you")} value={receivable} sign="+" href="/khata" cur={cur} />
-          <Row label={t("You owe suppliers")} value={payable} sign="−" href="/khata" cur={cur} />
-          <div className="total mt-3 flex items-baseline justify-between">
-            <span>{t("Net position")}</span>
-            <span className="tabular-nums text-2xl" dir="ltr"><span className="me-1 text-base font-semibold text-muted">{cur}</span><Money value={net} /></span>
+      <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        {/* The balance card, like the top of a banking app. */}
+        <div className="rounded-2xl bg-brand p-6 text-white shadow-[0_18px_40px_-20px_var(--color-brand)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-[15px] text-white/85">{t("Net position")}</div>
+              <div className="mt-1 text-[2.5rem] font-bold leading-tight tracking-tight tabular-nums sm:text-5xl" dir="ltr">
+                <span className="me-2 text-2xl font-semibold text-white/80">{cur}</span>
+                {money(net)}
+              </div>
+              <div className="mt-1 text-sm text-white/80">{t("Today, across all your accounts")}</div>
+            </div>
+            <Link
+              href={`/reports/income?from=${from}&to=${to}`}
+              className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-ink"
+            >
+              {pl.profit >= 0 ? t("Profit this period") : t("Loss this period")}:{" "}
+              <span className={pl.profit >= 0 ? "text-ledger" : "text-khata"} dir="ltr">{cur} {money(Math.abs(pl.profit))}</span>
+            </Link>
           </div>
-          <Link
-            href={`/reports/income?from=${from}&to=${to}`}
-            className={`mt-4 flex items-baseline justify-between rounded px-3 py-2 ${pl.profit >= 0 ? "bg-ledger-soft text-ledger" : "bg-khata-soft text-khata"}`}
-          >
-            <span className="font-semibold">{pl.profit >= 0 ? t("Profit this period") : t("Loss this period")}</span>
-            <span className="tabular-nums font-bold" dir="ltr">{cur} {money(Math.abs(pl.profit))}</span>
-          </Link>
+          <dl className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              [t("Cash & bank"), cashBank, "/accounts"],
+              [t("Customers owe you"), receivable, "/khata"],
+              [t("You owe suppliers"), payable, "/khata"],
+            ].map(([label, value, href]) => (
+              <Link key={String(label)} href={String(href)} className="rounded-xl bg-white/12 px-2.5 py-2.5 ring-1 ring-white/15 hover:bg-white/20 sm:px-4 sm:py-3">
+                <dt className="text-xs leading-snug text-white/85 sm:text-sm">{label}</dt>
+                <dd className="text-[15px] font-bold tabular-nums sm:text-xl" dir="ltr">{money(Number(value))}</dd>
+              </Link>
+            ))}
+          </dl>
+          <nav className="mt-6 grid grid-cols-5 gap-2" aria-label={t("Quick actions")}>
+            {QUICK.map(({ href, label, Icon }) => (
+              <Link key={href} href={href} className="group flex flex-col items-center gap-1.5 text-center text-sm text-white">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-sm transition-transform group-hover:-translate-y-0.5">
+                  <Icon className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <span className="leading-tight">{t(label)}</span>
+              </Link>
+            ))}
+          </nav>
         </div>
         <div className="card p-5">
           <h2 className="text-lg font-bold">{t("Cash & bank balance")}</h2>
@@ -129,6 +139,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <BalanceLine data={flow.days} cur={cur} name={t("Cash & bank")} empty={t("No entries in this period.")} />
         </div>
       </section>
+
+      <DateRange from={from} to={to} />
 
       <section className="mb-6 grid gap-5 lg:grid-cols-2">
         <div className="card p-5">
