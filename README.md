@@ -1,6 +1,6 @@
-# MunshiBaba – simple accounting for Pakistani small businesses
+# FinanceChachu – simple accounting for Pakistani small businesses
 
-A rebuilt, improved version of munshibaba.com. Record money in and out, keep a khata for
+An improved rebuild of the old MunshiBaba app. Record money in and out, keep a khata for
 customers and suppliers, and see profit, balance sheet and reports. All amounts in PKR.
 
 ## What's inside

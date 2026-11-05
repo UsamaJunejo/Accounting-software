@@ -27,7 +27,7 @@ export default async function Home() {
         <div className="mx-auto max-w-6xl px-4 pb-20 pt-12 sm:pt-20">
           <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-brand">Accounting for Pakistani small businesses</p>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
-            Your digital munshi. Keep every rupee in order.
+            Your business ka hisaab, sorted. Keep every rupee in order.
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-slate-300">
             Record sales, expenses and udhaar, see your profit, and keep a clean khata for every customer, all in
