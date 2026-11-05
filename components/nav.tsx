@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BarChart3, BookUser, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X } from "lucide-react";
+import { BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X } from "lucide-react";
 
 const ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/transactions", label: "Entries", Icon: ListOrdered },
   { href: "/accounts", label: "Accounts", Icon: Wallet },
   { href: "/khata", label: "Khata", Icon: BookUser },
+  { href: "/invoices", label: "Invoices", Icon: FileText },
   { href: "/shared", label: "Shared", Icon: Share2 },
   { href: "/reports", label: "Reports", Icon: BarChart3 },
   { href: "/settings", label: "Settings", Icon: Settings },

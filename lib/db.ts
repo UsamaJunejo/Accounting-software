@@ -186,6 +186,40 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE attachments ENABLE ROW LEVEL SECURITY;
   ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
   `,
+  /* 5: next of kin, display level, invoices */ `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS nok_name TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS nok_relation TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS nok_phone TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS nok_email TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS level INTEGER NOT NULL DEFAULT 3 CHECK (level IN (1, 2, 3));
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS ntn TEXT;
+
+  CREATE TABLE IF NOT EXISTS invoices (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    number INTEGER NOT NULL,
+    customer_account_id INTEGER REFERENCES accounts(id),
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT,
+    date DATE NOT NULL,
+    due_date DATE,
+    items TEXT NOT NULL,               -- JSON: [{ "name", "qty", "price" }] (price in paisa)
+    tax_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+    discount BIGINT NOT NULL DEFAULT 0,
+    subtotal BIGINT NOT NULL,
+    tax BIGINT NOT NULL,
+    total BIGINT NOT NULL,
+    notes TEXT,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    tax_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    share_token TEXT NOT NULL UNIQUE,
+    cancelled BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, number)
+  );
+  ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

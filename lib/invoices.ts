@@ -1,0 +1,183 @@
+import { randomBytes } from "node:crypto";
+import type { Db } from "./db.ts";
+import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, deleteTransaction, subcategories } from "./books.ts";
+
+export type InvoiceItem = { name: string; qty: number; price: number }; // price in paisa
+
+export type InvoiceInput = {
+  customerAccountId?: number | null;
+  customerName?: string;
+  customerPhone?: string | null;
+  date: string;
+  dueDate?: string | null;
+  items: InvoiceItem[];
+  taxPercent?: number;
+  discount?: number; // paisa
+  notes?: string | null;
+  /** Add it to the books as a credit (udhaar) sale to the customer's khata. */
+  record: boolean;
+};
+
+/** Subtotal, tax and total, all in whole paisa. */
+export function invoiceTotals(items: InvoiceItem[], taxPercent = 0, discount = 0) {
+  const subtotal = items.reduce((s, i) => s + Math.round(i.qty * i.price), 0);
+  const taxable = Math.max(0, subtotal - discount);
+  const tax = Math.round((taxable * taxPercent) / 100);
+  return { subtotal, taxable, tax, total: taxable + tax };
+}
+
+function validate(i: InvoiceInput) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(i.date)) throw new Error("Invalid date");
+  if (i.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(i.dueDate)) throw new Error("Invalid due date");
+  const items = i.items.filter((x) => x.name.trim() || x.price);
+  if (!items.length) throw new Error("Add at least one item");
+  for (const x of items) {
+    if (!x.name.trim()) throw new Error("Every item needs a name");
+    if (!(x.qty > 0) || x.qty > 1_000_000) throw new Error(`Check the quantity of "${x.name}"`);
+    if (!Number.isSafeInteger(x.price) || x.price < 0) throw new Error(`Check the price of "${x.name}"`);
+  }
+  const tax = i.taxPercent ?? 0;
+  if (!(tax >= 0 && tax <= 100)) throw new Error("Tax must be between 0 and 100%");
+  if (!Number.isSafeInteger(i.discount ?? 0) || (i.discount ?? 0) < 0) throw new Error("Invalid discount");
+  return items;
+}
+
+/** Find an account by name in a category, creating the sub-category/account if needed. */
+async function ensureAccount(d: Db, userId: number, categoryName: string, subName: string, accountName: string) {
+  const accs = await accountsWithBalances(d, userId);
+  const found = accs.find((a) => a.name.toLowerCase() === accountName.toLowerCase() && a.category === categoryName && !a.archived);
+  if (found) return found.id;
+  const cat = (await categories(d, userId)).find((c) => c.name === categoryName);
+  if (!cat) throw new Error(`Category "${categoryName}" is missing`);
+  const sub =
+    (await subcategories(d, userId)).find((s) => s.category_id === cat.id && s.name === subName) ??
+    (await subcategories(d, userId)).find((s) => s.category_id === cat.id);
+  const subId = sub ? sub.id : await addSubcategory(d, userId, cat.id, subName);
+  return addAccount(d, userId, subId, accountName);
+}
+
+export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
+  const items = validate(i);
+  const t = invoiceTotals(items, i.taxPercent ?? 0, i.discount ?? 0);
+  if (t.total <= 0) throw new Error("The invoice total must be more than zero");
+  let customerName = (i.customerName ?? "").trim();
+  let customerId = i.customerAccountId || null;
+  let phone = i.customerPhone || null;
+  if (customerId) {
+    const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === customerId);
+    if (!acc) throw new Error("Customer not found");
+    customerName = acc.name;
+    phone = phone || acc.phone;
+  }
+  if (!customerName) throw new Error("Enter the customer's name");
+
+  return d.tx(async (x) => {
+    let txnId: number | null = null;
+    let taxTxnId: number | null = null;
+    const [{ n }] = await x.q<{ n: number }>("SELECT COALESCE(MAX(number), 0) + 1 AS n FROM invoices WHERE user_id = $1", [userId]);
+    if (i.record) {
+      if (!customerId) customerId = await ensureAccount(x, userId, "Receivables", "Customers (Khata)", customerName);
+      const sales = await ensureAccount(x, userId, "Income", "Sales", "Sales");
+      // Customer now owes the total: the sale goes to Sales, the tax to Sales Tax Payable.
+      txnId = await addTransaction(x, userId, {
+        type: "transfer",
+        date: i.date,
+        amount: t.taxable,
+        fromAccountId: sales,
+        toAccountId: customerId,
+        note: `Invoice #${n}`,
+      });
+      if (t.tax > 0) {
+        const taxAcc = await ensureAccount(x, userId, "Liabilities", "Taxes Payable", "Sales Tax Payable");
+        taxTxnId = await addTransaction(x, userId, {
+          type: "transfer",
+          date: i.date,
+          amount: t.tax,
+          fromAccountId: taxAcc,
+          toAccountId: customerId,
+          note: `Sales tax on invoice #${n}`,
+        });
+      }
+    }
+    const [row] = await x.q<{ id: number }>(
+      `INSERT INTO invoices (user_id, number, customer_account_id, customer_name, customer_phone, date, due_date, items,
+         tax_percent, discount, subtotal, tax, total, notes, transaction_id, tax_transaction_id, share_token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+      [
+        userId, n, customerId, customerName, phone, i.date, i.dueDate || null, JSON.stringify(items), i.taxPercent ?? 0,
+        i.discount ?? 0, t.subtotal, t.tax, t.total, i.notes || null, txnId, taxTxnId, randomBytes(18).toString("base64url"),
+      ],
+    );
+    return row.id;
+  });
+}
+
+export type Invoice = {
+  id: number;
+  number: number;
+  customer_account_id: number | null;
+  customer_name: string;
+  customer_phone: string | null;
+  date: string;
+  due_date: string | null;
+  items: InvoiceItem[];
+  tax_percent: number;
+  discount: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes: string | null;
+  transaction_id: number | null;
+  share_token: string;
+  cancelled: boolean;
+  business: string;
+  business_phone: string | null;
+  business_address: string | null;
+  business_ntn: string | null;
+};
+
+const SELECT = `SELECT i.id, i.number, i.customer_account_id, i.customer_name, i.customer_phone,
+  to_char(i.date, 'YYYY-MM-DD') AS date, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, i.items,
+  i.tax_percent::float8 AS tax_percent, i.discount::float8 AS discount, i.subtotal::float8 AS subtotal,
+  i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.share_token, i.cancelled,
+  COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn
+  FROM invoices i JOIN users u ON u.id = i.user_id`;
+
+const parse = (r: Invoice & { items: unknown }): Invoice => ({ ...r, items: typeof r.items === "string" ? JSON.parse(r.items) : r.items } as Invoice);
+
+export async function listInvoices(d: Db, userId: number) {
+  return (await d.q<Invoice>(`${SELECT} WHERE i.user_id = $1 ORDER BY i.number DESC LIMIT 500`, [userId])).map(parse);
+}
+
+export async function getInvoice(d: Db, userId: number, id: number) {
+  if (!Number.isInteger(id)) return undefined;
+  const [r] = await d.q<Invoice>(`${SELECT} WHERE i.user_id = $1 AND i.id = $2`, [userId, id]);
+  return r && parse(r);
+}
+
+/** For the public link sent to the customer. */
+export async function getInvoiceByToken(d: Db, token: string) {
+  if (!/^[\w-]{20,40}$/.test(token)) return undefined;
+  const [r] = await d.q<Invoice>(`${SELECT} WHERE i.share_token = $1`, [token]);
+  return r && parse(r);
+}
+
+/** Cancel: the entries it added to the books are deleted (they stay in the deleted log). */
+export async function cancelInvoice(d: Db, userId: number, id: number) {
+  const inv = await getInvoice(d, userId, id);
+  if (!inv) throw new Error("Invoice not found");
+  if (inv.cancelled) return;
+  await d.tx(async (x) => {
+    const [r] = await x.q<{ t1: number | null; t2: number | null }>(
+      "SELECT transaction_id AS t1, tax_transaction_id AS t2 FROM invoices WHERE id = $1",
+      [id],
+    );
+    for (const t of [r.t1, r.t2]) {
+      if (t) {
+        const [live] = await x.q("SELECT 1 FROM transactions WHERE id = $1 AND deleted_at IS NULL", [t]);
+        if (live) await deleteTransaction(x, userId, t);
+      }
+    }
+    await x.q("UPDATE invoices SET cancelled = true WHERE id = $1", [id]);
+  });
+}

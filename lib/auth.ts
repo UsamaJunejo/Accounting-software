@@ -45,6 +45,13 @@ export type User = {
   is_admin: boolean;
   must_change_password: boolean;
   has_recovery: boolean;
+  level: 1 | 2 | 3;
+  address: string | null;
+  ntn: string | null;
+  nok_name: string | null;
+  nok_relation: string | null;
+  nok_phone: string | null;
+  nok_email: string | null;
 };
 
 // Cached per request so the layout and page share one lookup.
@@ -55,7 +62,8 @@ export const currentUser = cache(async (): Promise<User | null> => {
     const { payload } = await jwtVerify(token, secret());
     const [u] = await (await db()).q<User & { session_version: number }>(
       `SELECT id, name, email, phone, business_name, currency, is_admin, must_change_password,
-              recovery_hash IS NOT NULL AS has_recovery, session_version
+              recovery_hash IS NOT NULL AS has_recovery, session_version, level, address, ntn,
+              nok_name, nok_relation, nok_phone, nok_email
        FROM users WHERE id = $1`,
       [Number(payload.uid)],
     );

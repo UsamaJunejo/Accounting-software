@@ -18,6 +18,7 @@ type Row = {
   last_entry: string | null;
   is_admin: boolean;
   has_recovery: boolean;
+  nok: string | null;
 };
 
 export default async function Admin({ searchParams }: { searchParams: Promise<{ q?: string; error?: string; ok?: string }> }) {
@@ -29,7 +30,8 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     `SELECT u.id, u.name, u.email, u.phone, u.business_name, to_char(u.created_at, 'YYYY-MM-DD') AS joined,
             (SELECT COUNT(*)::int FROM transactions t WHERE t.user_id = u.id AND t.deleted_at IS NULL) AS entries,
             (SELECT to_char(MAX(t.created_at), 'YYYY-MM-DD') FROM transactions t WHERE t.user_id = u.id) AS last_entry,
-            u.is_admin, u.recovery_hash IS NOT NULL AS has_recovery
+            u.is_admin, u.recovery_hash IS NOT NULL AS has_recovery,
+            NULLIF(CONCAT_WS(' · ', u.nok_name, u.nok_relation, u.nok_phone, u.nok_email), '') AS nok
      FROM users u
      WHERE $1::text IS NULL OR u.name ILIKE $2 OR u.email ILIKE $2 OR u.phone ILIKE $2 OR u.business_name ILIKE $2
      ORDER BY u.id DESC LIMIT 200`,
@@ -66,6 +68,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                     </div>
                     <div className="text-xs text-slate-500">{u.email}</div>
                     {u.business_name && <div className="text-xs text-slate-500">{u.business_name}</div>}
+                    {u.nok && <div className="text-xs text-slate-400">Next of kin: {u.nok}</div>}
                   </td>
                   <td>{u.phone}</td>
                   <td className="whitespace-nowrap">{u.joined}</td>

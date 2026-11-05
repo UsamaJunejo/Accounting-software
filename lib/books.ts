@@ -191,6 +191,13 @@ export async function addAccount(
   return row.id;
 }
 
+/** For the simpler views: the sub-category an account goes into when only a category was chosen. */
+export async function defaultSubcategory(d: Db, userId: number, categoryId: number) {
+  await own(d, "categories", categoryId, userId);
+  const [s] = await d.q<IdRow>("SELECT id FROM subcategories WHERE category_id = $1 ORDER BY id LIMIT 1", [categoryId]);
+  return s ? s.id : addSubcategory(d, userId, categoryId, "General");
+}
+
 export async function updateAccount(
   d: Db,
   userId: number,

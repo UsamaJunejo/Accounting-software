@@ -72,6 +72,7 @@ export default async function Home() {
       </section>
       <footer className="bg-ink py-8 text-center text-sm text-slate-400">
         <Logo className="text-white" /> · Simple accounting for everyone
+        <div className="mt-2"><Link href="/privacy" className="hover:text-white">Privacy</Link> · <Link href="/terms" className="hover:text-white">Terms</Link></div>
       </footer>
     </div>
   );

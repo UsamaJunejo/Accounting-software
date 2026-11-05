@@ -139,7 +139,8 @@ export async function addAccount(form: FormData) {
   await run(back, async (uid, d) => {
     const name = str(form, "name");
     if (!name) throw new Error("Name is required");
-    await B.addAccount(d, uid, int(form, "subcategory"), name, { phone: str(form, "phone"), budgetMonthly: budget(form) });
+    const sub = int(form, "subcategory") || (await B.defaultSubcategory(d, uid, int(form, "category")));
+    await B.addAccount(d, uid, sub, name, { phone: str(form, "phone"), budgetMonthly: budget(form) });
   }, "Account added");
 }
 

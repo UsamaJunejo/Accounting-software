@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Inbox } from "lucide-react";
 import { money } from "@/lib/format";
+import { currentUser } from "@/lib/auth";
 import type { AccountRow } from "@/lib/books";
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: React.ReactNode }) {
@@ -28,7 +29,8 @@ export function Money({ value, className = "" }: { value: number; className?: st
 }
 
 /** Account dropdown grouped by category, the way users think about them. */
-export function AccountSelect({
+/** Account dropdown. Grouped by category, except in the Simple (1-level) view. */
+export async function AccountSelect({
   name,
   accounts,
   value,
@@ -41,11 +43,19 @@ export function AccountSelect({
   required?: boolean;
   placeholder?: string;
 }) {
+  const level = (await currentUser())?.level ?? 3;
+  const visible = accounts.filter((a) => !a.archived || a.id === value);
+  if (level === 1)
+    return (
+      <select name={name} defaultValue={value ?? ""} required={required} className="input">
+        <option value="" disabled>{placeholder}</option>
+        {[...visible].sort((a, b) => a.name.localeCompare(b.name)).map((a) => (
+          <option key={a.id} value={a.id}>{a.name}</option>
+        ))}
+      </select>
+    );
   const groups = new Map<string, AccountRow[]>();
-  for (const a of accounts.filter((a) => !a.archived || a.id === value)) {
-    const key = a.category;
-    groups.set(key, [...(groups.get(key) ?? []), a]);
-  }
+  for (const a of visible) groups.set(a.category, [...(groups.get(a.category) ?? []), a]);
   return (
     <select name={name} defaultValue={value ?? ""} required={required} className="input">
       <option value="" disabled>
@@ -55,7 +65,7 @@ export function AccountSelect({
         <optgroup key={cat} label={cat}>
           {accs.map((a) => (
             <option key={a.id} value={a.id}>
-              {a.name} — {a.subcategory}
+              {level === 3 ? `${a.name} — ${a.subcategory}` : a.name}
             </option>
           ))}
         </optgroup>

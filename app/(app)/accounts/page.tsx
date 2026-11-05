@@ -21,7 +21,10 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     <>
       <PageHeader
         title="Accounts"
-        subtitle="Category → Sub-category → Account. Click an account to see its full statement."
+        subtitle={
+          (user.level === 3 ? "Category → Sub-category → Account. " : user.level === 2 ? "Accounts grouped by category. " : "") +
+          "Click an account to see its full statement. Change how detailed this is in Settings."
+        }
         actions={
           <>
           <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
@@ -37,22 +40,29 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
       <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <form action={A.addAccount} className="card space-y-3 p-4">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Plus className="h-5 w-5 text-brand" />Add account</h2>
-          <select name="subcategory" required className="input" defaultValue="">
-            <option value="" disabled>Choose sub-category</option>
-            {cats.map((c) => (
-              <optgroup key={c.id} label={c.name}>
-                {subs.filter((s) => s.category_id === c.id).map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          {user.level === 3 ? (
+            <select name="subcategory" required className="input" defaultValue="">
+              <option value="" disabled>Choose sub-category</option>
+              {cats.map((c) => (
+                <optgroup key={c.id} label={c.name}>
+                  {subs.filter((s) => s.category_id === c.id).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          ) : (
+            <select name="category" required className="input" defaultValue="">
+              <option value="" disabled>{user.level === 1 ? "What kind of account?" : "Choose category"}</option>
+              {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
           <input name="name" required placeholder="Account name, e.g. Ahmed Traders" className="input" />
           <input name="phone" placeholder="Mobile (for khata reminders)" className="input" />
           <input name="budget" inputMode="decimal" placeholder="Monthly budget (optional)" className="input" />
           <button className="btn-primary w-full">Add account</button>
         </form>
-        <form action={A.addSubcategory} className="card space-y-3 p-4">
+        {user.level === 3 && <form action={A.addSubcategory} className="card space-y-3 p-4">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Layers className="h-5 w-5 text-brand" />Add sub-category</h2>
           <select name="category" required className="input" defaultValue="">
             <option value="" disabled>Choose category</option>
@@ -60,7 +70,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           </select>
           <input name="name" required placeholder="e.g. Marketing" className="input" />
           <button className="btn-dark w-full">Add sub-category</button>
-        </form>
+        </form>}
         <form action={A.addCategory} className="card space-y-3 p-4">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><FolderPlus className="h-5 w-5 text-brand" />Add category</h2>
           <input name="name" required placeholder="e.g. Online Business" className="input" />
@@ -73,6 +83,26 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
         </form>
       </div>
 
+      {user.level === 1 && (
+        <section className="card overflow-hidden">
+          <ul>
+            {[...accs].sort((x, y) => x.name.localeCompare(y.name)).map((a) => (
+              <li key={a.id} className="flex items-center justify-between border-b border-[var(--line)] px-4 py-2.5 text-sm hover:bg-orange-50/40">
+                <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 font-medium text-ink hover:text-brand">
+                  <CategoryBadge name={a.category} kind={a.kind} size="sm" />
+                  {a.name}
+                  {a.archived ? <span className="text-xs text-slate-400">(archived)</span> : null}
+                </Link>
+                <div className="flex items-center gap-4">
+                  <Money value={a.balance} />
+                  <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-blue-600 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {user.level !== 1 && (
       <div className="space-y-5">
         {cats.map((c) => {
           const cAccs = accs.filter((a) => a.category_id === c.id);
@@ -107,7 +137,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
                 const sAccs = cAccs.filter((a) => a.subcategory_id === s.id);
                 return (
                   <div key={s.id} className="border-t border-[var(--line)]">
-                    <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm">
+                    {user.level === 3 && <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm">
                       <span className="font-semibold text-slate-700">{s.name}</span>
                       <div className="flex items-center gap-3">
                         <Money value={sAccs.reduce((t, a) => t + a.balance, 0)} className="text-slate-600" />
@@ -129,9 +159,9 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
                           </div>
                         </details>
                       </div>
-                    </div>
+                    </div>}
                     {sAccs.length === 0 ? (
-                      <div className="px-4 py-2 text-sm text-slate-400">No accounts yet.</div>
+                      user.level === 3 && <div className="px-4 py-2 text-sm text-slate-400">No accounts yet.</div>
                     ) : (
                       <ul>
                         {sAccs.map((a) => (
@@ -156,6 +186,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           );
         })}
       </div>
+      )}
     </>
   );
 }

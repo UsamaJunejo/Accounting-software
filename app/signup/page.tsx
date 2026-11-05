@@ -35,6 +35,10 @@ export default async function Signup({ searchParams }: { searchParams: Promise<{
           <p className="mt-1 text-xs text-slate-500">At least 8 characters.</p>
         </div>
         <button className="btn-primary w-full py-2.5">Create account</button>
+        <p className="text-center text-xs text-slate-500">
+          By creating an account you agree to our <Link href="/terms" className="text-brand">Terms</Link> and{" "}
+          <Link href="/privacy" className="text-brand">Privacy Policy</Link>.
+        </p>
       </form>
     </AuthCard>
   );

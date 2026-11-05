@@ -70,13 +70,30 @@ export async function updateProfile(form: FormData) {
   const u = await requireUser();
   const name = str(form, "name");
   if (!name) fail("/settings", "Name is required.");
-  await (await db()).q("UPDATE users SET name = $1, phone = $2, business_name = $3 WHERE id = $4", [
-    name,
-    str(form, "phone") || null,
-    str(form, "business") || null,
-    u.id,
-  ]);
+  await (await db()).q(
+    "UPDATE users SET name = $1, phone = $2, business_name = $3, address = $4, ntn = $5 WHERE id = $6",
+    [name, str(form, "phone") || null, str(form, "business") || null, str(form, "address") || null, str(form, "ntn") || null, u.id],
+  );
+  revalidatePath("/", "layout");
   redirect("/settings?ok=Profile saved");
+}
+
+export async function updateNextOfKin(form: FormData) {
+  const u = await requireUser();
+  await (await db()).q(
+    "UPDATE users SET nok_name = $1, nok_relation = $2, nok_phone = $3, nok_email = $4 WHERE id = $5",
+    [str(form, "nok_name") || null, str(form, "nok_relation") || null, str(form, "nok_phone") || null, str(form, "nok_email") || null, u.id],
+  );
+  redirect("/settings?ok=Next of kin saved");
+}
+
+export async function updateLevel(form: FormData) {
+  const u = await requireUser();
+  const level = Number(form.get("level"));
+  if (![1, 2, 3].includes(level)) fail("/settings", "Choose a level");
+  await (await db()).q("UPDATE users SET level = $1 WHERE id = $2", [level, u.id]);
+  revalidatePath("/", "layout");
+  redirect("/settings?ok=View updated");
 }
 
 /** Changing the password also logs out every other device. */
