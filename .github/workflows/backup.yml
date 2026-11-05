@@ -1,0 +1,50 @@
+# Off-site backup: once a day, an encrypted copy of the whole database is kept by GitHub for 30 days.
+# It only runs after two secrets are added (GitHub repo → Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL     Supabase → Connect → "Session pooler" connection string (port 5432), with your password
+#   BACKUP_PASSPHRASE   a long password you make up and keep safe; you need it to open a backup
+# To open a backup: download the artifact, then run
+#   gpg --decrypt financechachu.sql.gz.gpg | gunzip > financechachu.sql
+name: Daily database backup
+
+on:
+  schedule:
+    - cron: "41 21 * * *" # 02:41 in Pakistan
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check secrets
+        id: check
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$DB" ] || [ -z "$PASS" ]; then
+            echo "::warning::Backup secrets are not set yet, skipping. See the notes at the top of this file."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Dump, compress and encrypt
+        if: steps.check.outputs.ready == 'true'
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          docker run --rm -e DB postgres:17 sh -c 'pg_dump --no-owner --no-privileges "$DB"' | gzip -9 > financechachu.sql.gz
+          test -s financechachu.sql.gz
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASS" --symmetric --cipher-algo AES256 -o financechachu.sql.gz.gpg financechachu.sql.gz
+          rm financechachu.sql.gz
+      - name: Keep for 30 days
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: financechachu-backup-${{ github.run_id }}
+          path: financechachu.sql.gz.gpg
+          retention-days: 30

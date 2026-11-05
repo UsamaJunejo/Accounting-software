@@ -1,7 +1,8 @@
-import { Search, ShieldCheck, Users } from "lucide-react";
+import { DatabaseBackup, Download, Search, ShieldCheck, Users } from "lucide-react";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { adminSetAdmin } from "@/app/actions/auth";
+import { listBackups } from "@/lib/backup";
 import { Empty, Flash, PageHeader } from "@/components/ui";
 import { AdminReset } from "@/components/admin-reset";
 
@@ -38,6 +39,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
     [q || null, `%${q ?? ""}%`],
   );
   const [{ total }] = await d.q<{ total: number }>("SELECT COUNT(*)::int AS total FROM users");
+  const backups = await listBackups(d);
 
   return (
     <>
@@ -93,6 +95,30 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
           </table>
         )}
       </div>
+      <section className="card mt-6 p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-bold"><DatabaseBackup className="h-5 w-5 text-brand" />Backups</h2>
+          <a href="/backup?full=1" className="btn-ghost"><Download className="h-4 w-4" />Download a backup now</a>
+        </div>
+        <p className="mb-3 text-sm text-muted">A full copy of the database is saved automatically once a day; the last 7 are kept. Bill photos aren&apos;t included. Keep a downloaded copy somewhere safe now and then.</p>
+        {backups.length === 0 ? (
+          <p className="text-sm text-muted">The first daily backup will appear after the next daily check.</p>
+        ) : (
+          <table className="table">
+            <thead><tr><th>Saved</th><th className="num">Rows</th><th className="num">Size</th><th></th></tr></thead>
+            <tbody>
+              {backups.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.created_at}</td>
+                  <td className="num">{b.rows.toLocaleString()}</td>
+                  <td className="num">{(b.size / 1024).toFixed(0)} KB</td>
+                  <td className="text-right"><a href={`/backup?id=${b.id}`} className="font-semibold text-peacock underline">Download</a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
     </>
   );
 }

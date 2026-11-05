@@ -115,6 +115,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             <div className="flex flex-wrap gap-2">
               <Link href="/export" className="btn-ghost"><Download className="h-4 w-4" />All entries</Link>
               <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Accounts &amp; balances</Link>
+              <a href="/backup" className="btn-ghost"><Download className="h-4 w-4" />Everything (backup file)</a>
             </div>
             <p className="text-sm text-muted">Budgets are set per account: open <Link href="/accounts" className="font-semibold text-brand">Accounts</Link> → Edit.</p>
           </div>

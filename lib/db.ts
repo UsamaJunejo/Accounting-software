@@ -260,6 +260,16 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE schedules ENABLE ROW LEVEL SECURITY;
   ALTER TABLE invoice_payments ENABLE ROW LEVEL SECURITY;
   `,
+  /* 8: daily snapshots of the whole database, kept inside it (last 7) */ `
+  CREATE TABLE IF NOT EXISTS backups (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    size INTEGER NOT NULL,
+    rows INTEGER NOT NULL,
+    data TEXT NOT NULL
+  );
+  ALTER TABLE backups ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;
