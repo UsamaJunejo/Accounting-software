@@ -26,12 +26,12 @@ async function run(path: string, fn: (uid: number, d: Db) => Promise<unknown>, o
   redirect(ok ? `${path}${sep}ok=${encodeURIComponent(ok + (extra?.() ?? ""))}` : path);
 }
 
-function txnFrom(form: FormData): B.TxnInput {
-  const currency = str(form, "currency") || "PKR";
+function txnFrom(form: FormData, primary: string): B.TxnInput {
+  const currency = str(form, "currency") || primary;
   let amount: number;
   let foreignAmount: number | null = null;
   let rate: number | null = null;
-  if (currency !== "PKR") {
+  if (currency !== primary) {
     if (!CURRENCY_CODES.has(currency)) throw new Error("Unknown currency");
     foreignAmount = toPaisa(str(form, "foreign_amount"));
     rate = Number(str(form, "rate").replace(/,/g, ""));
@@ -43,6 +43,7 @@ function txnFrom(form: FormData): B.TxnInput {
   }
   if (Number.isNaN(amount)) throw new Error("Please enter a valid amount, e.g. 1500 or 1500.50");
   return {
+    primary,
     currency,
     foreignAmount,
     rate,
@@ -66,7 +67,8 @@ export async function saveTransaction(form: FormData) {
   await run(
     back,
     async (uid, d) => {
-      const t = txnFrom(form);
+      const [{ currency: primary }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [uid]);
+      const t = txnFrom(form, primary);
       const txnId = id || (await B.addTransaction(d, uid, t));
       if (id) await B.updateTransaction(d, uid, id, t);
       // Attachments are saved after the entry; a bad file doesn't lose the entry.

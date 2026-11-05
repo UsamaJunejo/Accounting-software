@@ -15,9 +15,9 @@ export function AdminReset({ id, name, phone }: { id: number; name: string; phon
     return (
       <div className="space-y-2">
         <CodeBox value={state.temp} />
-        <p className="text-xs text-slate-500">Send this to {state.email}. They must change it after signing in.</p>
+        <p className="text-xs text-muted">Send this to {state.email}. They must change it after signing in.</p>
         {wa && (
-          <a className="btn bg-green-600 text-white hover:bg-green-700" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}?text=${text}`}>
+          <a className="btn bg-ledger text-white hover:bg-ledger-dark" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}?text=${text}`}>
             Send on WhatsApp
           </a>
         )}
@@ -32,7 +32,7 @@ export function AdminReset({ id, name, phone }: { id: number; name: string; phon
       }}
     >
       <input type="hidden" name="id" value={id} />
-      {state.error && <p className="mb-1 text-xs text-red-600">{state.error}</p>}
+      {state.error && <p className="mb-1 text-xs text-khata">{state.error}</p>}
       <button className="btn-ghost text-xs" disabled={pending}>
         <KeyRound className="h-4 w-4" />
         Reset password

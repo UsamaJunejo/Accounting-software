@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MessageCircle, Pencil, Share2 } from "lucide-react";
 import { sharesOfAccount } from "@/lib/sharing";
+import { currencySymbol } from "@/lib/currencies";
 import { removeShare, shareAccount } from "@/app/actions/sharing";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -9,6 +10,7 @@ import { accountStatement } from "@/lib/books";
 import { money, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, Flash, LinkButton, Money, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
+import { BalanceLine } from "@/components/charts";
 
 export default async function Statement({
   params,
@@ -33,7 +35,7 @@ export default async function Statement({
   const isParty = a.category === "Receivables" || a.category === "Payables";
   const phone = a.phone?.replace(/\D/g, "").replace(/^0/, "92");
   const waText = encodeURIComponent(
-    `Assalam-o-Alaikum ${a.name}, your balance with ${user.business_name || user.name} is Rs ${money(Math.abs(s.closing))} as of ${prettyDate(to)}. Thank you.`,
+    `Assalam-o-Alaikum ${a.name}, your balance with ${user.business_name || user.name} is ${currencySymbol(user.currency)} ${money(Math.abs(s.closing))} as of ${prettyDate(to)}. Thank you.`,
   );
 
   return (
@@ -44,7 +46,7 @@ export default async function Statement({
         actions={
           <>
             {isParty && phone && (
-              <a href={`https://wa.me/${phone}?text=${waText}`} target="_blank" rel="noreferrer" className="btn bg-green-600 text-white hover:bg-green-700">
+              <a href={`https://wa.me/${phone}?text=${waText}`} target="_blank" rel="noreferrer" className="btn bg-ledger text-white hover:bg-ledger-dark">
                 <MessageCircle className="h-4 w-4" />
                 Send on WhatsApp
               </a>
@@ -56,10 +58,21 @@ export default async function Statement({
       />
       <DateRange from={from} to={to} />
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
-        <div className="card p-3"><div className="text-slate-500">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
-        <div className="card p-3"><div className="text-slate-500">Entries</div><div className="font-bold">{s.lines.length}</div></div>
-        <div className="card p-3"><div className="text-slate-500">Closing balance</div><div className="font-bold"><Money value={s.closing} /></div></div>
+        <div className="card p-3"><div className="text-muted">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
+        <div className="card p-3"><div className="text-muted">Entries</div><div className="font-bold">{s.lines.length}</div></div>
+        <div className="card p-3"><div className="text-muted">Closing balance</div><div className="font-bold"><Money value={s.closing} /></div></div>
       </div>
+      {s.lines.length > 1 && (
+        <div className="card no-print mb-4 p-5">
+          <h2 className="text-lg font-bold">Balance over time</h2>
+          <p className="mb-3 text-sm text-muted">After each entry in this period</p>
+          <BalanceLine
+            data={[{ date: from, balance: s.opening }, ...s.lines.map((l) => ({ date: l.date, balance: l.balance }))]}
+            cur={currencySymbol(user.currency)}
+            name={a.name}
+          />
+        </div>
+      )}
       <div className="card overflow-hidden">
         {s.lines.length === 0 ? (
           <Empty>No entries in this period.</Empty>
@@ -70,16 +83,16 @@ export default async function Statement({
                 <tr><th>Date</th><th>Details</th><th>Note</th><th className="num">In</th><th className="num">Out</th><th className="num">Balance</th></tr>
               </thead>
               <tbody>
-                <tr className="bg-slate-50 font-medium"><td colSpan={5}>Opening balance</td><td className="num"><Money value={s.opening} /></td></tr>
+                <tr className="bg-paper font-medium"><td colSpan={5}>Opening balance</td><td className="num"><Money value={s.opening} /></td></tr>
                 {s.lines.map((l) => (
                   <tr key={l.id} style={l.highlight ? { background: l.highlight + "33" } : undefined}>
                     <td className="whitespace-nowrap">{prettyDate(l.date)}</td>
                     <td>
                       <Link href={`/voucher?edit=${l.id}`} className="hover:text-brand">{l.moneyIn ? "From " : "To "}{l.other}</Link>
                     </td>
-                    <td className="text-slate-500">{l.note}</td>
-                    <td className="num text-green-700">{l.moneyIn ? money(l.moneyIn) : ""}</td>
-                    <td className="num text-orange-600">{l.moneyOut ? money(l.moneyOut) : ""}</td>
+                    <td className="text-muted">{l.note}</td>
+                    <td className="num text-inflow">{l.moneyIn ? money(l.moneyIn) : ""}</td>
+                    <td className="num text-khata">{l.moneyOut ? money(l.moneyOut) : ""}</td>
                     <td className="num font-medium"><Money value={l.balance} /></td>
                   </tr>
                 ))}
@@ -90,7 +103,7 @@ export default async function Statement({
       </div>
       <section id="sharing" className="card no-print mt-6 overflow-hidden">
         <h2 className="flex items-center gap-2 px-4 py-3 font-semibold text-ink"><Share2 className="h-5 w-5 text-brand" />Share this account</h2>
-        <p className="px-4 text-sm text-slate-600">
+        <p className="px-4 text-sm text-muted">
           Let a partner, staff member or customer see this account&apos;s statement. They need a FinanceChachu account.
           If you let them add entries, each one waits for your approval in <Link href="/shared" className="font-semibold text-brand">Shared</Link>.
         </p>
@@ -107,19 +120,19 @@ export default async function Statement({
           <button className="btn-dark"><Share2 className="h-4 w-4" />Share</button>
         </form>
         {shares.length > 0 && (
-          <ul className="border-t border-[var(--line)]">
+          <ul className="border-t border-rule">
             {shares.map((sh) => (
-              <li key={sh.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-2 text-sm">
+              <li key={sh.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-rule px-4 py-2 text-sm">
                 <div>
-                  <b>{sh.user_name}</b> <span className="text-slate-500">{sh.user_email}</span>
-                  <div className="text-xs text-slate-500">
+                  <b>{sh.user_name}</b> <span className="text-muted">{sh.user_email}</span>
+                  <div className="text-xs text-muted">
                     {sh.status === "pending" ? "Invitation sent" : "Accepted"} · {sh.can_add ? "can add entries" : "view only"}
                   </div>
                 </div>
                 <form action={removeShare}>
                   <input type="hidden" name="id" value={sh.id} />
                   <input type="hidden" name="account" value={a.id} />
-                  <button className="text-sm font-semibold text-red-600">Stop sharing</button>
+                  <button className="text-sm font-semibold text-khata">Stop sharing</button>
                 </form>
               </li>
             ))}

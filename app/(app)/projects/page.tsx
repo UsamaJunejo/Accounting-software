@@ -39,7 +39,7 @@ export default async function Projects({ searchParams }: { searchParams: Promise
                 <tr key={p.id} className={p.archived ? "opacity-60" : ""}>
                   <td>
                     <Link href={`/transactions?project=${p.id}&from=${from}&to=${to}`} className="flex items-center gap-1 font-semibold text-ink hover:text-brand">
-                      <FolderKanban className="h-4 w-4 text-purple-600" />{p.name}
+                      <FolderKanban className="h-4 w-4 text-ink" />{p.name}
                     </Link>
                   </td>
                   <td className="num">{p.entries}</td>
@@ -51,7 +51,7 @@ export default async function Projects({ searchParams }: { searchParams: Promise
                       <input type="hidden" name="id" value={p.id} />
                       <input name="name" defaultValue={p.name} className="input max-w-40 py-1" />
                       <label className="flex items-center gap-1 text-xs"><input type="checkbox" name="archived" defaultChecked={p.archived} />Archived</label>
-                      <button className="text-slate-600 hover:text-ink" aria-label="Save"><Save className="h-4 w-4" /></button>
+                      <button className="text-muted hover:text-ink" aria-label="Save"><Save className="h-4 w-4" /></button>
                     </form>
                   </td>
                 </tr>

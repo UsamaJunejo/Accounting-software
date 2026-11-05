@@ -49,7 +49,7 @@ export default async function EditAccount({
             <input name="phone" defaultValue={a.phone ?? ""} className="input" placeholder="03XX-XXXXXXX" />
           </div>
           <div>
-            <label className="label">Monthly budget (PKR)</label>
+            <label className="label">Monthly budget ({user.currency})</label>
             <input name="budget" inputMode="decimal" defaultValue={a.budget_monthly ? (a.budget_monthly / 100).toFixed(2) : ""} className="input" />
           </div>
         </div>
@@ -64,7 +64,7 @@ export default async function EditAccount({
       <form action={deleteAccount} className="max-w-2xl">
         <input type="hidden" name="id" value={a.id} />
         <button className="btn-danger"><Trash2 className="h-4 w-4" />Delete account</button>
-        <p className="mt-1 text-xs text-slate-500">Only possible if it has no entries. Otherwise archive it.</p>
+        <p className="mt-1 text-xs text-muted">Only possible if it has no entries. Otherwise archive it.</p>
       </form>
     </>
   );

@@ -1,30 +1,29 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountsWithBalances, budgets, categories, listTransactions, monthlyTotals, summarizeIncome } from "@/lib/books";
+import { accountsWithBalances, budgets, cashBankDaily, categories, listTransactions, monthlyTotals, summarizeIncome } from "@/lib/books";
 import { money, monthRange, prettyDate, today } from "@/lib/format";
-import { DateRange, Empty, LinkButton, Money, PageHeader, TypeBadge } from "@/components/ui";
-import { ExpensePie, MonthlyBars } from "@/components/charts";
+import { DateRange, Empty, Money, PageHeader, TypeBadge } from "@/components/ui";
+import { BalanceLine, InOutBars, RankedBars } from "@/components/charts";
+import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { CategoryBadge } from "@/components/icons";
-import { ArrowDownLeft, ArrowUpRight, ChartPie, ChartColumn, HandCoins, LineChart, ListOrdered, Target, Truck, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
 export const metadata = { title: "Dashboard" };
 
-function Stat({ label, value, tone, href, Icon, iconBg }: { label: string; value: number; tone: string; href?: string; Icon: LucideIcon; iconBg: string }) {
-  const body = (
-    <div className={`card h-full border-l-4 p-4 ${tone}`}>
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}><Icon className="h-4 w-4" /></span>
-      </div>
-      <div className="mt-1 text-2xl font-bold text-ink">
-        <span className="mr-1 text-sm font-medium text-slate-400">Rs</span>
+/** One line of the position ledger: label on the left, amount on the right, like a khata page. */
+function Row({ label, value, sign, href, cur }: { label: string; value: number; sign?: "+" | "−"; href: string; cur: string }) {
+  return (
+    <Link href={href} className="flex items-baseline justify-between gap-4 border-b border-rule py-2.5 hover:bg-ink-soft/40">
+      <span className="text-body">{label}</span>
+      <span className="tabular-nums text-lg text-ink" dir="ltr">
+        <span className="me-1 text-muted">{sign ?? ""}</span>
+        <span className="me-1 text-sm text-muted">{cur}</span>
         <Money value={value} />
-      </div>
-    </div>
+      </span>
+    </Link>
   );
-  return href ? <Link href={href}>{body}</Link> : body;
 }
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; welcome?: string }> }) {
@@ -41,14 +40,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const [bStart, bEnd] = monthRange(today());
 
   // Load everything in parallel: one round trip each.
-  const [all, period, cats0, monthly, budgetRows, recent] = await Promise.all([
+  const [all, period, cats0, monthly, budgetRows, recent, flow] = await Promise.all([
     accountsWithBalances(d, user.id, { to }),
     accountsWithBalances(d, user.id, { from, to }),
     categories(d, user.id),
     monthlyTotals(d, user.id, monthStarts[0].toISOString().slice(0, 10), monthRange(to)[1]),
     budgets(d, user.id, bStart, bEnd),
     listTransactions(d, user.id, { limit: 8 }),
+    cashBankDaily(d, user.id, from, to),
   ]);
+  const cur = currencySymbol(user.currency);
   const sumBy = (rows: typeof all, f: (a: (typeof all)[0]) => boolean) => rows.filter(f).reduce((s, a) => s + a.balance, 0);
 
   const cashBank = sumBy(all, (a) => a.category === "Cash" || a.category === "Bank");
@@ -59,25 +60,22 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const cats = cats0.map((c) =>
     c.kind === "income" || c.kind === "expense"
       ? { ...c, balance: sumBy(period, (a) => a.category_id === c.id), note: t("this period") }
-      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: t("balance") },
+      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: "" },
   );
 
-  const expensePie = period
+  const expenses = period
     .filter((a) => a.kind === "expense" && a.balance > 0)
     .sort((a, b) => b.balance - a.balance)
-    .map((a) => ({ name: a.name, value: a.balance / 100 }));
-  const top = expensePie.slice(0, 7);
-  const rest = expensePie.slice(7).reduce((s, x) => s + x.value, 0);
-  if (rest) top.push({ name: "Others", value: rest });
+    .map((a) => ({ name: a.name, value: a.balance }));
+  const topExpenses = expenses.slice(0, 6);
+  const rest = expenses.slice(6).reduce((s, x) => s + x.value, 0);
+  if (rest) topExpenses.push({ name: t("Everything else"), value: rest });
 
   const months = monthStarts.map((dt) => {
     const m = monthly.get(dt.toISOString().slice(0, 7));
-    return {
-      month: dt.toLocaleString("en", { month: "short", timeZone: "UTC" }),
-      income: (m?.income ?? 0) / 100,
-      expense: (m?.expense ?? 0) / 100,
-    };
+    return { label: dt.toLocaleString("en", { month: "short", timeZone: "UTC" }), in: m?.income ?? 0, out: m?.expense ?? 0 };
   });
+  const net = cashBank + receivable - payable;
 
   return (
     <>
@@ -86,55 +84,62 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         subtitle={`${prettyDate(from)} ${t("to")} ${prettyDate(to)}`}
         actions={
           <>
-            <LinkButton href="/voucher?type=receipt" variant="dark"><ArrowDownLeft className="h-4 w-4" />{t("Money In")}</LinkButton>
-            <LinkButton href="/voucher?type=payment" variant="primary"><ArrowUpRight className="h-4 w-4" />{t("Money Out")}</LinkButton>
+            <Link href="/voucher?type=receipt" className="btn-in"><ArrowDownLeft className="h-4 w-4" />{t("Money In")}</Link>
+            <Link href="/voucher?type=payment" className="btn-out"><ArrowUpRight className="h-4 w-4" />{t("Money Out")}</Link>
           </>
         }
       />
       {sp.welcome && (
-        <div className="card mb-5 border-brand/40 bg-orange-50 p-4 text-sm text-slate-700">
-          <b>Welcome!</b> Your accounts are ready: Cash, Bank, JazzCash, Easypaisa, Sales, Rent and more. Start by adding
-          your opening cash as a <Link className="font-semibold text-brand" href="/voucher?type=receipt">Money In</Link> entry from
-          &ldquo;Owner Capital&rdquo; to &ldquo;Cash&rdquo;, then record sales and expenses as they happen.
+        <div className="card mb-5 border-ink/30 bg-ink-soft p-4 text-sm text-body">
+          <b>Your accounts are ready.</b> Cash, Bank, JazzCash, Easypaisa, Sales, Rent and more are set up. Start with the cash
+          you have today: add a <Link className="font-semibold underline" href="/voucher?type=receipt">Money In</Link> entry from
+          &ldquo;Owner Capital&rdquo; to &ldquo;Cash&rdquo;.
         </div>
       )}
       <DateRange from={from} to={to} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label={t("Cash & Bank now")} value={cashBank} tone="border-blue-500" href="/accounts" Icon={Wallet} iconBg="bg-blue-50 text-blue-600" />
-        <Stat label={t("Profit this period")} value={pl.profit} tone={pl.profit >= 0 ? "border-green-500" : "border-red-500"} href={`/reports/income?from=${from}&to=${to}`} Icon={LineChart} iconBg={pl.profit >= 0 ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"} />
-        <Stat label={t("Customers owe you")} value={receivable} tone="border-brand" href="/khata" Icon={HandCoins} iconBg="bg-orange-50 text-brand" />
-        <Stat label={t("You owe suppliers")} value={payable} tone="border-slate-500" href="/khata" Icon={Truck} iconBg="bg-slate-100 text-slate-600" />
-      </div>
-
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t("Categories")}</h2>
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-        {cats.map((c) => (
-          <Link key={c.id} href={`/accounts#cat-${c.id}`} className="card flex items-center gap-3 p-3 transition hover:border-brand">
-            <CategoryBadge name={c.name} kind={c.kind} />
-            <div className="min-w-0">
-              <div className="truncate text-xs font-semibold uppercase text-slate-500">{c.name}</div>
-              <div className="font-bold text-ink"><Money value={c.balance} /></div>
-              <div className="text-[11px] text-slate-400">{c.note}</div>
-            </div>
+      <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="card p-5">
+          <h2 className="text-lg font-bold">{t("Where you stand")}</h2>
+          <p className="mb-2 text-sm text-muted">{t("Today, across all your accounts")}</p>
+          <Row label={t("Cash & bank")} value={cashBank} href="/accounts" cur={cur} />
+          <Row label={t("Customers owe you")} value={receivable} sign="+" href="/khata" cur={cur} />
+          <Row label={t("You owe suppliers")} value={payable} sign="−" href="/khata" cur={cur} />
+          <div className="total mt-3 flex items-baseline justify-between">
+            <span>{t("Net position")}</span>
+            <span className="tabular-nums text-2xl" dir="ltr"><span className="me-1 text-base font-semibold text-muted">{cur}</span><Money value={net} /></span>
+          </div>
+          <Link
+            href={`/reports/income?from=${from}&to=${to}`}
+            className={`mt-4 flex items-baseline justify-between rounded px-3 py-2 ${pl.profit >= 0 ? "bg-ledger-soft text-ledger" : "bg-khata-soft text-khata"}`}
+          >
+            <span className="font-semibold">{pl.profit >= 0 ? t("Profit this period") : t("Loss this period")}</span>
+            <span className="tabular-nums font-bold" dir="ltr">{cur} {money(Math.abs(pl.profit))}</span>
           </Link>
-        ))}
-      </div>
+        </div>
+        <div className="card p-5">
+          <h2 className="text-lg font-bold">{t("Cash & bank balance")}</h2>
+          <p className="mb-3 text-sm text-muted">{t("How much money you held each day")}</p>
+          <BalanceLine data={flow.days} cur={cur} name={t("Cash & bank")} empty={t("No entries in this period.")} />
+        </div>
+      </section>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-2">
-        <div className="card p-4">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartPie className="h-5 w-5 text-brand" />{t("Where the money went")}</h2>
-          <ExpensePie data={top} empty={t("No expenses in this period.")} />
+      <section className="mb-6 grid gap-5 lg:grid-cols-2">
+        <div className="card p-5">
+          <h2 className="text-lg font-bold">{t("Income and expenses")}</h2>
+          <p className="mb-3 text-sm text-muted">{t("Last 6 months")}</p>
+          <InOutBars data={months} cur={cur} labels={{ in: t("Income"), out: t("Expense") }} />
         </div>
-        <div className="card p-4">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink"><ChartColumn className="h-5 w-5 text-brand" />{t("Income vs expense (last 6 months)")}</h2>
-          <MonthlyBars data={months} labels={{ income: t("Income"), expense: t("Expense") }} />
+        <div className="card p-5">
+          <h2 className="text-lg font-bold">{t("Biggest expenses")}</h2>
+          <p className="mb-3 text-sm text-muted">{t("This period, largest first")}</p>
+          <RankedBars data={topExpenses} cur={cur} name={t("Expense")} empty={t("No expenses in this period.")} color="#a4282b" />
         </div>
-      </div>
+      </section>
 
       {budgetRows.length > 0 && (
-        <div className="card mb-6 p-4">
-          <h2 className="mb-3 flex items-center gap-2 font-semibold text-ink"><Target className="h-5 w-5 text-brand" />{t("Budgets this month")}</h2>
+        <div className="card mb-6 p-5">
+          <h2 className="mb-3 text-lg font-bold">{t("Budgets this month")}</h2>
           <div className="space-y-3">
             {budgetRows.map((b) => {
               const pct = Math.min(100, Math.round((b.spent / b.budget) * 100));
@@ -143,12 +148,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <div key={b.id}>
                   <div className="mb-1 flex justify-between text-sm">
                     <span>{b.name}</span>
-                    <span className={over ? "font-semibold text-red-600" : "text-slate-600"}>
-                      {money(b.spent)} / {money(b.budget)} {over && `· ${t("over budget!")}`}
+                    <span className={over ? "font-semibold text-khata" : "text-muted"}>
+                      {money(b.spent)} / {money(b.budget)} {over && <b className="ms-2">{t("over budget!")}</b>}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-slate-100">
-                    <div className={`h-2 rounded-full ${over ? "bg-red-500" : pct > 80 ? "bg-amber-500" : "bg-green-500"}`} style={{ width: `${pct}%` }} />
+                  <div className="h-2 rounded-full bg-paper">
+                    <div className={`h-2 rounded-full ${over ? "bg-khata" : pct > 80 ? "bg-marigold" : "bg-ledger"}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -157,10 +162,28 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       )}
 
+      <section className="card mb-6 p-5">
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="text-lg font-bold">{t("Categories")}</h2>
+          <Link href="/accounts" className="text-sm font-semibold text-ink underline">{t("All accounts")}</Link>
+        </div>
+        <ul className="grid gap-x-8 sm:grid-cols-2">
+          {cats.map((c) => (
+            <li key={c.id}>
+              <Link href={`/accounts#cat-${c.id}`} className="flex items-center gap-3 border-b border-rule py-2 hover:bg-ink-soft/40">
+                <CategoryBadge name={c.name} kind={c.kind} size="sm" />
+                <span className="flex-1 text-body">{c.name}<span className="ms-2 text-sm text-muted">{c.note}</span></span>
+                <span className="tabular-nums font-semibold text-ink"><Money value={c.balance} /></span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between p-4">
-          <h2 className="flex items-center gap-2 font-semibold text-ink"><ListOrdered className="h-5 w-5 text-brand" />{t("Latest entries")}</h2>
-          <Link href="/transactions" className="text-sm font-semibold text-brand">{t("See all")}</Link>
+        <div className="flex items-center justify-between px-5 py-4">
+          <h2 className="text-lg font-bold">{t("Latest entries")}</h2>
+          <Link href="/transactions" className="text-sm font-semibold text-ink underline">{t("See all")}</Link>
         </div>
         {recent.length === 0 ? (
           <Empty>{t("No entries yet. Add your first one with “Money In” or “Money Out”.")}</Empty>
@@ -168,15 +191,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="overflow-x-auto">
             <table className="table">
               <thead>
-                <tr><th>{t("Date")}</th><th>{t("Type")}</th><th>{t("From")} → {t("To")}</th><th>{t("Note")}</th><th className="num">{t("Amount")}</th></tr>
+                <tr><th>{t("Date")}</th><th className="hidden sm:table-cell">{t("Type")}</th><th>{t("From")} → {t("To")}</th><th className="hidden md:table-cell">{t("Note")}</th><th className="num">{t("Amount")}</th></tr>
               </thead>
               <tbody>
                 {recent.map((t) => (
                   <tr key={t.id} style={t.highlight ? { background: t.highlight + "33" } : undefined}>
                     <td className="whitespace-nowrap">{prettyDate(t.date)}</td>
-                    <td><TypeBadge type={t.type} /></td>
+                    <td className="hidden sm:table-cell"><TypeBadge type={t.type} /></td>
                     <td>{t.from_name} → {t.to_name}</td>
-                    <td className="text-slate-500">{t.note}</td>
+                    <td className="hidden text-muted md:table-cell">{t.note}</td>
                     <td className="num font-medium">{money(t.amount)}</td>
                   </tr>
                 ))}

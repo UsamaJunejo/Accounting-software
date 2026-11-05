@@ -263,10 +263,12 @@ export type TxnInput = {
   toAccountId: number;
   note?: string | null;
   highlight?: string | null;
-  /** Set when the entry was in another currency (e.g. "USD"). amount is still in PKR. */
+  /** Set when the entry was in another currency (e.g. "USD"). amount is still in the main currency. */
   currency?: string | null;
   foreignAmount?: number | null; // in cents of that currency
-  rate?: number | null; // PKR per 1 unit of that currency
+  rate?: number | null; // main currency per 1 unit of that currency
+  /** The user's main currency (default PKR). */
+  primary?: string;
   projectId?: number | null;
 };
 
@@ -278,7 +280,7 @@ async function validate(d: Db, userId: number, t: TxnInput) {
   await own(d, "accounts", t.fromAccountId, userId);
   await own(d, "accounts", t.toAccountId, userId);
   if (t.projectId) await own(d, "projects", t.projectId, userId);
-  if (t.currency && t.currency !== "PKR") {
+  if (t.currency && t.currency !== (t.primary ?? "PKR")) {
     if (!/^[A-Z]{3}$/.test(t.currency)) throw new Error("Invalid currency");
     if (!t.foreignAmount || t.foreignAmount <= 0 || !Number.isSafeInteger(t.foreignAmount)) throw new Error("Enter the amount in " + t.currency);
     if (!t.rate || !(t.rate > 0)) throw new Error("Enter the exchange rate");
@@ -287,7 +289,7 @@ async function validate(d: Db, userId: number, t: TxnInput) {
 
 /** The extra columns, cleaned: blank unless a foreign currency was really used. */
 function extras(t: TxnInput) {
-  const foreign = t.currency && t.currency !== "PKR";
+  const foreign = t.currency && t.currency !== (t.primary ?? "PKR");
   return [foreign ? t.currency : null, foreign ? t.foreignAmount : null, foreign ? t.rate : null, t.projectId || null];
 }
 
@@ -634,4 +636,90 @@ export function attachmentReport(d: Db, userId: number) {
      WHERE a.user_id = $1 AND t.deleted_at IS NULL ORDER BY t.date DESC, a.id DESC LIMIT 500`,
     [userId],
   );
+}
+
+// ---------- Main currency ----------
+
+/**
+ * Change the user's main currency. With a rate, every stored amount is converted
+ * (amount × rate), e.g. PKR → USD with rate 0.0036. Without a rate only the label changes.
+ */
+export async function changeMainCurrency(d: Db, userId: number, next: string, rate: number | null) {
+  if (!/^[A-Z]{3}$/.test(next)) throw new Error("Choose a currency");
+  if (rate !== null && !(rate > 0 && rate < 1e9)) throw new Error("Enter a valid conversion rate");
+  const [u] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [userId]);
+  if (!u) throw new Error("User not found");
+  if (u.currency === next) return;
+  await d.tx(async (x) => {
+    if (rate !== null) {
+      // One statement, so every row is read before it is changed. Entries originally
+      // made in the new currency get their exact original amount back.
+      await x.q(
+        `UPDATE transactions SET
+           amount = CASE WHEN currency = $3 THEN foreign_amount ELSE GREATEST(1, ROUND(amount * $2::numeric)) END,
+           rate = CASE WHEN currency = $3 THEN NULL ELSE rate * $2::numeric END,
+           foreign_amount = CASE WHEN currency = $3 THEN NULL ELSE foreign_amount END,
+           currency = CASE WHEN currency = $3 THEN NULL ELSE currency END
+         WHERE user_id = $1`,
+        [userId, rate, next],
+      );
+      await x.q("UPDATE accounts SET budget_monthly = ROUND(budget_monthly * $2::numeric) WHERE user_id = $1 AND budget_monthly IS NOT NULL", [userId, rate]);
+      await x.q(
+        `UPDATE shared_entries e SET amount = GREATEST(1, ROUND(e.amount * $2::numeric))
+         FROM shares s WHERE s.id = e.share_id AND s.owner_id = $1 AND e.status = 'pending'`,
+        [userId, rate],
+      );
+      const invs = await x.q<{ id: number; items: string }>("SELECT id, items FROM invoices WHERE user_id = $1", [userId]);
+      for (const inv of invs) {
+        const items = (JSON.parse(inv.items) as { name: string; qty: number; price: number }[]).map((i) => ({
+          ...i,
+          price: Math.round(i.price * rate),
+        }));
+        await x.q(
+          `UPDATE invoices SET items = $2, subtotal = ROUND(subtotal * $3::numeric), tax = ROUND(tax * $3::numeric),
+             total = ROUND(total * $3::numeric), discount = ROUND(discount * $3::numeric) WHERE id = $1`,
+          [inv.id, JSON.stringify(items), rate],
+        );
+      }
+    }
+    await x.q("UPDATE users SET currency = $2 WHERE id = $1", [userId, next]);
+    await audit(x, userId, "currency", null, { from: u.currency, to: next, rate });
+  });
+}
+
+// ---------- Chart data ----------
+
+/** Cash & bank (money you hold) for every day in the window, starting from the opening balance. */
+export async function cashBankDaily(d: Db, userId: number, from: string, to: string) {
+  const ids = (await accountsWithBalances(d, userId))
+    .filter((a) => a.category === "Cash" || a.category === "Bank")
+    .map((a) => a.id);
+  if (!ids.length) return { opening: 0, days: [] as { date: string; inflow: number; outflow: number; balance: number }[] };
+  const [o] = await d.q<{ i: number; o: number }>(
+    `SELECT COALESCE(SUM(CASE WHEN to_account_id = ANY($2::int[]) THEN amount END), 0)::float8 AS i,
+            COALESCE(SUM(CASE WHEN from_account_id = ANY($2::int[]) THEN amount END), 0)::float8 AS o
+     FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND date < $3::date
+       AND NOT (to_account_id = ANY($2::int[]) AND from_account_id = ANY($2::int[]))`,
+    [userId, ids, from],
+  );
+  const rows = await d.q<{ date: string; i: number; o: number }>(
+    `SELECT to_char(date, 'YYYY-MM-DD') AS date,
+            COALESCE(SUM(CASE WHEN to_account_id = ANY($2::int[]) THEN amount END), 0)::float8 AS i,
+            COALESCE(SUM(CASE WHEN from_account_id = ANY($2::int[]) THEN amount END), 0)::float8 AS o
+     FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND date BETWEEN $3::date AND $4::date
+       AND NOT (to_account_id = ANY($2::int[]) AND from_account_id = ANY($2::int[]))
+     GROUP BY 1 ORDER BY 1`,
+    [userId, ids, from, to],
+  );
+  const byDay = new Map(rows.map((r) => [r.date, r]));
+  const opening = o.i - o.o;
+  let balance = opening;
+  const days: { date: string; inflow: number; outflow: number; balance: number }[] = [];
+  for (let t = Date.parse(from + "T00:00:00Z"); t <= Date.parse(to + "T00:00:00Z"); t += 86_400_000) {
+    const date = new Date(t).toISOString().slice(0, 10);
+    const r = byDay.get(date);
+    balance += (r?.i ?? 0) - (r?.o ?? 0);
+    days.push({ date, inflow: r?.i ?? 0, outflow: r?.o ?? 0, balance });
+  }
+  return { opening, days };
 }

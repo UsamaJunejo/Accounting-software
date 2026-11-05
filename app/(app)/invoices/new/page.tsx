@@ -13,7 +13,7 @@ export default async function NewInvoice() {
   return (
     <>
       <PageHeader title="New invoice" subtitle="Make a bill for a customer. You can print it or send it on WhatsApp." />
-      <InvoiceForm customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))} today={today()} />
+      <InvoiceForm currency={user.currency} customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))} today={today()} />
     </>
   );
 }

@@ -65,3 +65,49 @@ test("attachments: real type check, limits, and privacy", async () => {
   assert.deepEqual(Array.from(a!.data), Array.from(JPEG));
   assert.equal(await getAttachment(d, other, list[0].id), undefined);
 });
+
+import { changeMainCurrency } from "../lib/books.ts";
+
+test("changing main currency converts every amount, and restores entries made in that currency", async () => {
+  const { d, uid, acc } = await setup();
+  await addTransaction(d, uid, { type: "receipt", date: "2026-04-01", amount: 28_000_00, fromAccountId: acc("Sales"), toAccountId: acc("Cash") });
+  const usd = await addTransaction(d, uid, {
+    type: "receipt", date: "2026-04-02", amount: 2_805_000, fromAccountId: acc("Sales"), toAccountId: acc("Bank Account"),
+    currency: "USD", foreignAmount: 10_000, rate: 280.5,
+  });
+  const aed = await addTransaction(d, uid, {
+    type: "payment", date: "2026-04-03", amount: 76_000, fromAccountId: acc("Cash"), toAccountId: acc("Rent"),
+    currency: "AED", foreignAmount: 1_000, rate: 76,
+  });
+  await changeMainCurrency(d, uid, "USD", 1 / 280);
+  const bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Cash"], 10_000 - 271); // 28,000 PKR = $100.00, minus 760 PKR ≈ $2.71
+  assert.equal(bal["Bank Account"], 10_000); // exactly the original $100.00
+  const u = (await getTransaction(d, uid, usd))!;
+  assert.deepEqual([u.currency, u.foreign_amount, u.rate], [null, null, null]);
+  const a = (await getTransaction(d, uid, aed))!;
+  assert.equal(a.currency, "AED");
+  assert.ok(Math.abs(a.rate! - 76 / 280) < 1e-6);
+  const [{ currency }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [uid]);
+  assert.equal(currency, "USD");
+  // label-only change keeps numbers
+  await changeMainCurrency(d, uid, "AED", null);
+  assert.equal((await accountsWithBalances(d, uid)).find((x) => x.name === "Cash")!.balance, 10_000 - 271);
+  // entries in the main currency are not "foreign"
+  const id = await addTransaction(d, uid, { type: "receipt", date: "2026-04-05", amount: 500, fromAccountId: acc("Sales"), toAccountId: acc("Cash"), currency: "AED", foreignAmount: 500, rate: 1, primary: "AED" });
+  assert.equal((await getTransaction(d, uid, id))!.currency, null);
+});
+
+import { cashBankDaily } from "../lib/books.ts";
+
+test("daily cash & bank line: opening, transfers between them don't count", async () => {
+  const { d, uid, acc } = await setup();
+  await addTransaction(d, uid, { type: "receipt", date: "2026-05-30", amount: 1000, fromAccountId: acc("Owner Capital"), toAccountId: acc("Cash") });
+  await addTransaction(d, uid, { type: "receipt", date: "2026-06-02", amount: 500, fromAccountId: acc("Sales"), toAccountId: acc("Cash") });
+  await addTransaction(d, uid, { type: "transfer", date: "2026-06-02", amount: 700, fromAccountId: acc("Cash"), toAccountId: acc("Bank Account") });
+  await addTransaction(d, uid, { type: "payment", date: "2026-06-03", amount: 200, fromAccountId: acc("Bank Account"), toAccountId: acc("Rent") });
+  const r = await cashBankDaily(d, uid, "2026-06-01", "2026-06-04");
+  assert.equal(r.opening, 1000);
+  assert.deepEqual(r.days.map((x) => x.balance), [1000, 1500, 1300, 1300]);
+  assert.deepEqual(r.days.map((x) => x.inflow), [0, 500, 0, 0]);
+});

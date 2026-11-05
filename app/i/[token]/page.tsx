@@ -12,7 +12,7 @@ export default async function PublicInvoice({ params }: { params: Promise<{ toke
   const inv = await getInvoiceByToken(await db(), (await params).token);
   if (!inv) notFound();
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8 print:bg-white print:p-0">
+    <div className="min-h-screen bg-paper px-4 py-8 print:bg-white print:p-0">
       <div className="no-print mx-auto mb-4 flex max-w-3xl justify-end"><PrintButton label="Save as PDF / Print" /></div>
       <InvoiceView inv={inv} />
     </div>

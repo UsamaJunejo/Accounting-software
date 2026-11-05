@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
   const where = new Map(accs.map((a) => [a.id, `${a.category} › ${a.subcategory}`]));
   return csv(
     `entries-${p.get("from") || "all"}-to-${p.get("to") || "all"}`,
-    ["No", "Date", "Type", "From", "From (category)", "To", "To (category)", "Amount (PKR)", "Note", "Currency", "Foreign amount", "Rate", "Project", "Attachments", "Added on"],
+    ["No", "Date", "Type", "From", "From (category)", "To", "To (category)", `Amount (${user.currency})`, "Note", "Currency", "Foreign amount", "Rate", "Project", "Attachments", "Added on"],
     rows.map((r) => [
       r.id,
       r.date,

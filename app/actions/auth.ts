@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { createUser } from "@/lib/books";
+import { changeMainCurrency, createUser } from "@/lib/books";
+import { CURRENCY_CODES } from "@/lib/currencies";
 import { endSession, requireAdmin, requireUser, startSession } from "@/lib/auth";
 import {
   clearFailures,
@@ -76,6 +77,22 @@ export async function updateProfile(form: FormData) {
   );
   revalidatePath("/", "layout");
   redirect("/settings?ok=Profile saved");
+}
+
+export async function updateCurrency(form: FormData) {
+  const u = await requireUser();
+  const next = str(form, "currency");
+  if (!CURRENCY_CODES.has(next)) fail("/settings", "Choose a currency from the list.");
+  const convert = form.get("convert") === "on";
+  const rate = convert ? Number(str(form, "rate").replace(/,/g, "")) : null;
+  if (convert && !(rate! > 0)) fail("/settings", "Enter the conversion rate, or untick 'Convert my existing records'.");
+  try {
+    await changeMainCurrency(await db(), u.id, next, rate);
+  } catch (e) {
+    fail("/settings", (e as Error).message);
+  }
+  revalidatePath("/", "layout");
+  redirect(`/settings?ok=${encodeURIComponent(convert ? `Main currency is now ${next}. All records were converted.` : `Main currency is now ${next}.`)}`);
 }
 
 export async function updateNextOfKin(form: FormData) {

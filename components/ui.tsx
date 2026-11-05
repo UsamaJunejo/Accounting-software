@@ -10,7 +10,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-ink">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="no-print flex flex-wrap gap-2">{actions}</div>}
     </div>
@@ -19,14 +19,14 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Flash({ sp }: { sp: { error?: string; ok?: string } }) {
   if (sp.error)
-    return <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{sp.error}</div>;
+    return <div className="mb-4 rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">{sp.error}</div>;
   if (sp.ok)
-    return <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{sp.ok}</div>;
+    return <div className="mb-4 rounded-lg border border-ledger/30 bg-ledger-soft px-4 py-3 text-sm text-ledger">{sp.ok}</div>;
   return null;
 }
 
 export function Money({ value, className = "" }: { value: number; className?: string }) {
-  return <span dir="ltr" className={`tabular-nums ${value < 0 ? "text-red-600" : ""} ${className}`}>{money(value)}</span>;
+  return <span dir="ltr" className={`tabular-nums ${value < 0 ? "text-khata" : ""} ${className}`}>{money(value)}</span>;
 }
 
 /** Account dropdown grouped by category, the way users think about them. */
@@ -96,8 +96,8 @@ export async function DateRange({ from, to, extra }: { from: string; to: string;
 
 export function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-slate-500">
-      <Inbox className="h-8 w-8 text-slate-300" />
+    <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted">
+      <Inbox className="h-8 w-8 text-muted/60" />
       {children}
     </div>
   );
@@ -106,7 +106,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
 export async function TypeBadge({ type }: { type: string }) {
   const t = await getT();
   const c =
-    type === "payment" ? "bg-orange-100 text-orange-700" : type === "receipt" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700";
+    type === "payment" ? "bg-khata-soft text-khata" : type === "receipt" ? "bg-inflow-soft text-inflow" : "bg-paper text-body";
   const Icon = type === "payment" ? ArrowUpRight : type === "receipt" ? ArrowDownLeft : ArrowLeftRight;
   const label = t.lang === "ur" ? t(type === "payment" ? "Money Out" : type === "receipt" ? "Money In" : "Transfer") : type === "payment" ? "Out" : type === "receipt" ? "In" : "Transfer";
   return (

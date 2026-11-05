@@ -34,10 +34,10 @@ export default async function Signup({ searchParams }: { searchParams: Promise<{
         <div>
           <label className="label">{t("Password")}</label>
           <input name="password" type="password" required minLength={8} className="input" autoComplete="new-password" />
-          <p className="mt-1 text-xs text-slate-500">{t("At least 8 characters.")}</p>
+          <p className="mt-1 text-xs text-muted">{t("At least 8 characters.")}</p>
         </div>
         <button className="btn-primary w-full py-2.5">{t("Create account")}</button>
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-muted">
           By creating an account you agree to our <Link href="/terms" className="text-brand">Terms</Link> and{" "}
           <Link href="/privacy" className="text-brand">Privacy Policy</Link>.
         </p>

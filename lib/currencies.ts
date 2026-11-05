@@ -20,3 +20,14 @@ export const CURRENCIES: [string, string][] = [
   ["AFN", "Afghan Afghani"],
 ];
 export const CURRENCY_CODES = new Set(CURRENCIES.map(([c]) => c));
+
+const SYMBOLS: Record<string, string> = { PKR: "Rs", USD: "$", GBP: "£", EUR: "€", INR: "₹", JPY: "¥", CNY: "¥", TRY: "₺" };
+
+/** Short sign shown before amounts: Rs, $, AED… */
+export function currencySymbol(code: string) {
+  return SYMBOLS[code] ?? code;
+}
+
+export function currencyName(code: string) {
+  return CURRENCIES.find(([c]) => c === code)?.[1] ?? code;
+}

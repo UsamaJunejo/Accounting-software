@@ -34,13 +34,13 @@ export default async function Deleted({ searchParams }: { searchParams: Promise<
                   <td>{prettyDate(t.date)}</td>
                   <td><TypeBadge type={t.type} /></td>
                   <td>{t.from_name} → {t.to_name}</td>
-                  <td className="text-slate-500">{t.note}</td>
+                  <td className="text-muted">{t.note}</td>
                   <td className="num">{money(t.amount)}</td>
-                  <td className="whitespace-nowrap text-slate-500">{t.deleted_at}</td>
+                  <td className="whitespace-nowrap text-muted">{t.deleted_at}</td>
                   <td>
                     <form action={restoreTransaction}>
                       <input type="hidden" name="id" value={t.id} />
-                      <button className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600"><RotateCcw className="h-4 w-4" />Restore</button>
+                      <button className="inline-flex items-center gap-1 text-sm font-semibold text-ink"><RotateCcw className="h-4 w-4" />Restore</button>
                     </form>
                   </td>
                 </tr>

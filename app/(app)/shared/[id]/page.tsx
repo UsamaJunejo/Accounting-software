@@ -9,9 +9,9 @@ import { DateRange, Empty, Flash, Money, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 
 const STATUS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  approved: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+  pending: "bg-marigold-soft text-marigold",
+  approved: "bg-ledger-soft text-ledger",
+  rejected: "bg-red-100 text-khata",
 };
 
 export default async function SharedAccount({
@@ -40,8 +40,8 @@ export default async function SharedAccount({
       <Flash sp={sp} />
       <DateRange from={from} to={to} />
       <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
-        <div className="card p-3"><div className="text-slate-500">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
-        <div className="card p-3"><div className="text-slate-500">Balance now</div><div className="text-lg font-bold"><Money value={s.closing} /></div></div>
+        <div className="card p-3"><div className="text-muted">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
+        <div className="card p-3"><div className="text-muted">Balance now</div><div className="text-lg font-bold"><Money value={s.closing} /></div></div>
       </div>
 
       {s.share.can_add && (
@@ -56,7 +56,7 @@ export default async function SharedAccount({
             </select>
           </div>
           <div>
-            <label className="label">Amount (PKR)</label>
+            <label className="label">Amount ({s.share.currency})</label>
             <input name="amount" inputMode="decimal" required className="input" />
           </div>
           <div>
@@ -80,13 +80,13 @@ export default async function SharedAccount({
           <table className="table">
             <thead><tr><th>Date</th><th>Note</th><th className="num">In</th><th className="num">Out</th><th className="num">Balance</th></tr></thead>
             <tbody>
-              <tr className="bg-slate-50 font-medium"><td colSpan={4}>Opening balance</td><td className="num"><Money value={s.opening} /></td></tr>
+              <tr className="bg-paper font-medium"><td colSpan={4}>Opening balance</td><td className="num"><Money value={s.opening} /></td></tr>
               {s.lines.map((l) => (
                 <tr key={l.id}>
                   <td className="whitespace-nowrap">{prettyDate(l.date)}</td>
-                  <td className="text-slate-600">{l.note}</td>
-                  <td className="num text-green-700">{l.moneyIn ? money(l.moneyIn) : ""}</td>
-                  <td className="num text-orange-600">{l.moneyOut ? money(l.moneyOut) : ""}</td>
+                  <td className="text-muted">{l.note}</td>
+                  <td className="num text-inflow">{l.moneyIn ? money(l.moneyIn) : ""}</td>
+                  <td className="num text-khata">{l.moneyOut ? money(l.moneyOut) : ""}</td>
                   <td className="num font-medium"><Money value={l.balance} /></td>
                 </tr>
               ))}
@@ -105,11 +105,11 @@ export default async function SharedAccount({
                 <tr key={e.id}>
                   <td>{prettyDate(e.date)}</td>
                   <td>{e.direction === "increase" ? "+ Add" : "− Subtract"}</td>
-                  <td className="text-slate-600">{e.note}</td>
+                  <td className="text-muted">{e.note}</td>
                   <td className="num">{money(e.amount)}</td>
                   <td>
                     <span className={`rounded px-2 py-0.5 text-xs font-semibold capitalize ${STATUS[e.status]}`}>{e.status}</span>
-                    {e.remarks && <div className="text-xs text-slate-500">{e.remarks}</div>}
+                    {e.remarks && <div className="text-xs text-muted">{e.remarks}</div>}
                   </td>
                 </tr>
               ))}

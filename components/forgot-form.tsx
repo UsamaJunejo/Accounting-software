@@ -10,10 +10,10 @@ export function ForgotForm() {
   if (state.code)
     return (
       <div className="space-y-4">
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-lg border border-ledger/30 bg-ledger-soft px-4 py-3 text-sm text-ledger">
           Password changed. You are now signed in.
         </div>
-        <p className="text-sm text-slate-700">Your old recovery code has been used up. Here is your <b>new</b> one. Save it:</p>
+        <p className="text-sm text-body">Your old recovery code has been used up. Here is your <b>new</b> one. Save it:</p>
         <CodeBox value={state.code} />
         <Link href="/dashboard" className="btn-primary w-full">I&apos;ve saved it, continue</Link>
       </div>
@@ -21,7 +21,7 @@ export function ForgotForm() {
   return (
     <form action={action} className="space-y-4">
       {state.error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</div>
+        <div className="rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">{state.error}</div>
       )}
       <div>
         <label className="label">Email</label>
@@ -36,7 +36,7 @@ export function ForgotForm() {
         <input name="password" type="password" required minLength={8} autoComplete="new-password" className="input" />
       </div>
       <button className="btn-primary w-full py-2.5" disabled={pending}>{pending ? "Checking…" : "Set new password"}</button>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted">
         Lost your recovery code too? Contact FinanceChachu support and we&apos;ll reset it for you.
       </p>
     </form>

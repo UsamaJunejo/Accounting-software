@@ -2,7 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listTransactions } from "@/lib/books";
 import { money, monthRange, prettyDate } from "@/lib/format";
-import { CURRENCIES } from "@/lib/currencies";
+import { CURRENCIES, currencySymbol } from "@/lib/currencies";
 import { DateRange, Empty, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 
@@ -35,7 +35,7 @@ export default async function CurrencyReport({ searchParams }: { searchParams: P
             <label className="label">Currency</label>
             <select name="currency" defaultValue={sp.currency ?? ""} className="input">
               <option value="">All</option>
-              {CURRENCIES.filter(([c]) => c !== "PKR").map(([c]) => <option key={c} value={c}>{c}</option>)}
+              {CURRENCIES.filter(([c]) => c !== user.currency).map(([c]) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         }
@@ -44,9 +44,9 @@ export default async function CurrencyReport({ searchParams }: { searchParams: P
         <div className="mb-5 grid gap-3 sm:grid-cols-3">
           {[...totals].map(([c, x]) => (
             <div key={c} className="card p-4">
-              <div className="text-xs font-semibold uppercase text-slate-500">{c} · {x.n} entries</div>
+              <div className="text-sm font-semibold text-muted">{c} · {x.n} entries</div>
               <div className="text-xl font-bold text-ink">{c} {money(x.foreign)}</div>
-              <div className="text-sm text-slate-500">= Rs {money(x.pkr)} (avg rate {(x.pkr / x.foreign).toFixed(2)})</div>
+              <div className="text-sm text-muted">= {currencySymbol(user.currency)} {money(x.pkr)} (avg rate {(x.pkr / x.foreign).toFixed(2)})</div>
             </div>
           ))}
         </div>
@@ -56,13 +56,13 @@ export default async function CurrencyReport({ searchParams }: { searchParams: P
           <Empty>No foreign-currency entries in this period. Choose a currency on the New Entry form to add one.</Empty>
         ) : (
           <table className="table">
-            <thead><tr><th>Date</th><th>From → To</th><th>Note</th><th className="num">Foreign</th><th className="num">Rate</th><th className="num">PKR</th></tr></thead>
+            <thead><tr><th>Date</th><th>From → To</th><th>Note</th><th className="num">Foreign</th><th className="num">Rate</th><th className="num">{user.currency}</th></tr></thead>
             <tbody>
               {rows.map((t) => (
                 <tr key={t.id}>
                   <td className="whitespace-nowrap">{prettyDate(t.date)}</td>
                   <td>{t.from_name} → {t.to_name}</td>
-                  <td className="text-slate-500">{t.note}</td>
+                  <td className="text-muted">{t.note}</td>
                   <td className="num">{t.currency} {money(t.foreign_amount ?? 0)}</td>
                   <td className="num">{t.rate}</td>
                   <td className="num font-medium">{money(t.amount)}</td>

@@ -3,12 +3,13 @@
 import { useActionState, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { createInvoice, type InvoiceFormState } from "@/app/actions/invoices";
+import { currencySymbol } from "@/lib/currencies";
 
 type Row = { name: string; qty: string; price: string };
 const n = (s: string) => Number(String(s).replace(/,/g, "")) || 0;
 const fmt = (v: number) => new Intl.NumberFormat("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export function InvoiceForm({ customers, today }: { customers: { id: number; name: string; phone: string | null }[]; today: string }) {
+export function InvoiceForm({ customers, today, currency = "PKR" }: { customers: { id: number; name: string; phone: string | null }[]; today: string; currency?: string }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(createInvoice, {});
   const [rows, setRows] = useState<Row[]>([{ name: "", qty: "1", price: "" }]);
   const [customer, setCustomer] = useState("");
@@ -21,7 +22,7 @@ export function InvoiceForm({ customers, today }: { customers: { id: number; nam
 
   return (
     <form action={action} className="space-y-5">
-      {state.error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</div>}
+      {state.error && <div className="rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">{state.error}</div>}
       <input type="hidden" name="items" value={JSON.stringify(rows)} />
       <div className="card grid gap-4 p-5 sm:grid-cols-2">
         <div>
@@ -55,7 +56,7 @@ export function InvoiceForm({ customers, today }: { customers: { id: number; nam
 
       <div className="card overflow-x-auto p-5">
         <table className="table">
-          <thead><tr><th className="w-1/2">Item</th><th className="num">Qty</th><th className="num">Price (Rs)</th><th className="num">Amount</th><th></th></tr></thead>
+          <thead><tr><th className="w-1/2">Item</th><th className="num">Qty</th><th className="num">Price ({currency})</th><th className="num">Amount</th><th></th></tr></thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
@@ -65,7 +66,7 @@ export function InvoiceForm({ customers, today }: { customers: { id: number; nam
                 <td className="num align-middle">{fmt(n(r.qty) * n(r.price))}</td>
                 <td className="align-middle">
                   {rows.length > 1 && (
-                    <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label="Remove item" className="text-red-600"><Trash2 className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label="Remove item" className="text-khata"><Trash2 className="h-4 w-4" /></button>
                   )}
                 </td>
               </tr>
@@ -75,7 +76,7 @@ export function InvoiceForm({ customers, today }: { customers: { id: number; nam
         <button type="button" onClick={() => setRows([...rows, { name: "", qty: "1", price: "" }])} className="btn-ghost mt-3"><Plus className="h-4 w-4" />Add item</button>
         <div className="ml-auto mt-4 max-w-sm space-y-2 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
-          <div className="flex items-center justify-between gap-2"><span>Discount (Rs)</span><input name="discount" value={discount} onChange={(e) => setDiscount(e.target.value)} inputMode="decimal" className="input w-32 text-right" /></div>
+          <div className="flex items-center justify-between gap-2"><span>Discount ({currency})</span><input name="discount" value={discount} onChange={(e) => setDiscount(e.target.value)} inputMode="decimal" className="input w-32 text-right" /></div>
           <div className="flex items-center justify-between gap-2">
             <span>Sales tax / GST (%)</span>
             <select name="tax" value={tax} onChange={(e) => setTax(e.target.value)} className="input w-32">
@@ -83,7 +84,7 @@ export function InvoiceForm({ customers, today }: { customers: { id: number; nam
             </select>
           </div>
           {taxAmt > 0 && <div className="flex justify-between"><span>Tax</span><span className="tabular-nums">{fmt(taxAmt)}</span></div>}
-          <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total</span><span className="tabular-nums">Rs {fmt(taxable + taxAmt)}</span></div>
+          <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total</span><span className="tabular-nums">{currencySymbol(currency)} {fmt(taxable + taxAmt)}</span></div>
         </div>
       </div>
 

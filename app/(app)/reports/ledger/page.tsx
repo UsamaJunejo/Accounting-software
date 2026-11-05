@@ -56,7 +56,7 @@ export default async function Ledger({ searchParams }: { searchParams: Promise<{
                 {r.map((a) => (
                   <tr key={a.id}>
                     <td><Link href={`/accounts/${a.id}?from=${from}&to=${to}`} className="hover:text-brand">{a.name}</Link></td>
-                    <td className="text-slate-500">{a.subcategory}</td>
+                    <td className="text-muted">{a.subcategory}</td>
                     <td className="num">{money(a.money_in)}</td>
                     <td className="num">{money(a.money_out)}</td>
                     <td className="num font-medium"><Money value={a.balance} /></td>

@@ -23,9 +23,9 @@ export default function Reports() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {REPORTS.map(([href, t, d, Icon]) => (
           <Link key={href} href={href} className="card p-5 transition hover:border-brand">
-            <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 text-brand"><Icon className="h-5 w-5" /></span>
+            <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-ink-soft text-brand"><Icon className="h-5 w-5" /></span>
             <h2 className="font-semibold text-ink">{t}</h2>
-            <p className="mt-2 text-sm text-slate-600">{d}</p>
+            <p className="mt-2 text-sm text-muted">{d}</p>
           </Link>
         ))}
       </div>

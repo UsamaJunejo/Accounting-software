@@ -78,7 +78,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
             <option value="" disabled>What type is it?</option>
             {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
           </select>
-          <p className="text-xs text-slate-500">Type decides where it shows in reports: Asset (things you own), Liability (what you owe), Income, Expense or Equity (owner&apos;s money).</p>
+          <p className="text-xs text-muted">Type decides where it shows in reports: Asset (things you own), Liability (what you owe), Income, Expense or Equity (owner&apos;s money).</p>
           <button className="btn-dark w-full">Add category</button>
         </form>
       </div>
@@ -87,15 +87,15 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
         <section className="card overflow-hidden">
           <ul>
             {[...accs].sort((x, y) => x.name.localeCompare(y.name)).map((a) => (
-              <li key={a.id} className="flex items-center justify-between border-b border-[var(--line)] px-4 py-2.5 text-sm hover:bg-orange-50/40">
+              <li key={a.id} className="flex items-center justify-between border-b border-rule px-4 py-2.5 text-sm hover:bg-ink-soft/50">
                 <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 font-medium text-ink hover:text-brand">
                   <CategoryBadge name={a.category} kind={a.kind} size="sm" />
                   {a.name}
-                  {a.archived ? <span className="text-xs text-slate-400">(archived)</span> : null}
+                  {a.archived ? <span className="text-xs text-muted/80">(archived)</span> : null}
                 </Link>
                 <div className="flex items-center gap-4">
                   <Money value={a.balance} />
-                  <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-blue-600 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Link>
+                  <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
                 </div>
               </li>
             ))}
@@ -109,17 +109,17 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           const cSubs = subs.filter((s) => s.category_id === c.id);
           return (
             <section key={c.id} id={`cat-${c.id}`} className="card overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-ink px-4 py-3 text-white">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-rule bg-paper px-4 py-3 text-ink">
                 <div className="flex items-center gap-2">
                   <CategoryBadge name={c.name} kind={c.kind} size="sm" />
                   <span className="font-semibold">{c.name}</span>
-                  <span className="ml-2 rounded bg-white/15 px-2 py-0.5 text-xs">{KIND_LABEL[c.kind]}</span>
+                  <span className="ms-2 rounded bg-ink-soft px-2 py-0.5 text-xs text-ink">{KIND_LABEL[c.kind]}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Money value={cAccs.reduce((s, a) => s + a.balance, 0)} className="font-semibold" />
                   <details className="relative">
-                    <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-300 hover:text-white"><Pencil className="h-3.5 w-3.5" />Edit</summary>
-                    <div className="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded-lg bg-white p-3 text-slate-800 shadow-lg">
+                    <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted hover:text-ink"><Pencil className="h-3.5 w-3.5" />Edit</summary>
+                    <div className="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded-md border border-rule bg-sheet p-3 text-body shadow-md">
                       <form action={A.renameCategory} className="flex gap-2">
                         <input type="hidden" name="id" value={c.id} />
                         <input name="name" defaultValue={c.name} className="input" />
@@ -136,13 +136,13 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
               {cSubs.map((s) => {
                 const sAccs = cAccs.filter((a) => a.subcategory_id === s.id);
                 return (
-                  <div key={s.id} className="border-t border-[var(--line)]">
-                    {user.level === 3 && <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm">
-                      <span className="font-semibold text-slate-700">{s.name}</span>
+                  <div key={s.id} className="border-t border-rule">
+                    {user.level === 3 && <div className="flex items-center justify-between bg-paper px-4 py-2 text-sm">
+                      <span className="font-semibold text-body">{s.name}</span>
                       <div className="flex items-center gap-3">
-                        <Money value={sAccs.reduce((t, a) => t + a.balance, 0)} className="text-slate-600" />
+                        <Money value={sAccs.reduce((t, a) => t + a.balance, 0)} className="text-muted" />
                         <details className="relative">
-                          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-slate-500 hover:text-ink"><Pencil className="h-3.5 w-3.5" />Edit</summary>
+                          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-muted hover:text-ink"><Pencil className="h-3.5 w-3.5" />Edit</summary>
                           <div className="absolute right-0 z-10 mt-2 w-72 space-y-2 rounded-lg bg-white p-3 shadow-lg">
                             <form action={A.renameSubcategory} className="space-y-2">
                               <input type="hidden" name="id" value={s.id} />
@@ -161,19 +161,19 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
                       </div>
                     </div>}
                     {sAccs.length === 0 ? (
-                      user.level === 3 && <div className="px-4 py-2 text-sm text-slate-400">No accounts yet.</div>
+                      user.level === 3 && <div className="px-4 py-2 text-sm text-muted/80">No accounts yet.</div>
                     ) : (
                       <ul>
                         {sAccs.map((a) => (
-                          <li key={a.id} className="flex items-center justify-between border-t border-[var(--line)] px-4 py-2 text-sm hover:bg-orange-50/40">
+                          <li key={a.id} className="flex items-center justify-between border-t border-rule px-4 py-2 text-sm hover:bg-ink-soft/50">
                             <Link href={`/accounts/${a.id}`} className="flex items-center gap-1 font-medium text-ink hover:text-brand">
-                              <ChevronRight className="h-4 w-4 text-slate-400" />
+                              <ChevronRight className="h-4 w-4 text-muted/80" />
                               {a.name}
-                              {a.archived ? <span className="ml-2 text-xs text-slate-400">(archived)</span> : null}
+                              {a.archived ? <span className="ml-2 text-xs text-muted/80">(archived)</span> : null}
                             </Link>
                             <div className="flex items-center gap-4">
                               <Money value={a.balance} />
-                              <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-blue-600 hover:bg-blue-50"><Pencil className="h-4 w-4" /></Link>
+                              <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
                             </div>
                           </li>
                         ))}

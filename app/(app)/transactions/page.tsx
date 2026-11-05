@@ -77,16 +77,16 @@ export default async function Transactions({
         <div className="min-w-48 flex-1">
           <label className="label">Search</label>
           <div className="relative">
-            <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-muted/80" />
             <input name="q" defaultValue={sp.q} placeholder="Account or note…" className="input ps-9" />
           </div>
         </div>
         <button className="btn-dark"><Filter className="h-4 w-4" />Filter</button>
       </form>
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
-        <div className="card p-3"><div className="text-slate-500">Money in</div><div className="font-bold text-green-700">{money(total("receipt"))}</div></div>
-        <div className="card p-3"><div className="text-slate-500">Money out</div><div className="font-bold text-orange-600">{money(total("payment"))}</div></div>
-        <div className="card p-3"><div className="text-slate-500">Transfers</div><div className="font-bold">{money(total("transfer"))}</div></div>
+        <div className="card p-3"><div className="text-muted">Money in</div><div className="font-bold text-inflow">{money(total("receipt"))}</div></div>
+        <div className="card p-3"><div className="text-muted">Money out</div><div className="font-bold text-khata">{money(total("payment"))}</div></div>
+        <div className="card p-3"><div className="text-muted">Transfers</div><div className="font-bold">{money(total("transfer"))}</div></div>
       </div>
       <div className="card overflow-hidden">
         <TxnTable rows={rows} back={`/transactions?${qs}`} />

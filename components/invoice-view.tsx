@@ -1,6 +1,7 @@
 import type { Invoice } from "@/lib/invoices";
 import { money, prettyDate } from "@/lib/format";
 import { Logo } from "@/components/logo";
+import { currencySymbol } from "@/lib/currencies";
 
 /** The invoice as the customer sees it (also used for printing / PDF). */
 export function InvoiceView({ inv }: { inv: Invoice }) {
@@ -8,27 +9,27 @@ export function InvoiceView({ inv }: { inv: Invoice }) {
     <div className="card relative mx-auto max-w-3xl overflow-hidden bg-white p-6 sm:p-10 print:max-w-none print:p-0">
       {inv.cancelled && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="-rotate-12 rounded-xl border-4 border-red-500 px-6 py-2 text-5xl font-black text-red-500/70">CANCELLED</span>
+          <span className="-rotate-12 rounded-xl border-4 border-khata px-6 py-2 text-5xl font-black text-khata/70">CANCELLED</span>
         </div>
       )}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-rule pb-6">
         <div>
           <div className="text-2xl font-bold text-ink">{inv.business}</div>
-          {inv.business_address && <div className="whitespace-pre-line text-sm text-slate-600">{inv.business_address}</div>}
-          {inv.business_phone && <div className="text-sm text-slate-600">{inv.business_phone}</div>}
-          {inv.business_ntn && <div className="text-sm text-slate-600">NTN: {inv.business_ntn}</div>}
+          {inv.business_address && <div className="whitespace-pre-line text-sm text-muted">{inv.business_address}</div>}
+          {inv.business_phone && <div className="text-sm text-muted">{inv.business_phone}</div>}
+          {inv.business_ntn && <div className="text-sm text-muted">NTN: {inv.business_ntn}</div>}
         </div>
         <div className="text-right">
           <div className="text-3xl font-black tracking-tight text-brand">INVOICE</div>
-          <div className="text-sm text-slate-600"># {inv.number}</div>
-          <div className="text-sm text-slate-600">Date: {prettyDate(inv.date)}</div>
-          {inv.due_date && <div className="text-sm text-slate-600">Due: {prettyDate(inv.due_date)}</div>}
+          <div className="text-sm text-muted"># {inv.number}</div>
+          <div className="text-sm text-muted">Date: {prettyDate(inv.date)}</div>
+          {inv.due_date && <div className="text-sm text-muted">Due: {prettyDate(inv.due_date)}</div>}
         </div>
       </div>
       <div className="py-6">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bill to</div>
+        <div className="text-xs font-semibold text-muted">Bill to</div>
         <div className="text-lg font-semibold text-ink">{inv.customer_name}</div>
-        {inv.customer_phone && <div className="text-sm text-slate-600">{inv.customer_phone}</div>}
+        {inv.customer_phone && <div className="text-sm text-muted">{inv.customer_phone}</div>}
       </div>
       <table className="table">
         <thead>
@@ -37,7 +38,7 @@ export function InvoiceView({ inv }: { inv: Invoice }) {
         <tbody>
           {inv.items.map((it, i) => (
             <tr key={i}>
-              <td className="text-slate-400">{i + 1}</td>
+              <td className="text-muted/80">{i + 1}</td>
               <td>{it.name}</td>
               <td className="num">{it.qty}</td>
               <td className="num">{money(it.price)}</td>
@@ -50,13 +51,13 @@ export function InvoiceView({ inv }: { inv: Invoice }) {
         <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{money(inv.subtotal)}</span></div>
         {inv.discount > 0 && <div className="flex justify-between"><span>Discount</span><span className="tabular-nums">− {money(inv.discount)}</span></div>}
         {inv.tax > 0 && <div className="flex justify-between"><span>Sales tax ({inv.tax_percent}%)</span><span className="tabular-nums">{money(inv.tax)}</span></div>}
-        <div className="flex justify-between border-t border-slate-300 pt-2 text-lg font-bold text-ink">
-          <span>Total</span><span className="tabular-nums">Rs {money(inv.total)}</span>
+        <div className="flex justify-between border-t border-rule-strong pt-2 text-lg font-bold text-ink">
+          <span>Total</span><span className="tabular-nums">{currencySymbol(inv.currency)} {money(inv.total)}</span>
         </div>
       </div>
-      {inv.notes && <div className="mt-6 whitespace-pre-line rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{inv.notes}</div>}
-      <div className="mt-10 text-center text-xs text-slate-400">
-        Made with <Logo className="text-slate-500" />
+      {inv.notes && <div className="mt-6 whitespace-pre-line rounded-lg bg-paper p-3 text-sm text-body">{inv.notes}</div>}
+      <div className="mt-10 text-center text-xs text-muted/80">
+        Made with <Logo className="text-muted" />
       </div>
     </div>
   );

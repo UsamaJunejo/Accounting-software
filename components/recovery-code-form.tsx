@@ -12,7 +12,7 @@ export function RecoveryCodeForm({ hasCode }: { hasCode: boolean }) {
     return (
       <div className="space-y-4">
         <CodeBox value={state.code} />
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-body">
           <b>Save this now.</b> Take a screenshot or write it down. It won&apos;t be shown again.
           {hasCode && " Your old code no longer works."}
         </p>

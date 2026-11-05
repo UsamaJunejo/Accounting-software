@@ -134,13 +134,14 @@ export type Invoice = {
   business_phone: string | null;
   business_address: string | null;
   business_ntn: string | null;
+  currency: string;
 };
 
 const SELECT = `SELECT i.id, i.number, i.customer_account_id, i.customer_name, i.customer_phone,
   to_char(i.date, 'YYYY-MM-DD') AS date, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, i.items,
   i.tax_percent::float8 AS tax_percent, i.discount::float8 AS discount, i.subtotal::float8 AS subtotal,
   i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.share_token, i.cancelled,
-  COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn
+  COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn, u.currency
   FROM invoices i JOIN users u ON u.id = i.user_id`;
 
 const parse = (r: Invoice & { items: unknown }): Invoice => ({ ...r, items: typeof r.items === "string" ? JSON.parse(r.items) : r.items } as Invoice);

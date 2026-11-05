@@ -24,18 +24,18 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
         <button className="btn-dark">Show</button>
       </form>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <div className="card p-4"><div className="text-sm text-slate-500">You own (assets)</div><div className="text-xl font-bold"><Money value={r.totalAssets} /></div></div>
-        <div className="card p-4"><div className="text-sm text-slate-500">You owe (liabilities)</div><div className="text-xl font-bold"><Money value={r.totalLiabilities} /></div></div>
-        <div className="card border-brand p-4"><div className="text-sm text-slate-500">Net worth</div><div className="text-xl font-bold text-brand"><Money value={r.netWorth} /></div></div>
+        <div className="card p-4"><div className="text-sm text-muted">You own (assets)</div><div className="text-xl font-bold"><Money value={r.totalAssets} /></div></div>
+        <div className="card p-4"><div className="text-sm text-muted">You owe (liabilities)</div><div className="text-xl font-bold"><Money value={r.totalLiabilities} /></div></div>
+        <div className="card border-brand p-4"><div className="text-sm text-muted">Net worth</div><div className="text-xl font-bold text-brand"><Money value={r.netWorth} /></div></div>
       </div>
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="card p-5">
-          <ReportSection title="Assets" rows={r.assets} total={r.totalAssets} />
+          <ReportSection currency={user.currency} title="Assets" rows={r.assets} total={r.totalAssets} />
         </div>
         <div className="card p-5">
-          <ReportSection title="Liabilities" rows={r.liabilities} total={r.totalLiabilities} />
+          <ReportSection currency={user.currency} title="Liabilities" rows={r.liabilities} total={r.totalLiabilities} />
           <table className="table">
-            <thead><tr><th>Equity</th><th className="num">Rs</th></tr></thead>
+            <thead><tr><th>Equity</th><th className="num">{user.currency}</th></tr></thead>
             <tbody>
               {r.equity.map((e) => (
                 <tr key={e.id}><td>{e.name}</td><td className="num"><Money value={e.balance} /></td></tr>
@@ -47,7 +47,7 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
           </table>
         </div>
       </div>
-      <p className={`mt-4 text-sm ${r.balanced ? "text-green-700" : "text-red-600"}`}>
+      <p className={`mt-4 text-sm ${r.balanced ? "text-ledger" : "text-khata"}`}>
         {r.balanced ? "✓ Balanced: assets equal liabilities plus equity." : "Not balanced. Please report this."}
       </p>
     </>

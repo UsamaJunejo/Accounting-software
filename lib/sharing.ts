@@ -14,10 +14,11 @@ export type ShareRow = {
   user_email: string;
   can_add: boolean;
   status: "pending" | "accepted";
+  currency: string;
 };
 
 const SHARE_SELECT = `SELECT s.id, s.account_id, a.name AS account, c.kind, s.owner_id, o.name AS owner_name,
-  o.business_name AS owner_business, s.user_id, u.name AS user_name, u.email AS user_email, s.can_add, s.status
+  o.business_name AS owner_business, o.currency, s.user_id, u.name AS user_name, u.email AS user_email, s.can_add, s.status
   FROM shares s
   JOIN accounts a ON a.id = s.account_id
   JOIN subcategories sc ON sc.id = a.subcategory_id

@@ -13,8 +13,8 @@ export default async function RecoveryCode({ searchParams }: { searchParams: Pro
       <PageHeader title={sp.new ? "Welcome! One last step" : "Recovery code"} />
       <div className="card max-w-2xl space-y-4 p-6">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-green-600" />
-          <div className="text-sm text-slate-700">
+          <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-ledger" />
+          <div className="text-sm text-body">
             <p>
               A <b>recovery code</b> lets you set a new password if you ever forget it. Keep it somewhere safe, like a
               screenshot in your phone&apos;s gallery or written in your diary.

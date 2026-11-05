@@ -45,7 +45,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <Flash sp={sp} />
       <form className="card mb-5 flex gap-2 p-4">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-muted/80" />
           <input name="q" defaultValue={q} placeholder="Search name, email, mobile or business" className="input ps-9" />
         </div>
         <button className="btn-dark">Search</button>
@@ -63,25 +63,25 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                 <tr key={u.id}>
                   <td>
                     <div className="flex items-center gap-1 font-semibold text-ink">
-                      {u.is_admin ? <ShieldCheck className="h-4 w-4 text-brand" /> : <Users className="h-4 w-4 text-slate-400" />}
+                      {u.is_admin ? <ShieldCheck className="h-4 w-4 text-brand" /> : <Users className="h-4 w-4 text-muted/80" />}
                       {u.name}
                     </div>
-                    <div className="text-xs text-slate-500">{u.email}</div>
-                    {u.business_name && <div className="text-xs text-slate-500">{u.business_name}</div>}
-                    {u.nok && <div className="text-xs text-slate-400">Next of kin: {u.nok}</div>}
+                    <div className="text-xs text-muted">{u.email}</div>
+                    {u.business_name && <div className="text-xs text-muted">{u.business_name}</div>}
+                    {u.nok && <div className="text-xs text-muted/80">Next of kin: {u.nok}</div>}
                   </td>
                   <td>{u.phone}</td>
                   <td className="whitespace-nowrap">{u.joined}</td>
                   <td className="num">{u.entries}</td>
                   <td className="whitespace-nowrap">{u.last_entry ?? "—"}</td>
-                  <td>{u.has_recovery ? "Saved" : <span className="text-amber-600">Not yet</span>}</td>
+                  <td>{u.has_recovery ? "Saved" : <span className="text-marigold">Not yet</span>}</td>
                   <td className="space-y-2">
                     {u.id !== me.id && <AdminReset id={u.id} name={u.name} phone={u.phone} />}
                     {u.id !== me.id && (
                       <form action={adminSetAdmin}>
                         <input type="hidden" name="id" value={u.id} />
                         <input type="hidden" name="make" value={u.is_admin ? "0" : "1"} />
-                        <button className="text-xs font-semibold text-slate-500 hover:text-ink">
+                        <button className="text-xs font-semibold text-muted hover:text-ink">
                           {u.is_admin ? "Remove admin" : "Make admin"}
                         </button>
                       </form>

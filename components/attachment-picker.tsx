@@ -36,7 +36,7 @@ export function AttachmentPicker({ max }: { max: number }) {
     setFiles(list);
   }
 
-  if (max <= 0) return <p className="text-xs text-slate-500">This entry already has the most attachments allowed.</p>;
+  if (max <= 0) return <p className="text-xs text-muted">This entry already has the most attachments allowed.</p>;
   return (
     <div>
       <label className="btn-ghost cursor-pointer">
@@ -63,15 +63,15 @@ export function AttachmentPicker({ max }: { max: number }) {
           }}
         />
       </label>
-      <span className="ml-2 text-xs text-slate-500">Photos or PDFs, up to {max}</span>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <span className="ml-2 text-xs text-muted">Photos or PDFs, up to {max}</span>
+      {error && <p className="mt-1 text-xs text-khata">{error}</p>}
       {files.length > 0 && (
         <ul className="mt-2 space-y-1">
           {files.map((f, i) => (
-            <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
+            <li key={i} className="flex items-center gap-2 text-xs text-muted">
               <Paperclip className="h-3 w-3" />
               {f.name} ({Math.ceil(f.size / 1024)} KB)
-              <button type="button" onClick={() => sync(files.filter((_, j) => j !== i))} aria-label="Remove" className="text-red-600">
+              <button type="button" onClick={() => sync(files.filter((_, j) => j !== i))} aria-label="Remove" className="text-khata">
                 <X className="h-3 w-3" />
               </button>
             </li>

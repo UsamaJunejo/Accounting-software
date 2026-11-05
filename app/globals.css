@@ -1,55 +1,105 @@
 @import "tailwindcss";
 
+/*
+  FinanceChachu design tokens: the "bahi-khata" ledger.
+  Paper is the faint green of a ruled ledger page, ink is fountain-pen blue,
+  khata red is the cloth binding (and money going out), ledger green is money coming in.
+*/
 @theme {
-  --color-brand: #f7931e;
-  --color-brand-dark: #d97706;
-  --color-ink: #0f1d33;
-  --color-ink-2: #1c2e4a;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-}
+  --color-paper: #f3f6f1;
+  --color-sheet: #ffffff;
+  --color-rule: #d5ded7;
+  --color-rule-strong: #a9b8ad;
 
-:root {
-  --bg: #f1f4f8;
-  --card: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
+  --color-ink: #17325c;
+  --color-ink-dark: #0f2343;
+  --color-ink-soft: #e6ecf4;
+
+  --color-khata: #a4282b;
+  --color-khata-dark: #861f22;
+  --color-khata-soft: #f7e6e5;
+
+  --color-ledger: #1f6e4a;
+  --color-ledger-dark: #175a3c;
+  --color-ledger-soft: #e3f1e8;
+
+  /* Money in is blue, money out is khata red: a pair colour-blind readers can tell apart
+     (red vs green cannot). Green is kept for good news only: profit, saved, balanced. */
+  --color-inflow: #1f5fae;
+  --color-inflow-dark: #184b8a;
+  --color-inflow-soft: #e4eefb;
+  --color-chart-in: #2a78d6;
+  --color-chart-out: #a4282b;
+
+  --color-marigold: #8a5b00;
+  --color-marigold-soft: #fbf1d6;
+
+  --color-body: #22302a;
+  --color-muted: #56655d;
+
+  /* "brand" = the main action colour (ink). Kept as an alias so older class names still work. */
+  --color-brand: #17325c;
+  --color-brand-dark: #0f2343;
+
+  --font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-paper);
+  color: var(--color-body);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Urdu: Nastaliq font, more line height; numbers stay left-to-right. */
+h1, h2, h3 { color: var(--color-ink); }
+
+a { text-underline-offset: 3px; }
+
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* Urdu: Nastaliq for Urdu letters; English and numbers keep the Latin face. */
 [dir="rtl"] body {
-  /* Inter has no Urdu letters, so English uses Inter and Urdu falls through to Nastaliq. */
-  font-family: "Inter", "Noto Nastaliq Urdu", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Noto Nastaliq Urdu", ui-sans-serif, system-ui, sans-serif;
   line-height: 2;
 }
-[dir="rtl"] input, [dir="rtl"] select, [dir="rtl"] textarea, [dir="rtl"] code, [dir="rtl"] .tabular-nums { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; }
 .tabular-nums, .num { unicode-bidi: isolate; }
 [dir="rtl"] .num { direction: ltr; text-align: left; }
 
-@utility card { @apply rounded-xl border border-[var(--line)] bg-[var(--card)] shadow-sm; }
-@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50; }
-@utility btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
-@utility btn-dark { @apply btn bg-ink text-white hover:bg-ink-2; }
-@utility btn-ghost { @apply btn border border-[var(--line)] bg-white text-slate-700 hover:bg-slate-50; }
-@utility btn-danger { @apply btn border border-red-200 bg-white text-red-600 hover:bg-red-50; }
-@utility input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20; }
-@utility label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500; }
+/* Panels sit on the paper like a sheet: a ruled edge, no floating shadow. */
+@utility card { @apply rounded-md border border-rule bg-sheet; }
+
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-50; }
+@utility btn-primary { @apply btn bg-ink text-white hover:bg-ink-dark; }
+@utility btn-dark { @apply btn bg-ink text-white hover:bg-ink-dark; }
+@utility btn-ghost { @apply btn border border-rule-strong bg-sheet text-ink hover:bg-ink-soft; }
+@utility btn-danger { @apply btn border border-khata/40 bg-sheet text-khata hover:bg-khata-soft; }
+@utility btn-in { @apply btn bg-inflow text-white hover:bg-inflow-dark; }
+@utility btn-out { @apply btn bg-khata text-white hover:bg-khata-dark; }
+
+@utility input { @apply w-full rounded border border-rule-strong bg-sheet px-3 py-2 text-[15px] text-body outline-none focus:border-ink focus:ring-2 focus:ring-ink/15; }
+@utility label { @apply mb-1 block text-sm font-semibold text-body; }
 @utility num { @apply text-right tabular-nums whitespace-nowrap; }
 
+/* The accountant's habit: a single rule above a total, a double rule under the final one. */
+@utility total { @apply border-t border-ink pt-2 font-bold text-ink; border-bottom: 3px double var(--color-ink); padding-bottom: 0.4rem; }
+
 @layer components {
-  .table { @apply w-full text-sm; }
-  .table th { @apply border-b border-[var(--line)] bg-slate-50 px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-slate-500; }
-  .table td { @apply border-b border-[var(--line)] px-3 py-2 align-top; }
+  .table { @apply w-full text-[15px]; }
+  .table th { @apply border-b-2 border-rule bg-paper px-3 py-2 text-start text-sm font-semibold text-muted; }
+  .table td { @apply border-b border-rule px-3 py-2.5 align-top; }
+  .table tbody tr:hover td { background: color-mix(in srgb, var(--color-ink-soft) 45%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }
 
 @media print {
   .no-print { display: none !important; }
   body { background: white; }
-  .card { box-shadow: none; border: none; }
+  .card { border: none; }
   main { padding: 0 !important; }
 }

@@ -15,9 +15,9 @@ import { TxnTable } from "@/components/txn-table";
 export const metadata = { title: "New Entry" };
 
 const TABS: { type: TxnType; label: string; help: string; active: string; Icon: LucideIcon }[] = [
-  { type: "payment", label: "Money Out (Payment)", help: "You paid someone: expense, purchase, supplier, salary…", active: "bg-brand text-white", Icon: ArrowUpRight },
-  { type: "receipt", label: "Money In (Receipt)", help: "You received money: sale, customer payment, loan…", active: "bg-green-600 text-white", Icon: ArrowDownLeft },
-  { type: "transfer", label: "Transfer", help: "Move money between your own accounts, e.g. Cash → Bank.", active: "bg-ink text-white", Icon: ArrowLeftRight },
+  { type: "payment", label: "Money Out (Payment)", help: "You paid someone: expense, purchase, supplier, salary…", active: "bg-khata text-white border-khata", Icon: ArrowUpRight },
+  { type: "receipt", label: "Money In (Receipt)", help: "You received money: sale, customer payment, loan…", active: "bg-inflow text-white border-inflow", Icon: ArrowDownLeft },
+  { type: "transfer", label: "Transfer", help: "Move money between your own accounts, e.g. Cash → Bank.", active: "bg-ink text-white border-ink", Icon: ArrowLeftRight },
 ];
 
 const HIGHLIGHTS = [
@@ -64,7 +64,7 @@ export default async function Voucher({
             <Link
               key={t.type}
               href={`/voucher?type=${t.type}`}
-              className={`btn ${t.type === type ? t.active : "border border-slate-300 bg-white text-slate-700"}`}
+              className={`btn border ${t.type === type ? t.active : "border-rule-strong bg-sheet text-body hover:bg-ink-soft"}`}
             >
               <t.Icon className="h-4 w-4" />
               {tr(t.label)}
@@ -78,7 +78,8 @@ export default async function Voucher({
         {editing && <input type="hidden" name="id" value={editing.id} />}
         <MoneyFields
           amount={editing ? (editing.amount / 100).toFixed(2) : ""}
-          currency={editing?.currency ?? "PKR"}
+          primary={user.currency}
+          currency={editing?.currency ?? user.currency}
           foreignAmount={editing?.foreign_amount ? (editing.foreign_amount / 100).toFixed(2) : ""}
           rate={editing?.rate ? String(editing.rate) : ""}
         />
@@ -123,8 +124,8 @@ export default async function Voucher({
           {existing.length > 0 && (
             <ul className="mb-3 flex flex-wrap gap-2">
               {existing.map((f) => (
-                <li key={f.id} className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-slate-50 px-2 py-1 text-xs">
-                  <a href={`/api/attachments/${f.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-medium text-blue-700">
+                <li key={f.id} className="flex items-center gap-2 rounded-lg border border-rule bg-paper px-2 py-1 text-xs">
+                  <a href={`/api/attachments/${f.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-medium text-ink">
                     {f.mime.startsWith("image/") ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={`/api/attachments/${f.id}`} alt="" className="h-10 w-10 rounded object-cover" />
@@ -133,7 +134,7 @@ export default async function Voucher({
                     )}
                     {f.filename}
                   </a>
-                  <button formAction={deleteAttachment} name="attachment" value={f.id} formNoValidate className="text-red-600" aria-label="Remove attachment">
+                  <button formAction={deleteAttachment} name="attachment" value={f.id} formNoValidate className="text-khata" aria-label="Remove attachment">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </li>
@@ -150,7 +151,7 @@ export default async function Voucher({
           )}
           <button className="btn-primary px-8"><Save className="h-4 w-4" />{t(editing ? "Save changes" : "Save")}</button>
         </div>
-        <p className="text-xs text-slate-500 sm:col-span-2">
+        <p className="text-xs text-muted sm:col-span-2">
           {t("Can't find the account?")} <Link href="/accounts" className="font-semibold text-brand">{t("Add it here")}</Link>.
         </p>
       </form>
