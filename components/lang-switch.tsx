@@ -2,8 +2,9 @@ import { Languages } from "lucide-react";
 import { setLanguage } from "@/app/actions/lang";
 import type { Lang } from "@/lib/i18n";
 
-/** One button that flips between English and Urdu. */
+/** Urdu is hidden for now: the button only shows for someone already in Urdu, so they can get back to English. */
 export function LangSwitch({ lang, className = "" }: { lang: Lang; className?: string }) {
+  if (lang !== "ur") return null;
   return (
     <form action={setLanguage}>
       <input type="hidden" name="lang" value={lang === "ur" ? "en" : "ur"} />

@@ -14,7 +14,7 @@ const FEATURES: [string, string, LucideIcon][] = [
   ["Bills your customers can open", "Make an invoice with GST, then send the link on WhatsApp or print it.", FileText],
   ["Reports that add up", "Profit & Loss, Balance Sheet and charts. Every entry is double-entry, so the totals always match.", BarChart3],
   ["Your books, your control", "Share one account with a partner or staff member. They see only that account.", ShieldCheck],
-  ["Works on any phone", "Nothing to install, in English or Urdu. Download everything for Excel any time.", Smartphone],
+  ["Works on any phone", "Nothing to install. Download everything for Excel any time.", Smartphone],
 ];
 
 // Sample page shown in the hero: what a day in a cement shop's khata looks like.
@@ -121,7 +121,7 @@ export default async function Home() {
         <div className="card flex flex-wrap items-center justify-between gap-6 p-6 sm:p-8">
           <div>
             <h2 className="text-2xl font-bold">One simple price</h2>
-            <p className="mt-1 text-body">Everything included: khata, invoices, reports, sharing, backups, Urdu.</p>
+            <p className="mt-1 text-body">Everything included: khata, invoices, reports, sharing, backups.</p>
           </div>
           <div className="text-end">
             <div className="text-4xl font-bold text-ink">Rs {price}<span className="text-lg font-semibold text-muted"> / month</span></div>
