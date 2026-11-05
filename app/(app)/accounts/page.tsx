@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Archive, ChevronRight, Download, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
 import { CategoryBadge } from "@/components/icons";
+import { categoryColorMap } from "@/lib/palette";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, KIND_LABEL, subcategories, type Kind } from "@/lib/books";
@@ -14,6 +15,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const d = await db();
   const cats = await categories(d, user.id);
+  const colors = categoryColorMap(cats);
   const subs = await subcategories(d, user.id);
   const accs = (await accountsWithBalances(d, user.id)).filter((a) => sp.archived || !a.archived);
 
@@ -89,7 +91,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
             {[...accs].sort((x, y) => x.name.localeCompare(y.name)).map((a) => (
               <li key={a.id} className="flex items-center justify-between border-b border-rule px-4 py-2.5 text-sm hover:bg-ink-soft/50">
                 <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 font-medium text-ink hover:text-brand">
-                  <CategoryBadge name={a.category} kind={a.kind} size="sm" />
+                  <CategoryBadge name={a.category} kind={a.kind} size="sm" color={colors.get(a.category_id)} />
                   {a.name}
                   {a.archived ? <span className="text-xs text-muted/80">(archived)</span> : null}
                 </Link>
@@ -111,7 +113,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
             <section key={c.id} id={`cat-${c.id}`} className="card overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-rule bg-paper px-4 py-3 text-ink">
                 <div className="flex items-center gap-2">
-                  <CategoryBadge name={c.name} kind={c.kind} size="sm" />
+                  <CategoryBadge name={c.name} kind={c.kind} size="sm" color={colors.get(c.id)} />
                   <span className="font-semibold">{c.name}</span>
                   <span className="ms-2 rounded bg-ink-soft px-2 py-0.5 text-xs text-ink">{KIND_LABEL[c.kind]}</span>
                 </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { Logo } from "@/components/logo";
 import {
   BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
 } from "lucide-react";
@@ -31,12 +32,12 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
         href={href}
         onClick={() => setOpen(false)}
         aria-current={active ? "page" : undefined}
-        className={`relative flex items-center gap-3 rounded px-3 py-2 text-[15px] transition-colors ${
-          active ? "bg-ink-soft font-semibold text-ink" : "text-body hover:bg-ink-soft/60 hover:text-ink"
+        className={`relative flex items-center gap-3 rounded-md px-3 py-2 text-[15px] transition-colors ${
+          active ? "bg-nav-active font-semibold text-white" : "text-nav-text hover:bg-nav-hover hover:text-white"
         }`}
       >
-        {active && <span className="absolute inset-y-1.5 start-0 w-[3px] rounded-full bg-ink" />}
-        <Icon className="h-5 w-5" strokeWidth={1.8} />
+        {active && <span className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-mustard" />}
+        <Icon className={`h-5 w-5 ${active ? "text-mustard" : "text-nav-muted"}`} strokeWidth={1.8} />
         {labels[label] ?? label}
         {href === "/shared" && badge > 0 && (
           <span className="ms-auto rounded-full bg-khata px-2 text-xs font-bold text-white">{badge}</span>
@@ -46,16 +47,17 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
   });
   return (
     <>
-      <button onClick={() => setOpen(!open)} className="no-print relative rounded p-2 text-ink hover:bg-ink-soft lg:hidden" aria-label="Menu" aria-expanded={open}>
+      <button onClick={() => setOpen(!open)} className="no-print relative rounded p-2 text-ink hover:bg-paper lg:hidden" aria-label="Menu" aria-expanded={open}>
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         {!open && badge > 0 && <span className="absolute end-1 top-1 h-2.5 w-2.5 rounded-full bg-khata" />}
       </button>
-      {open && <nav className="no-print absolute inset-x-0 top-14 z-20 space-y-0.5 border-b border-rule bg-sheet p-3 shadow-md lg:hidden">{links}</nav>}
-      {/* The sidebar is the spine of the book: a red binding strip down its outer edge. */}
-      <nav className="no-print fixed bottom-0 start-0 top-14 hidden w-56 space-y-0.5 border-e border-rule bg-sheet p-3 ps-4 lg:block">
-        <span className="absolute inset-y-0 start-0 w-1.5 bg-khata" aria-hidden="true" />
-        {links}
-      </nav>
+      {open && <nav className="no-print absolute inset-x-0 top-14 z-20 space-y-0.5 bg-nav p-3 shadow-lg lg:hidden">{links}</nav>}
+      <aside className="no-print fixed inset-y-0 start-0 z-40 hidden w-60 flex-col bg-nav lg:flex">
+        <Link href="/dashboard" className="flex h-14 items-center px-5 text-lg text-white">
+          <Logo dark />
+        </Link>
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3">{links}</nav>
+      </aside>
     </>
   );
 }

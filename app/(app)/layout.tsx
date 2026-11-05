@@ -17,10 +17,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const t = await getT();
   return (
     <div>
-      <header className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-rule bg-sheet px-4 text-ink">
+      <header className="no-print fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-rule bg-sheet px-4 text-ink lg:ps-64">
         <div className="flex items-center gap-2">
           <Nav isAdmin={user.is_admin} badge={badge} labels={Object.fromEntries(NAV_LABELS.map((l) => [l, t(l)]))} />
-          <Link href="/dashboard" className="text-lg">
+          <Link href="/dashboard" className="text-lg lg:hidden">
             <Logo />
           </Link>
         </div>
@@ -32,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </form>
         </div>
       </header>
-      <main className="px-4 pb-16 pt-20 lg:ms-56 lg:px-8">
+      <main className="px-4 pb-16 pt-20 lg:ms-60 lg:px-8">
         <div className="mx-auto max-w-6xl">
           {user.must_change_password && (
             <Link href="/settings?must=1" className="no-print mb-4 flex items-center gap-2 rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">

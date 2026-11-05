@@ -36,6 +36,10 @@ const UR: Record<string, string> = {
   "Who owes you the most": "سب سے زیادہ کس نے دینا ہے",
   "Customers with money still to pay, largest first": "جن گاہکوں کی رقم باقی ہے، سب سے زیادہ پہلے",
   "Owes you": "آپ کا لینا",
+  "What you own": "آپ کے اثاثے",
+  "Your assets, by category": "زمرے کے لحاظ سے آپ کے اثاثے",
+  "Category balances": "زمروں کے بیلنس",
+  "What you own, owe and put in, side by side": "اثاثے، واجبات اور سرمایہ ساتھ ساتھ",
   Expense: "خرچ",
 
   // Dashboard

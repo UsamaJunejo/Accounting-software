@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { accountsWithBalances, budgets, cashBankDaily, categories, listTransactions, monthlyTotals, summarizeIncome } from "@/lib/books";
 import { money, monthRange, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, Money, PageHeader, TypeBadge } from "@/components/ui";
-import { BalanceLine, InOutBars, RankedBars } from "@/components/charts";
+import { BalanceLine, CategoryBars, CategoryDonut, InOutBars, RankedBars } from "@/components/charts";
+import { categoryColor } from "@/lib/palette";
 import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { CategoryBadge } from "@/components/icons";
@@ -57,11 +58,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const payable = sumBy(all, (a) => a.category === "Payables");
   const pl = summarizeIncome(period);
 
+  // Balance-sheet categories get a colour each (same colour on tile, donut and bars);
+  // income and expense are flows for the period and stay in the neutral teal.
+  let slot = 0;
   const cats = cats0.map((c) =>
     c.kind === "income" || c.kind === "expense"
-      ? { ...c, balance: sumBy(period, (a) => a.category_id === c.id), note: t("this period") }
-      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: "" },
+      ? { ...c, balance: sumBy(period, (a) => a.category_id === c.id), note: t("this period"), color: undefined as string | undefined }
+      : { ...c, balance: sumBy(all, (a) => a.category_id === c.id), note: "", color: categoryColor(slot++) },
   );
+  const balanceCats = cats.filter((c) => c.color).map((c) => ({ name: c.name, value: c.balance, color: c.color! }));
+  const owned = cats.filter((c) => c.color && c.kind === "asset").map((c) => ({ name: c.name, value: c.balance, color: c.color! }));
 
   const expenses = period
     .filter((a) => a.kind === "expense" && a.balance > 0)
@@ -133,7 +139,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="card p-5">
           <h2 className="text-lg font-bold">{t("Biggest expenses")}</h2>
           <p className="mb-3 text-sm text-muted">{t("This period, largest first")}</p>
-          <RankedBars data={topExpenses} cur={cur} name={t("Expense")} empty={t("No expenses in this period.")} color="#a4282b" />
+          <RankedBars data={topExpenses} cur={cur} name={t("Expense")} empty={t("No expenses in this period.")} color="#c2263a" />
         </div>
       </section>
 
@@ -162,28 +168,44 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      <section className="card mb-6 p-5">
-        <div className="mb-2 flex items-baseline justify-between">
+      <section className="mb-6">
+        <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-lg font-bold">{t("Categories")}</h2>
-          <Link href="/accounts" className="text-sm font-semibold text-ink underline">{t("All accounts")}</Link>
+          <Link href="/accounts" className="text-sm font-semibold text-peacock underline">{t("All accounts")}</Link>
         </div>
-        <ul className="grid gap-x-8 sm:grid-cols-2">
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
           {cats.map((c) => (
             <li key={c.id}>
-              <Link href={`/accounts#cat-${c.id}`} className="flex items-center gap-3 border-b border-rule py-2 hover:bg-ink-soft/40">
-                <CategoryBadge name={c.name} kind={c.kind} size="sm" />
-                <span className="flex-1 text-body">{c.name}<span className="ms-2 text-sm text-muted">{c.note}</span></span>
-                <span className="tabular-nums font-semibold text-ink"><Money value={c.balance} /></span>
+              <Link href={`/accounts#cat-${c.id}`} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
+                <CategoryBadge name={c.name} kind={c.kind} size="lg" color={c.color} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[15px] text-body">{c.name}</span>
+                  <span className="block text-lg font-bold text-ink"><Money value={c.balance} /></span>
+                  {c.note && <span className="block text-xs text-muted">{c.note}</span>}
+                </span>
               </Link>
             </li>
           ))}
         </ul>
       </section>
 
+      <section className="mb-6 grid gap-5 lg:grid-cols-2">
+        <div className="card p-5">
+          <h2 className="text-lg font-bold">{t("What you own")}</h2>
+          <p className="mb-3 text-sm text-muted">{t("Your assets, by category")}</p>
+          <CategoryDonut data={owned} cur={cur} empty={t("No entries yet.")} />
+        </div>
+        <div className="card p-5">
+          <h2 className="text-lg font-bold">{t("Category balances")}</h2>
+          <p className="mb-3 text-sm text-muted">{t("What you own, owe and put in, side by side")}</p>
+          <CategoryBars data={balanceCats} cur={cur} />
+        </div>
+      </section>
+
       <div className="card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4">
           <h2 className="text-lg font-bold">{t("Latest entries")}</h2>
-          <Link href="/transactions" className="text-sm font-semibold text-ink underline">{t("See all")}</Link>
+          <Link href="/transactions" className="text-sm font-semibold text-peacock underline">{t("See all")}</Link>
         </div>
         {recent.length === 0 ? (
           <Empty>{t("No entries yet. Add your first one with “Money In” or “Money Out”.")}</Empty>

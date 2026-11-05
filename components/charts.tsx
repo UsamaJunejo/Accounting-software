@@ -1,18 +1,18 @@
 "use client";
 
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
 // Chart tokens (validated for colour-blind readers: in/out pass every check on white).
 const C = {
   in: "#2a78d6",
-  out: "#a4282b",
-  line: "#17325c",
-  bar: "#17325c",
-  grid: "#e6ece8",
-  axis: "#56655d",
-  text: "#22302a",
+  out: "#c2263a",
+  line: "#0b6e75",
+  bar: "#0b6e75",
+  grid: "#e6ecef",
+  axis: "#5a6b73",
+  text: "#24343b",
 };
 
 const short = (v: number) => {
@@ -150,6 +150,67 @@ export function RankedBars({
             isAnimationActive={false}
             label={{ position: "right", fill: C.text, fontSize: 12, formatter: (v: unknown) => short(Number(v)) }}
           />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+type Slice = { name: string; value: number; color: string };
+
+/** Donut: what you own, split by category. Each slice keeps its category's colour, and a legend
+ *  with names and amounts sits beside it, so identity never depends on colour alone. */
+export function CategoryDonut({ data, cur, empty = "Nothing to show yet." }: { data: Slice[]; cur: string; empty?: string }) {
+  const rows = data.filter((d) => d.value > 0);
+  if (!rows.length) return <Empty text={empty} />;
+  const total = rows.reduce((s, d) => s + d.value, 0);
+  const pts = rows.map((d) => ({ ...d, value: d.value / 100 }));
+  return (
+    <div className="grid items-center gap-4 sm:grid-cols-[200px_1fr]">
+      <div className="relative" role="img" aria-label="What you own, by category">
+        <ResponsiveContainer width="100%" height={200}>
+          <PieChart>
+            <Pie data={pts} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={1.5} stroke="#fff" strokeWidth={2} isAnimationActive={false}>
+              {pts.map((d) => <Cell key={d.name} fill={d.color} />)}
+            </Pie>
+            <Tooltip content={<Tip cur={cur} />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xs text-muted">Total</span>
+          <span className="text-lg font-bold text-ink" dir="ltr">{short(total / 100)}</span>
+        </div>
+      </div>
+      <ul className="space-y-1.5 text-[15px]">
+        {rows.map((d) => (
+          <li key={d.name} className="flex items-center gap-2">
+            <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: d.color }} />
+            <span className="flex-1 text-body">{d.name}</span>
+            <span className="tabular-nums text-muted">{Math.round((d.value / total) * 100)}%</span>
+            <span className="w-24 text-end tabular-nums font-semibold text-ink" dir="ltr">{full(d.value / 100)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Bars per category, above or below zero, each in its category colour (MunshiBaba's bar graph). */
+export function CategoryBars({ data, cur }: { data: Slice[]; cur: string }) {
+  const pts = data.map((d) => ({ ...d, value: d.value / 100 }));
+  const hasNeg = pts.some((d) => d.value < 0);
+  return (
+    <div role="img" aria-label="Balance of each category">
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={pts} margin={{ top: 16, right: 12, left: 4, bottom: 0 }} barCategoryGap="22%">
+          <CartesianGrid stroke={C.grid} vertical={false} />
+          <XAxis dataKey="name" {...axisProps} interval={0} tick={{ fill: C.axis, fontSize: 12 }} />
+          <YAxis {...axisProps} axisLine={false} tickFormatter={short} width={56} />
+          {hasNeg && <ReferenceLine y={0} stroke={C.axis} />}
+          <Tooltip content={<Tip cur={cur} />} cursor={{ fill: "#e6ecef", opacity: 0.6 }} />
+          <Bar dataKey="value" name="Balance" radius={4} maxBarSize={44} isAnimationActive={false}>
+            {pts.map((d) => <Cell key={d.name} fill={d.color} />)}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
