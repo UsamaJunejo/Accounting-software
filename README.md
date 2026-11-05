@@ -33,7 +33,7 @@ cp .env.example .env      # then set SESSION_SECRET to a long random string
 npm run dev               # http://localhost:3000
 ```
 
-Production: `npm run build && npm start`. Data is kept in one SQLite file (`data/app.db`,
+Production: `npm run build && npm start`, or see **DEPLOY.md** to put it online. Data is kept in one SQLite file (`data/app.db`,
 or `DATABASE_PATH`). Back up that file to back up everything.
 
 Tests: `npm test`
