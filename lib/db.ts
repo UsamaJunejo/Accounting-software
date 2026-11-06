@@ -338,6 +338,16 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE categories ADD COLUMN IF NOT EXISTS currency TEXT CHECK (currency ~ '^[A-Z]{3,4}$');
   ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS currency TEXT CHECK (currency ~ '^[A-Z]{3,4}$');
   `,
+  /* 16: exchange rates, fetched once a day and kept (so every page that day uses the same rate) */ `
+  CREATE TABLE IF NOT EXISTS fx_rates (
+    day DATE NOT NULL,
+    base TEXT NOT NULL,
+    code TEXT NOT NULL,
+    rate DOUBLE PRECISION NOT NULL CHECK (rate > 0),
+    PRIMARY KEY (day, base, code)
+  );
+  ALTER TABLE fx_rates ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

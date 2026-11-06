@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireWriter } from "@/lib/auth";
 import { addOpeningBalance, quickAddAccount, type AccountChoice, type Kind, type Role } from "@/lib/books";
 import { friendlyCategory } from "@/lib/look";
+import { rateFor } from "@/lib/fx";
 import { toPaisa, today } from "@/lib/format";
 
 export type QuickResult =
@@ -40,9 +41,9 @@ export async function addAccountPlain(form: FormData) {
       if (a.existed) throw new Error(`You already have an account called "${a.name}".`);
       if (opening > 0) {
         if (a.currency) {
-          // Typed in the account's own currency: needs today's rate to show it in the main currency too.
-          const rate = Number(String(form.get("rate") ?? "").replace(/,/g, ""));
-          if (!(rate > 0)) throw new Error(`Enter the rate for ${a.currency}, so the balance can also be shown in your main currency.`);
+          // Typed in the account's own currency: today's rate converts it.
+          const [{ currency: main }] = await x.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [u.id]);
+          const rate = await rateFor(x, main, a.currency);
           await addOpeningBalance(x, u.id, a.id, Math.round(opening * rate), today(), { foreignAmount: opening, rate });
         } else await addOpeningBalance(x, u.id, a.id, opening, today());
       }

@@ -319,12 +319,16 @@ test("accounts in their own currency: USD bank and USDT wallet", async () => {
   const accs = await accountsWithBalances(d, uid);
   const u = accs.find((a) => a.id === usd)!, t = accs.find((a) => a.id === usdt)!;
   assert.equal(u.native, 800_00);
-  assert.equal(u.balance, 280000_00 - 56200_00);
+  assert.equal(u.book, 280000_00 - 56200_00); // at the rates the entries were made at
+  assert.equal(u.balance, 800 * 280_00); // at today's rate (280 in tests)
   assert.equal(t.native, 100_00);
-  assert.equal(t.balance, 28500_00);
-  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
-  // changing to another currency needs a rate for the old entries
-  await assert.rejects(() => updateAccount(d, uid, usd, { name: "Meezan Dollar", subcategoryId: bankSub, currency: "AED" }), /Enter the rate/);
+  assert.equal(t.book, 28500_00);
+  assert.equal(t.balance, 100 * 283_00); // today's USDT rate 283
+  const bs = await balanceSheet(d, uid, "2026-12-31");
+  assert.equal(bs.fxGain, (224000_00 - 223800_00) + (28300_00 - 28500_00)); // +200 on dollars, −200 on USDT
+  assert.ok(bs.balanced);
+  // income accounts can't be put in another currency
+  await assert.rejects(() => changeAccountCurrency(d, uid, acc("Sales"), "USD"), /Only money/);
 });
 
 import { getPhoto, removePhoto, setPhoto } from "../lib/profile.ts";
@@ -348,12 +352,12 @@ test("changing an account's currency converts its entries and keeps every total"
   await addTransaction(d, uid, { type: "receipt", date: "2026-01-01", amount: 280000_00, fromAccountId: acc("Owner Capital"), toAccountId: acc("Bank Account") });
   await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 28000_00, fromAccountId: acc("Bank Account"), toAccountId: acc("Rent") });
   const before = await balanceSheet(d, uid, "2026-12-31");
-  await assert.rejects(() => changeAccountCurrency(d, uid, acc("Bank Account"), "USD", null), /Enter the rate/);
-  await changeAccountCurrency(d, uid, acc("Bank Account"), "USD", 280);
+  await changeAccountCurrency(d, uid, acc("Bank Account"), "USD"); // today's rate: 280 in tests
   const bank = (await accountsWithBalances(d, uid)).find((a) => a.name === "Bank Account")!;
   assert.equal(bank.currency, "USD");
   assert.equal(bank.native, 900_00); // $1,000 in, $100 out
-  assert.equal(bank.balance, 252000_00); // rupee value unchanged
+  assert.equal(bank.book, 252000_00); // rupee value at the entries' rate: unchanged
+  assert.equal(bank.balance, 252000_00); // today's rate is the same 280
   const after = await balanceSheet(d, uid, "2026-12-31");
   assert.equal(after.totalAssets, before.totalAssets);
   assert.ok(after.balanced);

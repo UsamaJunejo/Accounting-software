@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { CURRENCY_CODES, rateCode } from "@/lib/currencies";
+import { CURRENCY_CODES } from "@/lib/currencies";
 import { currentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { rateFor } from "@/lib/fx";
 
-// Today's market rate: how many `to` for 1 `from` (default `to` = your main currency).
-// Uses a free public rates service, cached for 6 hours. You can always type your own rate.
+// Today's rate: how many `to` for 1 `from` (default `to` = your main currency). It is the same rate the
+// app uses when saving (fetched once a day and kept), so what you see is what gets recorded.
 export async function GET(req: NextRequest) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Sign in" }, { status: 401 });
@@ -12,15 +14,9 @@ export async function GET(req: NextRequest) {
   const to = (q.get("to") || user.currency).toUpperCase();
   if (!CURRENCY_CODES.has(from) || !CURRENCY_CODES.has(to) || from === to)
     return NextResponse.json({ error: "Unknown currency" }, { status: 400 });
-  // USDT follows the US dollar, so USDT↔USD is 1 and other pairs use the dollar's rate.
-  if (rateCode(from) === rateCode(to)) return NextResponse.json({ from, to, rate: 1 });
   try {
-    const r = await fetch(`https://open.er-api.com/v6/latest/${rateCode(from)}`, { next: { revalidate: 21600 } });
-    const j = (await r.json()) as { rates?: Record<string, number> };
-    const rate = j.rates?.[rateCode(to)];
-    if (!rate) throw new Error("no rate");
-    return NextResponse.json({ from, to, rate: Number(rate.toPrecision(6)) });
-  } catch {
-    return NextResponse.json({ error: "Rate service not available. Please type the rate." }, { status: 503 });
+    return NextResponse.json({ from, to, rate: await rateFor(await db(), to, from) });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 503 });
   }
 }

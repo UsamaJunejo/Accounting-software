@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { changeMainCurrency, createUser } from "@/lib/books";
 import { setTrialForNewUser } from "@/lib/billing";
 import { CURRENCY_CODES } from "@/lib/currencies";
+import { rateFor } from "@/lib/fx";
 import { endSession, requireAdmin, requireUser, startSession } from "@/lib/auth";
 import {
   clearFailures,
@@ -86,9 +87,9 @@ export async function updateCurrency(form: FormData) {
   const next = str(form, "currency");
   if (!CURRENCY_CODES.has(next)) fail("/settings", "Choose a currency from the list.");
   const convert = form.get("convert") === "on";
-  const rate = convert ? Number(str(form, "rate").replace(/,/g, "")) : null;
-  if (convert && !(rate! > 0)) fail("/settings", "Enter the conversion rate, or untick 'Convert my existing records'.");
   try {
+    // Today's rate from the rates service (1 old main currency = how many of the new one).
+    const rate = convert ? await rateFor(await db(), next, u.currency) : null;
     await changeMainCurrency(await db(), u.id, next, rate);
   } catch (e) {
     fail("/settings", (e as Error).message);

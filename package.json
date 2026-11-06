@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test --experimental-strip-types --disable-warning=ExperimentalWarning --test-concurrency=1 tests/*.test.ts"
+    "test": "FX_TEST_RATES=USD:280,USDT:283,AED:76.2 node --test --experimental-strip-types --disable-warning=ExperimentalWarning --test-concurrency=1 tests/*.test.ts"
   },
   "engines": {
     "node": ">=22.13"

@@ -115,6 +115,7 @@ export default async function Statement({
       )}
       <DateRange from={from} to={to} />
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
+        {s.inCurrency && <p className="col-span-3 -mb-1 text-sm text-muted">Amounts below are in {s.inCurrency}.</p>}
         <div className="card p-3"><div className="text-muted">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
         <div className="card p-3"><div className="text-muted">Entries</div><div className="font-bold">{s.lines.length}</div></div>
         <div className="card p-3"><div className="text-muted">Closing balance</div><div className="font-bold"><Money value={s.closing} /></div></div>
@@ -125,7 +126,7 @@ export default async function Statement({
           <p className="mb-3 text-sm text-muted">After each entry in this period</p>
           <BalanceLine
             data={[{ date: from, balance: s.opening }, ...s.lines.map((l) => ({ date: l.date, balance: l.balance }))]}
-            cur={currencySymbol(user.currency)}
+            cur={currencySymbol(s.inCurrency ?? user.currency)}
             name={a.name}
           />
         </div>

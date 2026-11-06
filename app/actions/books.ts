@@ -7,6 +7,7 @@ import { requireWriter as requireUser } from "@/lib/auth";
 import * as B from "@/lib/books";
 import { toPaisa, today } from "@/lib/format";
 import { CURRENCY_CODES } from "@/lib/currencies";
+import { rateFor } from "@/lib/fx";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const int = (f: FormData, k: string) => Number(f.get(k));
@@ -26,7 +27,7 @@ async function run(path: string, fn: (uid: number, d: Db) => Promise<unknown>, o
   redirect(ok ? `${path}${sep}n=${Date.now()}&ok=${encodeURIComponent(ok + (extra?.() ?? ""))}` : path);
 }
 
-function txnFrom(form: FormData, primary: string): B.TxnInput {
+async function txnFrom(form: FormData, primary: string, d: Db): Promise<B.TxnInput> {
   const currency = str(form, "currency") || primary;
   let amount: number;
   let foreignAmount: number | null = null;
@@ -34,9 +35,9 @@ function txnFrom(form: FormData, primary: string): B.TxnInput {
   if (currency !== primary) {
     if (!CURRENCY_CODES.has(currency)) throw new Error("Unknown currency");
     foreignAmount = toPaisa(str(form, "foreign_amount"));
-    rate = Number(str(form, "rate").replace(/,/g, ""));
     if (Number.isNaN(foreignAmount)) throw new Error(`Please enter a valid amount in ${currency}`);
-    if (!(rate > 0) || rate > 1_000_000) throw new Error("Please enter a valid exchange rate");
+    // Always today's rate from the rates service: whatever the browser sends is ignored.
+    rate = await rateFor(d, primary, currency);
     amount = Math.round(foreignAmount * rate);
   } else {
     amount = toPaisa(str(form, "amount"));
@@ -68,7 +69,7 @@ export async function saveTransaction(form: FormData) {
     back,
     async (uid, d) => {
       const [{ currency: primary }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [uid]);
-      const t = txnFrom(form, primary);
+      const t = await txnFrom(form, primary, d);
       const txnId = id || (await B.addTransaction(d, uid, t));
       if (id) await B.updateTransaction(d, uid, id, t);
       // Attachments are saved after the entry; a bad file doesn't lose the entry.
@@ -178,9 +179,9 @@ export async function addAccount(form: FormData) {
       if (opening > 0) {
         const acc = (await B.accountsWithBalances(x, uid)).find((a) => a.id === id)!;
         if (acc.currency) {
-          // Typed in the account's own currency, so it needs the rate to the main currency too.
-          const rate = Number(str(form, "rate").replace(/,/g, ""));
-          if (!(rate > 0)) throw new Error(`Enter the rate for ${acc.currency}, so the balance can be shown in your main currency too.`);
+          // Typed in the account's own currency: today's rate converts it.
+          const [{ currency: main }] = await x.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [uid]);
+          const rate = await rateFor(x, main, acc.currency);
           await B.addOpeningBalance(x, uid, id, Math.round(opening * rate), today(), { foreignAmount: opening, rate });
         } else await B.addOpeningBalance(x, uid, id, opening, today());
       }
@@ -196,9 +197,10 @@ export async function addStartingBalance(form: FormData) {
     if (Number.isNaN(typed) || typed <= 0) throw new Error("Please enter the balance as a number, e.g. 300000");
     const date = str(form, "date") || today();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid date");
-    // For an account in another currency the amount is typed in that currency, with a rate.
-    const rate = form.has("rate") ? Number(str(form, "rate").replace(/,/g, "")) : null;
-    if (rate !== null && !(rate > 0 && rate < 1_000_000)) throw new Error("Please enter the exchange rate");
+    // For an account in another currency the amount is typed in that currency; today's rate converts it.
+    const acc = (await B.accountsWithBalances(d, uid)).find((a) => a.id === id);
+    const [{ currency: main }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [uid]);
+    const rate = acc?.currency && acc.currency !== main ? await rateFor(d, main, acc.currency) : null;
     await B.addOpeningBalance(d, uid, id, rate ? Math.round(typed * rate) : typed, date, rate ? { foreignAmount: typed, rate } : null);
   }, "Starting balance saved");
 }
@@ -215,7 +217,6 @@ export async function updateAccount(form: FormData) {
       budgetMonthly: budget(form),
       archived: form.get("archived") === "on",
       currency: form.has("currency") ? str(form, "currency") || null : undefined,
-      rate: form.has("rate") ? Number(str(form, "rate").replace(/,/g, "")) || null : null,
     });
   }, "Account saved");
 }

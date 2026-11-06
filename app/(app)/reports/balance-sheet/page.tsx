@@ -42,6 +42,15 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
                 <tr key={e.id}><td>{e.name}</td><td className="num"><Money value={e.balance} /></td></tr>
               ))}
               <tr><td>Profit / loss to date</td><td className="num"><Money value={r.profit} /></td></tr>
+              {r.fxGain !== 0 && (
+                <tr>
+                  <td>
+                    Currency gain / loss
+                    <span className="block text-xs text-muted">Other-currency accounts at today&apos;s rate, compared with the rates they were entered at</span>
+                  </td>
+                  <td className="num"><Money value={r.fxGain} /></td>
+                </tr>
+              )}
               <tr className="font-bold"><td>Total equity</td><td className="num"><Money value={r.totalEquity} /></td></tr>
               <tr className="font-bold"><td>Liabilities + equity</td><td className="num"><Money value={r.totalLiabilities + r.totalEquity} /></td></tr>
             </tbody>
