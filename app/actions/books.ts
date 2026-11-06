@@ -171,6 +171,18 @@ export async function addAccount(form: FormData) {
   }, "Account added");
 }
 
+/** Money or a balance the account already had before using the app. */
+export async function addStartingBalance(form: FormData) {
+  const id = int(form, "id");
+  await run(`/accounts/${id}`, async (uid, d) => {
+    const amount = toPaisa(str(form, "opening"));
+    if (Number.isNaN(amount) || amount <= 0) throw new Error("Please enter the balance as a number, e.g. 300000");
+    const date = str(form, "date") || today();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid date");
+    await B.addOpeningBalance(d, uid, id, amount, date);
+  }, "Starting balance added");
+}
+
 export async function updateAccount(form: FormData) {
   const id = int(form, "id");
   await run(`/accounts/${id}/edit`, async (uid, d) => {

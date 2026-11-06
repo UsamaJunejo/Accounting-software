@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, subcategories } from "@/lib/books";
-import { deleteAccount, updateAccount } from "@/app/actions/books";
+import { addStartingBalance, deleteAccount, updateAccount } from "@/app/actions/books";
+import { today } from "@/lib/format";
 import { Flash, PageHeader } from "@/components/ui";
 import { ConfirmButton } from "@/components/confirm-button";
 
@@ -23,6 +24,14 @@ export default async function EditAccount({
   if (!a) notFound();
   const cats = await categories(d, user.id);
   const subs = await subcategories(d, user.id);
+  const startHelp =
+    a.role === "cash" || a.role === "bank"
+      ? `How much money was already in ${a.name} before you started using FinanceChachu.`
+      : a.role === "receivable"
+        ? `How much ${a.name} already owed you before you started.`
+        : a.role === "payable"
+          ? `How much you already owed ${a.name} before you started.`
+          : `The balance ${a.name} already had before you started.`;
 
   return (
     <>
@@ -61,6 +70,22 @@ export default async function EditAccount({
           <button className="btn-primary"><Save className="h-4 w-4" />Save</button>
           <Link href={`/accounts/${a.id}`} className="btn-ghost"><FileText className="h-4 w-4" />View statement</Link>
         </div>
+      </form>
+      <form id="opening" action={addStartingBalance} className="card mb-4 grid max-w-2xl gap-4 p-5 sm:grid-cols-[1fr_200px_auto] sm:items-end">
+        <input type="hidden" name="id" value={a.id} />
+        <h2 className="text-lg font-bold sm:col-span-3">Add starting balance</h2>
+        <p className="-mt-2 text-sm text-muted sm:col-span-3">
+          {startHelp}
+        </p>
+        <div>
+          <label className="label" htmlFor="opening-amount">Amount ({user.currency})</label>
+          <input id="opening-amount" name="opening" inputMode="decimal" required placeholder="e.g. 300000" className="input" />
+        </div>
+        <div>
+          <label className="label" htmlFor="opening-date">As of</label>
+          <input id="opening-date" name="date" type="date" defaultValue={today()} className="input" />
+        </div>
+        <button className="btn-dark">Add</button>
       </form>
       <form action={deleteAccount} className="max-w-2xl">
         <input type="hidden" name="id" value={a.id} />

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageCircle, Pencil, Share2 } from "lucide-react";
+import { MessageCircle, Pencil, PlusCircle, Share2 } from "lucide-react";
 import { sharesOfAccount } from "@/lib/sharing";
 import { headers } from "next/headers";
 import { friendlyCategory } from "@/lib/look";
@@ -64,6 +64,7 @@ export default async function Statement({
               </a>
             )}
             <PrintButton />
+            <LinkButton href={`/accounts/${a.id}/edit#opening`}><PlusCircle className="h-4 w-4" />Add starting balance</LinkButton>
             <LinkButton href={`/accounts/${a.id}/edit`}><Pencil className="h-4 w-4" />Edit account</LinkButton>
           </>
         }

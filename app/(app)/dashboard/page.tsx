@@ -84,8 +84,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // "Getting started" checklist for new users; disappears when done or hidden.
   const anyEntry = all.some((a) => a.money_in || a.money_out);
+  const cashId = all.find((a) => a.role === "cash")?.id;
+  // Money can't really be below zero: it almost always means the starting cash was never added.
+  const belowZero = all.filter((a) => (a.role === "cash" || a.role === "bank") && a.balance < 0);
   const steps = [
-    { title: "Add the cash you have today", how: "Money In from Owner Capital to Cash", href: "/voucher?type=receipt", done: anyEntry },
+    { title: "Add the cash you have today", how: "Open Cash and add its starting balance", href: cashId ? `/accounts/${cashId}/edit#opening` : "/accounts", done: anyEntry },
     { title: "Add your first customer", how: "Khata → add their name and mobile", href: "/khata", done: all.some((a) => a.role === "receivable") },
     { title: "Record a sale", how: "Money In from Sales, or make an invoice", href: "/voucher?type=receipt", done: all.some((a) => a.kind === "income" && a.balance > 0) },
     { title: "Save your recovery code", how: "So you can get back in if you forget your password", href: "/recovery-code", done: user.has_recovery },
@@ -123,6 +126,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             ))}
           </ol>
         </section>
+      )}
+      {belowZero.length > 0 && (
+        <div role="alert" className="mb-5 rounded-lg border border-marigold/30 bg-marigold-soft px-4 py-3 text-[15px] text-marigold">
+          <b>{belowZero.map((a) => a.name).join(", ")} {belowZero.length > 1 ? "are" : "is"} below zero.</b>{" "}
+          Usually this means the money you started with was never added.{" "}
+          {belowZero.map((a) => (
+            <Link key={a.id} href={`/accounts/${a.id}/edit#opening`} className="me-3 font-semibold underline">Add starting balance for {a.name}</Link>
+          ))}
+        </div>
       )}
       <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* The balance card, like the top of a banking app. */}

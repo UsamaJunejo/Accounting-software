@@ -116,7 +116,7 @@ export default async function Voucher({
         <EntryPreview
           tab={type}
           cur={currencySymbol(user.currency)}
-          accounts={accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind, role: a.role }))}
+          accounts={accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind, role: a.role, balance: editing && (a.id === editing.from_account_id) ? a.balance + editing.amount : a.balance }))}
         />
         <div className="sm:col-span-2">
           <label className="label">{t("Note")}</label>

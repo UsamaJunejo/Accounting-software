@@ -314,7 +314,8 @@ async function validate(d: Db, userId: number, t: TxnInput): Promise<TxnType> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || Number.isNaN(Date.parse(t.date))) throw new Error("Invalid date");
   if (!Number.isSafeInteger(t.amount) || t.amount <= 0) throw new Error("Amount must be more than zero");
   if (!t.fromAccountId || !t.toAccountId) throw new Error("Choose both accounts: where the money came from and where it went");
-  if (t.fromAccountId === t.toAccountId) throw new Error("'From' and 'To' must be different accounts");
+  if (t.fromAccountId === t.toAccountId)
+    throw new Error("From and To are the same account. To record money you already have, open that account and use \"Add starting balance\".");
   await own(d, "accounts", t.fromAccountId, userId);
   await own(d, "accounts", t.toAccountId, userId);
   if (t.projectId) await own(d, "projects", t.projectId, userId);
