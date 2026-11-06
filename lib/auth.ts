@@ -58,6 +58,8 @@ export type User = {
   paid_until: string | null;
   plan: Plan;
   num_format: "intl" | "lakh";
+  /** Changes whenever the profile photo changes (null = no photo), so browsers fetch the new one. */
+  photo_v: string | null;
 };
 
 // Cached per request so the layout and page share one lookup.
@@ -71,7 +73,8 @@ export const currentUser = cache(async (): Promise<User | null> => {
               recovery_hash IS NOT NULL AS has_recovery, session_version, level, address, ntn,
               nok_name, nok_relation, nok_phone, nok_email,
               to_char(trial_ends_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD') AS trial_end,
-              to_char(paid_until, 'YYYY-MM-DD') AS paid_until, num_format
+              to_char(paid_until, 'YYYY-MM-DD') AS paid_until, num_format,
+              CASE WHEN photo IS NULL THEN NULL ELSE extract(epoch FROM photo_at)::bigint::text END AS photo_v
        FROM users WHERE id = $1`,
       [Number(payload.uid)],
     );

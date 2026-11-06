@@ -326,3 +326,17 @@ test("accounts in their own currency: USD bank and USDT wallet", async () => {
   // currency can't change once there are entries
   await assert.rejects(() => updateAccount(d, uid, usd, { name: "Meezan Dollar", subcategoryId: bankSub, currency: "AED" }), /can't be changed/);
 });
+
+import { getPhoto, removePhoto, setPhoto } from "../lib/profile.ts";
+
+test("profile photo: real pictures only, can be removed", async () => {
+  const { d, uid } = await setup();
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  await setPhoto(d, uid, png);
+  assert.equal((await getPhoto(d, uid))!.mime, "image/png");
+  await assert.rejects(() => setPhoto(d, uid, new TextEncoder().encode("<script>alert(1)</script>")), /isn't a photo/);
+  await assert.rejects(() => setPhoto(d, uid, new Uint8Array([0x25, 0x50, 0x44, 0x46, 1])), /isn't a photo/);
+  await assert.rejects(() => setPhoto(d, uid, new Uint8Array(3 * 1024 * 1024)), /too big/);
+  await removePhoto(d, uid);
+  assert.equal(await getPhoto(d, uid), null);
+});

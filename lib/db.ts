@@ -329,6 +329,11 @@ export const MIGRATIONS: string[] = [
   /* 13: an account can be kept in its own currency (e.g. a dollar account, USDT wallet) */ `
   ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency TEXT CHECK (currency ~ '^[A-Z]{3,4}$');
   `,
+  /* 14: profile photo (small, already shrunk in the browser) */ `
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS photo BYTEA;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_mime TEXT CHECK (photo_mime IN ('image/jpeg','image/png','image/webp'));
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_at TIMESTAMPTZ;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

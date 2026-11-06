@@ -19,7 +19,8 @@ const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "I
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
-import { Bell, Clock, KeyRound, Lock, LogOut, Search, ShieldAlert, Store } from "lucide-react";
+import { Bell, Clock, KeyRound, Lock, LogOut, Search, ShieldAlert } from "lucide-react";
+import { Avatar } from "@/components/avatar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -39,7 +40,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
         </div>
         <div className="flex items-center gap-1 text-sm sm:gap-3">
-          <span className="hidden items-center gap-1.5 text-muted sm:flex"><Store className="h-4 w-4" />{user.business_name || user.name}</span>
+          <Link href="/settings#photo" title="Your profile" className="flex items-center gap-2 rounded-full text-muted hover:text-ink">
+            <Avatar name={user.name} v={user.photo_v} size={30} />
+            <span className="hidden sm:inline">{user.business_name || user.name}</span>
+          </Link>
           <form action="/search" role="search" className="relative me-1 hidden md:block">
             <Search className="pointer-events-none absolute start-2.5 top-2 h-4 w-4 text-muted" />
             <input name="q" placeholder={t("Search")} aria-label={t("Search")} className="w-56 rounded-md border border-rule bg-white/70 py-1.5 pe-3 ps-8 text-sm outline-none focus:border-peacock focus:ring-2 focus:ring-peacock/20 lg:w-72" />

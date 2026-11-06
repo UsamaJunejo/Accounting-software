@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Coins, Database, Hash, Palette, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, RotateCcw, Trash2, UserRound } from "lucide-react";
 import { deleteMyAccount, resetMyBooks } from "@/app/actions/maintenance";
+import { PhotoUpload } from "@/components/photo-upload";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { CurrencySettings } from "@/components/currency-settings";
@@ -28,6 +29,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       <div className="grid gap-5 lg:grid-cols-2">
         <form action={updateProfile} className="card space-y-4 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><UserRound className="h-5 w-5 text-brand" />Profile</h2>
+          <div id="photo" className="scroll-mt-20"><PhotoUpload name={user.name} v={user.photo_v} /></div>
           <div><label className="label">Your name</label><input name="name" defaultValue={user.name} required className="input" /></div>
           <div><label className="label">Business name</label><input name="business" defaultValue={user.business_name ?? ""} className="input" /></div>
           <div><label className="label">Mobile</label><input name="phone" defaultValue={user.phone ?? ""} className="input" /></div>
