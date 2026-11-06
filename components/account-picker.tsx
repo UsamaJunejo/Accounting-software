@@ -120,7 +120,7 @@ export function AccountPicker({
     const o = { id: r.id, name: r.name, group: r.group, uses: 0 };
     if (!options.some((x) => x.id === r.id)) setAdded((a) => [...a, o]);
     // Let any other account box on the page offer it too.
-    window.dispatchEvent(new CustomEvent("fc-added", { detail: { ...o, kind: r.kind, role: r.role, balance: r.balance } }));
+    window.dispatchEvent(new CustomEvent("fc-added", { detail: { ...o, kind: r.kind, role: r.role, balance: r.balance, currency: r.currency } }));
     pick(o);
   }
 

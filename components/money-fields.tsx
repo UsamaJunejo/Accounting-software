@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { CURRENCIES, currencySymbol } from "@/lib/currencies";
 
@@ -14,7 +14,10 @@ export function MoneyFields({
   currency,
   foreignAmount,
   rate,
+  accountCurrencies = {},
 }: {
+  /** Accounts kept in another currency: id → currency. Picking one switches the amount to it. */
+  accountCurrencies?: Record<number, string>;
   amount?: string;
   primary?: string;
   currency?: string;
@@ -26,6 +29,42 @@ export function MoneyFields({
   const [r, setR] = useState(rate ?? "");
   const [msg, setMsg] = useState("");
   const converted = num(fx) * num(r);
+
+  // When From or To is an account kept in another currency, the amount must be in that currency.
+  const picked = useRef<{ from?: number; to?: number }>({});
+  const known = useRef<Record<number, string>>({ ...accountCurrencies });
+  const curRef = useRef(cur);
+  curRef.current = cur;
+  useEffect(() => {
+    const apply = () => {
+      const { from, to } = picked.current;
+      const need = (from && known.current[from]) || (to && known.current[to]) || "";
+      if (need && curRef.current !== need) {
+        setCur(need);
+        setR("");
+        fetchRate(need);
+      }
+    };
+    const onPick = (e: Event) => {
+      const d = (e as CustomEvent<{ name: string; id?: number }>).detail;
+      if (d.name === "from" || d.name === "to") {
+        picked.current = { ...picked.current, [d.name]: d.id };
+        apply();
+      }
+    };
+    const onAdded = (e: Event) => {
+      const d = (e as CustomEvent<{ id: number; currency?: string | null }>).detail;
+      if (d.currency) known.current[d.id] = d.currency;
+    };
+    window.addEventListener("fc-pick", onPick);
+    window.addEventListener("fc-added", onAdded);
+    window.dispatchEvent(new Event("fc-ask"));
+    return () => {
+      window.removeEventListener("fc-pick", onPick);
+      window.removeEventListener("fc-added", onAdded);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function fetchRate(c: string) {
     setMsg("Getting today's rate…");

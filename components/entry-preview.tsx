@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowLeftRight, Info } from "lucide-react";
 import { isMoney, typeFor, type Kind, type Role, type TxnType } from "@/lib/kinds";
 
-export type PreviewAccount = { id: number; name: string; kind: Kind; role: Role; balance: number };
+export type PreviewAccount = { id: number; name: string; kind: Kind; role: Role; balance: number; currency?: string | null; native?: number | null };
 
 const TYPE_NAME: Record<TxnType, string> = { payment: "Money Out", receipt: "Money In", transfer: "Transfer" };
 const fmt = (n: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigits: 2 }).format(n);
@@ -28,6 +28,8 @@ function line(a: PreviewAccount, up: boolean, amt: string) {
  * and offers a swap when From and To were picked the wrong way round.
  */
 export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[]; tab: TxnType; cur: string }) {
+  // The amount in the currency it was typed in (e.g. USDT 100), when that isn't the main one.
+  const [fx, setFx] = useState<{ cur: string; amount: number }>({ cur: "", amount: 0 });
   const [ids, setIds] = useState<{ from?: number; to?: number }>({});
   const [amount, setAmount] = useState(0);
   const [added, setAdded] = useState<PreviewAccount[]>([]);
@@ -41,11 +43,20 @@ export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[
     const onPick = (e: Event) => {
       const d = (e as CustomEvent<{ name: string; id?: number }>).detail;
       if (d.name === "from" || d.name === "to") setIds((x) => ({ ...x, [d.name]: d.id }));
+      // Picking a foreign-currency account switches the amount box; read it once it has.
+      setTimeout(readFx, 150);
     };
     const onInput = (e: Event) => {
       const el = e.target as HTMLInputElement;
       if (el.name === "amount") setAmount(Number(el.value.replace(/,/g, "")) || 0);
+      if (el.name === "foreign_amount" || el.name === "currency") readFx();
     };
+    const readFx = () => {
+      const c = document.querySelector<HTMLSelectElement>('select[name="currency"]')?.value ?? "";
+      const f = document.querySelector<HTMLInputElement>('input[name="foreign_amount"]');
+      setFx({ cur: f ? c : "", amount: f ? Number(f.value.replace(/,/g, "")) || 0 : 0 });
+    };
+    document.addEventListener("change", onInput);
     window.addEventListener("fc-pick", onPick);
     document.addEventListener("input", onInput);
     // The pickers may have announced their first choice before we were listening.
@@ -55,6 +66,7 @@ export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[
     return () => {
       window.removeEventListener("fc-pick", onPick);
       document.removeEventListener("input", onInput);
+      document.removeEventListener("change", onInput);
     };
   }, []);
 
@@ -78,7 +90,7 @@ export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[
     );
   if (!from || !to) return null;
 
-  const amt = amount > 0 ? `${cur} ${fmt(amount)}` : "the amount";
+  const amt = fx.cur ? (fx.amount > 0 ? `${fx.cur} ${fmt(fx.amount)}` : "the amount") : amount > 0 ? `${cur} ${fmt(amount)}` : "the amount";
   // Assets and expenses grow when money goes in; the others grow when it comes out.
   const grows = (a: PreviewAccount, into: boolean) => (a.kind === "asset" || a.kind === "expense" ? into : !into);
   const saved = typeFor(from, to);
@@ -87,7 +99,9 @@ export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[
     window.dispatchEvent(new CustomEvent("fc-set", { detail: { name: "to", id: from.id } }));
   };
   // A Money Out where money comes INTO cash (or the reverse) is almost always a mix-up.
-  const lowMoney = isMoney(from) && amount > 0 && from.balance - Math.round(amount * 100) < 0;
+  const lowMoney = isMoney(from) && (from.currency
+    ? fx.cur === from.currency && fx.amount > 0 && (from.native ?? 0) - Math.round(fx.amount * 100) < 0
+    : !fx.cur && amount > 0 && from.balance - Math.round(amount * 100) < 0);
   const backwards = (tab === "payment" && saved === "receipt") || (tab === "receipt" && saved === "payment");
 
   return (
@@ -105,7 +119,7 @@ export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[
       <p className="mt-1 text-sm text-muted">Saved as <b>{TYPE_NAME[saved]}</b>.</p>
       {lowMoney && (
         <p className="mt-1 text-sm font-semibold text-marigold">
-          {from.name} only has {cur} {fmt(from.balance / 100)}, so it will go below zero.{" "}
+          {from.name} only has {from.currency ?? cur} {fmt((from.currency ? from.native ?? 0 : from.balance) / 100)}, so it will go below zero.{" "}
           <a href={`/accounts/${from.id}/edit#opening`} className="underline">Add its starting balance</a> if you had money before.
         </p>
       )}

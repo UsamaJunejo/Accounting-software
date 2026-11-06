@@ -31,6 +31,7 @@ export default async function SubcategoryPage({ params, searchParams }: { params
     href: `/accounts/${a.id}`,
     name: a.name,
     balance: a.balance,
+    native: a.currency && a.native !== null ? { amount: a.native, currency: a.currency } : null,
     color: mine.length === 1 && color ? color : colorAt(i),
     icon: sub.icon ?? cat.icon ?? defaultIconKey(cat.name, cat.kind),
     kind: cat.kind,

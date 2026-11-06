@@ -326,6 +326,9 @@ export const MIGRATIONS: string[] = [
     AND NOT EXISTS (SELECT 1 FROM accounts x WHERE x.user_id = a.user_id AND x.name = 'Starting balance');
   UPDATE transactions SET note = 'Starting balance' WHERE note = 'Opening balance';
   `,
+  /* 13: an account can be kept in its own currency (e.g. a dollar account, USDT wallet) */ `
+  ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency TEXT CHECK (currency ~ '^[A-Z]{3,4}$');
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

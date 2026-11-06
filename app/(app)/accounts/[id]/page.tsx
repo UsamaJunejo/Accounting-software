@@ -100,6 +100,18 @@ export default async function Statement({
           </form>
         </section>
       )}
+      {a.currency && a.native !== null && (
+        <section className="card mb-5 flex flex-wrap items-baseline justify-between gap-3 p-5">
+          <div>
+            <div className="text-sm text-muted">Balance in {a.currency} today</div>
+            <div className="text-3xl font-bold tabular-nums text-ink" dir="ltr">{a.currency} <Money value={a.native} /></div>
+          </div>
+          <div className="text-sm text-muted" dir="ltr">
+            In your books: {cur} {money(a.balance)}
+            <span className="block text-xs">at the rates you entered</span>
+          </div>
+        </section>
+      )}
       <DateRange from={from} to={to} />
       <div className="mb-4 grid grid-cols-3 gap-3 text-sm">
         <div className="card p-3"><div className="text-muted">Opening balance</div><div className="font-bold"><Money value={s.opening} /></div></div>
@@ -134,7 +146,10 @@ export default async function Statement({
                     <td>
                       <Link href={`/voucher?edit=${l.id}`} className="hover:text-brand">{l.moneyIn ? "From " : "To "}{l.other}</Link>
                     </td>
-                    <td className="text-muted">{l.note}</td>
+                    <td className="text-muted">
+                      {l.note}
+                      {l.currency && l.foreign_amount ? <span className="block text-xs" dir="ltr">{l.currency} {money(l.foreign_amount)} @ {l.rate}</span> : null}
+                    </td>
                     <td className="num text-inflow">{l.up ? money(l.up) : ""}</td>
                     <td className="num text-khata">{l.down ? money(l.down) : ""}</td>
                     <td className="num font-medium"><Money value={l.balance} /></td>

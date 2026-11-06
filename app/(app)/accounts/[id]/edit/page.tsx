@@ -8,6 +8,7 @@ import { addStartingBalance, deleteAccount, updateAccount } from "@/app/actions/
 import { money, prettyDate, today } from "@/lib/format";
 import { Flash, PageHeader } from "@/components/ui";
 import { ConfirmButton } from "@/components/confirm-button";
+import { CurrencyPick } from "@/components/currency-pick";
 
 export default async function EditAccount({
   params,
@@ -64,6 +65,7 @@ export default async function EditAccount({
             <input name="budget" inputMode="decimal" defaultValue={a.budget_monthly ? (a.budget_monthly / 100).toFixed(2) : ""} className="input" />
           </div>
         </div>
+        <CurrencyPick primary={user.currency} value={a.currency ?? ""} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="archived" defaultChecked={!!a.archived} /> Archived (hide from lists, keep history)
         </label>
@@ -79,18 +81,23 @@ export default async function EditAccount({
           {startHelp}
           {start && (
             <span className="mt-1 block font-semibold text-ink">
-              Now: {user.currency} {money(start.amount)} as of {prettyDate(start.date)}. A new amount replaces it.
+              Now: {a.currency && start.foreign_amount ? `${a.currency} ${money(start.foreign_amount)} (${user.currency} ${money(start.amount)})` : `${user.currency} ${money(start.amount)}`} as of {prettyDate(start.date)}. A new amount replaces it.
             </span>
           )}
         </p>
         <div>
-          <label className="label" htmlFor="opening-amount">Amount ({user.currency})</label>
-          <input id="opening-amount" name="opening" inputMode="decimal" required placeholder="e.g. 300000" defaultValue={start ? String(start.amount / 100) : undefined} className="input" />
+          <label className="label" htmlFor="opening-amount">Amount ({a.currency ?? user.currency})</label>
+          <input id="opening-amount" name="opening" inputMode="decimal" required placeholder="e.g. 300000" defaultValue={start ? String((start.foreign_amount ?? start.amount) / 100) : undefined} className="input" />
         </div>
         <div>
           <label className="label" htmlFor="opening-date">As of</label>
           <input id="opening-date" name="date" type="date" defaultValue={start?.date ?? today()} className="input" />
         </div>
+        {a.currency && (
+          <div className="sm:col-span-3">
+            <CurrencyPick primary={user.currency} fixed={a.currency} needRate />
+          </div>
+        )}
         <button className="btn-dark">{start ? "Change" : "Save"}</button>
       </form>
       <form action={deleteAccount} className="max-w-2xl">

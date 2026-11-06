@@ -33,6 +33,17 @@ export function Money({ value, className = "" }: { value: number; className?: st
   return <span dir="ltr" className={`tabular-nums ${value < 0 ? "text-khata" : ""} ${className}`}>{money(value)}</span>;
 }
 
+/** An account's balance: in its own currency when it has one (e.g. USDT 1,250.00), with the main-currency value under it. */
+export function AccountBalance({ a, main }: { a: { balance: number; native: number | null; currency: string | null }; main?: string }) {
+  if (!a.currency || a.native === null) return <Money value={a.balance} />;
+  return (
+    <span className="inline-flex flex-col items-end leading-tight">
+      <Money value={a.native} className="font-semibold" />
+      <span className="text-xs font-normal text-muted" dir="ltr">{a.currency}{main ? ` · ${main} ${money(a.balance)}` : ""}</span>
+    </span>
+  );
+}
+
 /** Account dropdown grouped by category, the way users think about them. */
 const usageFor = cache(async (userId: number) => accountUsage(await db(), userId));
 
@@ -60,7 +71,7 @@ export async function AccountSelect({
     id: a.id,
     name: a.name,
     group: level === 1 ? "All accounts" : friendlyCategory(a.category),
-    hint: level === 3 ? a.subcategory : undefined,
+    hint: [level === 3 ? a.subcategory : undefined, a.currency ?? undefined].filter(Boolean).join(" · ") || undefined,
     uses: uses.get(a.id) ?? 0,
   }));
   return <AccountPicker name={name} options={options} value={value} suggest={suggest} placeholder={placeholder ?? t("Select account")} />;

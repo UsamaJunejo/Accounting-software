@@ -33,6 +33,14 @@ export function checkDate(date: string) {
   if (date > limit) throw new Error("That date is more than a year from now. Please check the year.");
 }
 
+/** An account's own currency: blank (or the main currency) means "same as the books". */
+async function accountCurrency(d: Db, userId: number, c?: string | null) {
+  if (!c) return null;
+  if (!/^[A-Z]{3,4}$/.test(c)) throw new Error("Choose a currency from the list");
+  const [{ currency: main }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [userId]);
+  return c === main ? null : c;
+}
+
 /** Account names must be filled in, not too long, and not the same as another account's. */
 async function checkAccountName(d: Db, userId: number, raw: string, exceptId?: number) {
   const name = raw.trim().replace(/\s+/g, " ");
@@ -123,6 +131,11 @@ export type AccountRow = {
   money_in: number;
   money_out: number;
   balance: number;
+  /** Set when the account is kept in another currency than the main one (e.g. "USD", "USDT"). */
+  currency: string | null;
+  native_in: number;
+  native_out: number;
+  native: number | null;
 };
 
 /** Every account with its totals. Optional date window (inclusive, YYYY-MM-DD). */
@@ -131,14 +144,18 @@ export async function accountsWithBalances(
   userId: number,
   opts: { from?: string; to?: string } = {},
 ): Promise<AccountRow[]> {
-  const rows = await d.q<Omit<AccountRow, "balance">>(
+  const rows = await d.q<Omit<AccountRow, "balance" | "native">>(
     `WITH t AS (
-       SELECT from_account_id, to_account_id, amount FROM transactions
+       SELECT from_account_id, to_account_id, amount, currency, foreign_amount FROM transactions
        WHERE user_id = $1 AND deleted_at IS NULL AND date BETWEEN $2::date AND $3::date
      ),
      ins AS (SELECT to_account_id AS id, SUM(amount) AS s FROM t GROUP BY to_account_id),
-     outs AS (SELECT from_account_id AS id, SUM(amount) AS s FROM t GROUP BY from_account_id)
-     SELECT a.id, a.name, a.phone, a.budget_monthly::float8 AS budget_monthly, a.archived,
+     outs AS (SELECT from_account_id AS id, SUM(amount) AS s FROM t GROUP BY from_account_id),
+     -- The same totals in each entry's own currency, for accounts kept in another currency.
+     fins AS (SELECT to_account_id AS id, currency, SUM(foreign_amount) AS s FROM t WHERE currency IS NOT NULL GROUP BY 1, 2),
+     fouts AS (SELECT from_account_id AS id, currency, SUM(foreign_amount) AS s FROM t WHERE currency IS NOT NULL GROUP BY 1, 2)
+     SELECT a.id, a.name, a.phone, a.budget_monthly::float8 AS budget_monthly, a.archived, a.currency,
+            COALESCE(fins.s, 0)::float8 AS native_in, COALESCE(fouts.s, 0)::float8 AS native_out,
             s.id AS subcategory_id, s.name AS subcategory,
             c.id AS category_id, c.name AS category, c.kind, c.role,
             COALESCE(ins.s, 0)::float8 AS money_in,
@@ -148,11 +165,18 @@ export async function accountsWithBalances(
      JOIN categories c ON c.id = s.category_id
      LEFT JOIN ins ON ins.id = a.id
      LEFT JOIN outs ON outs.id = a.id
+     LEFT JOIN fins ON fins.id = a.id AND fins.currency = a.currency
+     LEFT JOIN fouts ON fouts.id = a.id AND fouts.currency = a.currency
      WHERE a.user_id = $1
      ORDER BY c.sort, c.name, s.name, a.name`,
     [userId, opts.from ?? MIN_DATE, opts.to ?? MAX_DATE],
   );
-  return rows.map((r) => ({ ...r, balance: signedBalance(r.kind, r.money_in, r.money_out) }));
+  return rows.map((r) => ({
+    ...r,
+    balance: signedBalance(r.kind, r.money_in, r.money_out),
+    // Balance in the account's own currency (only for accounts kept in another currency).
+    native: r.currency ? signedBalance(r.kind, r.native_in, r.native_out) : null,
+  }));
 }
 
 export type Category = { id: number; name: string; kind: Kind; sort: number; color: string | null; icon: string | null; role: Role };
@@ -243,13 +267,14 @@ export async function addAccount(
   userId: number,
   subcategoryId: number,
   name: string,
-  extra: { phone?: string | null; budgetMonthly?: number | null } = {},
+  extra: { phone?: string | null; budgetMonthly?: number | null; currency?: string | null } = {},
 ) {
   await own(d, "subcategories", subcategoryId, userId);
   name = await checkAccountName(d, userId, name);
+  const currency = await accountCurrency(d, userId, extra.currency);
   const [row] = await d.q<IdRow>(
-    "INSERT INTO accounts (user_id, subcategory_id, name, phone, budget_monthly) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-    [userId, subcategoryId, name, extra.phone || null, extra.budgetMonthly || null],
+    "INSERT INTO accounts (user_id, subcategory_id, name, phone, budget_monthly, currency) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+    [userId, subcategoryId, name, extra.phone || null, extra.budgetMonthly || null, currency],
   );
   return row.id;
 }
@@ -265,7 +290,7 @@ export async function updateAccount(
   d: Db,
   userId: number,
   id: number,
-  f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean },
+  f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean; currency?: string | null },
 ) {
   await own(d, "accounts", id, userId);
   await own(d, "subcategories", f.subcategoryId, userId);
@@ -277,6 +302,19 @@ export async function updateAccount(
       throw new Error(`${acc.name} still has a balance of ${(acc.balance / 100).toLocaleString("en-PK")}. Move it to another account (a Transfer) before archiving.`);
   }
   f = { ...f, name };
+  if (f.currency !== undefined) {
+    const next = await accountCurrency(d, userId, f.currency);
+    const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
+    if (acc && (acc.currency ?? null) !== next) {
+      // Changing it later would make the old entries count in the wrong currency.
+      const [{ n }] = await d.q<{ n: number }>(
+        "SELECT COUNT(*)::int AS n FROM transactions WHERE deleted_at IS NULL AND (from_account_id = $1 OR to_account_id = $1)",
+        [id],
+      );
+      if (n > 0) throw new Error("This account already has entries, so its currency can't be changed. Make a new account in the other currency and move the money with a Transfer.");
+      await d.q("UPDATE accounts SET currency = $1 WHERE id = $2 AND user_id = $3", [next, id, userId]);
+    }
+  }
   await d.q(
     "UPDATE accounts SET name = $1, subcategory_id = $2, phone = $3, budget_monthly = $4, archived = $5 WHERE id = $6 AND user_id = $7",
     [f.name, f.subcategoryId, f.phone || null, f.budgetMonthly || null, !!f.archived, id, userId],
@@ -361,15 +399,24 @@ async function validate(d: Db, userId: number, t: TxnInput): Promise<TxnType> {
   await own(d, "accounts", t.toAccountId, userId);
   if (t.projectId) await own(d, "projects", t.projectId, userId);
   if (t.currency && t.currency !== (t.primary ?? "PKR")) {
-    if (!/^[A-Z]{3}$/.test(t.currency)) throw new Error("Invalid currency");
+    if (!/^[A-Z]{3,4}$/.test(t.currency)) throw new Error("Invalid currency");
     if (!t.foreignAmount || t.foreignAmount <= 0 || !Number.isSafeInteger(t.foreignAmount)) throw new Error("Enter the amount in " + t.currency);
     if (!t.rate || !(t.rate > 0)) throw new Error("Enter the exchange rate");
   }
-  const roles = await d.q<{ id: number; role: Role }>(
-    `SELECT a.id, c.role FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
+  const roles = await d.q<{ id: number; role: Role; name: string; currency: string | null }>(
+    `SELECT a.id, c.role, a.name, a.currency FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
      WHERE a.id = ANY($1::int[])`,
     [[t.fromAccountId, t.toAccountId]],
   );
+  // Accounts kept in another currency only take entries in that currency, so their own balance stays right.
+  const [{ currency: main }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [userId]);
+  const entryCur = t.currency || main;
+  const foreign = roles.filter((r) => r.currency && r.currency !== main);
+  const curs = [...new Set(foreign.map((r) => r.currency))];
+  if (curs.length > 1)
+    throw new Error(`${foreign[0].name} is in ${foreign[0].currency} and ${foreign[1].name} is in ${foreign[1].currency}. Move the money through a ${main} account in two steps.`);
+  if (curs.length === 1 && entryCur !== curs[0])
+    throw new Error(`${foreign[0].name} is kept in ${curs[0]}, so type this amount in ${curs[0]} (choose ${curs[0]} next to the amount and add the rate).`);
   const role = (id: number) => ({ role: roles.find((r) => r.id === id)?.role ?? null });
   return typeFor(role(t.fromAccountId), role(t.toAccountId));
 }
@@ -537,7 +584,14 @@ export async function accountStatement(d: Db, userId: number, accountId: number,
  * owes 5,000, cash already in the drawer. Recorded as one entry against "Opening Balances"
  * (owner's money), so the books still balance.
  */
-export async function addOpeningBalance(d: Db, userId: number, accountId: number, balance: number, date: string) {
+export async function addOpeningBalance(
+  d: Db,
+  userId: number,
+  accountId: number,
+  balance: number,
+  date: string,
+  fx?: { foreignAmount: number; rate: number } | null,
+) {
   if (!Number.isSafeInteger(balance) || balance <= 0) throw new Error("Opening balance must be more than zero");
   const accs = await accountsWithBalances(d, userId);
   const acc = accs.find((a) => a.id === accountId);
@@ -567,6 +621,8 @@ export async function addOpeningBalance(d: Db, userId: number, accountId: number
     fromAccountId: grows ? openingId : accountId,
     toAccountId: grows ? accountId : openingId,
     note: "Starting balance",
+    // For an account kept in another currency, keep the amount in that currency too.
+    ...(acc.currency && fx ? { currency: acc.currency, foreignAmount: fx.foreignAmount, rate: fx.rate } : {}),
   });
 }
 
@@ -786,7 +842,7 @@ export function attachmentReport(d: Db, userId: number) {
  * (amount × rate), e.g. PKR → USD with rate 0.0036. Without a rate only the label changes.
  */
 export async function changeMainCurrency(d: Db, userId: number, next: string, rate: number | null) {
-  if (!/^[A-Z]{3}$/.test(next)) throw new Error("Choose a currency");
+  if (!/^[A-Z]{3,4}$/.test(next)) throw new Error("Choose a currency");
   if (rate !== null && !(rate > 0 && rate < 1e9)) throw new Error("Enter a valid conversion rate");
   const [u] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [userId]);
   if (!u) throw new Error("User not found");
@@ -824,6 +880,8 @@ export async function changeMainCurrency(d: Db, userId: number, next: string, ra
       }
     }
     await x.q("UPDATE users SET currency = $2 WHERE id = $1", [userId, next]);
+    // An account kept in the new main currency is now just a normal account.
+    await x.q("UPDATE accounts SET currency = NULL WHERE user_id = $1 AND currency = $2", [userId, next]);
     await audit(x, userId, "currency", null, { from: u.currency, to: next, rate });
   });
 }
@@ -926,13 +984,13 @@ export async function shareTokenOf(d: Db, userId: number, accountId: number) {
  * Add an account from just a name and a plain choice. If one with that name already exists
  * (not archived), it is returned instead of making a duplicate.
  */
-export async function quickAddAccount(d: Db, userId: number, rawName: string, choice: AccountChoice) {
+export async function quickAddAccount(d: Db, userId: number, rawName: string, choice: AccountChoice, currency?: string | null) {
   const name = rawName.trim().replace(/\s+/g, " ");
   if (!name) throw new Error("Type a name for the account");
   if (name.length > 80) throw new Error("Name is too long");
   const accs = await accountsWithBalances(d, userId);
   const same = accs.find((a) => !a.archived && a.name.toLowerCase() === name.toLowerCase());
-  if (same) return { id: same.id, name: same.name, category: same.category, kind: same.kind, role: same.role, balance: same.balance, existed: true };
+  if (same) return { id: same.id, name: same.name, category: same.category, kind: same.kind, role: same.role, balance: same.balance, currency: same.currency, existed: true };
   const cats = await categories(d, userId);
   const subs = await subcategories(d, userId);
   const pick: Record<AccountChoice, () => Category | undefined> = {
@@ -960,14 +1018,15 @@ export async function quickAddAccount(d: Db, userId: number, rawName: string, ch
   const mine = subs.filter((s) => s.category_id === cat.id);
   const sub = (choice === "expense" || choice === "income" ? mine.find((s) => /^other/i.test(s.name)) : undefined) ?? mine[0];
   const subId = sub?.id ?? (await defaultSubcategory(d, userId, cat.id));
-  const id = await addAccount(d, userId, subId, name);
-  return { id, name, category: cat.name, kind: cat.kind, role: cat.role, balance: 0, existed: false };
+  const id = await addAccount(d, userId, subId, name, { currency });
+  const cur = (await accountsWithBalances(d, userId)).find((a) => a.id === id)?.currency ?? null;
+  return { id, name, category: cat.name, kind: cat.kind, role: cat.role, balance: 0, currency: cur, existed: false };
 }
 
 /** The starting balance already set on an account, if any (for showing on its edit page). */
 export async function startingBalanceOf(d: Db, userId: number, accountId: number) {
-  const [r] = await d.q<{ amount: number; date: string }>(
-    `SELECT t.amount::float8 AS amount, to_char(t.date, 'YYYY-MM-DD') AS date FROM transactions t
+  const [r] = await d.q<{ amount: number; foreign_amount: number | null; date: string }>(
+    `SELECT t.amount::float8 AS amount, t.foreign_amount::float8 AS foreign_amount, to_char(t.date, 'YYYY-MM-DD') AS date FROM transactions t
      JOIN accounts o ON o.id = CASE WHEN t.from_account_id = $2 THEN t.to_account_id ELSE t.from_account_id END
      WHERE t.user_id = $1 AND t.deleted_at IS NULL AND t.note = 'Starting balance'
        AND (t.from_account_id = $2 OR t.to_account_id = $2) AND o.name IN ('Starting balance', 'Opening Balances')

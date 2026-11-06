@@ -48,7 +48,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   } else {
     items = mine.map((a, i) => {
       const s = subs.find((x) => x.id === a.subcategory_id);
-      return { key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, color: s?.color ?? colorAt(i), icon: s?.icon ?? cat.icon ?? defaultIconKey(cat.name, cat.kind), kind: cat.kind };
+      return { key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, native: a.currency && a.native !== null ? { amount: a.native, currency: a.currency } : null, color: s?.color ?? colorAt(i), icon: s?.icon ?? cat.icon ?? defaultIconKey(cat.name, cat.kind), kind: cat.kind };
     });
     add = { label: `Add account to ${cat.name}`, form: <AddAccountForm categoryId={cat.id} back={here} /> };
   }

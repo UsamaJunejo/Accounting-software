@@ -300,3 +300,29 @@ test("careless input: setting the starting balance twice replaces it", async () 
   assert.equal((await accountsWithBalances(d, uid)).find((a) => a.name === "Cash")!.balance, 25000000);
   assert.equal((await startingBalanceOf(d, uid, acc("Cash")))!.amount, 25000000);
 });
+
+test("accounts in their own currency: USD bank and USDT wallet", async () => {
+  const { d, uid, acc } = await setup();
+  const bankSub = (await subcategories(d, uid)).find((s) => s.name === "Bank Accounts")!.id;
+  const usd = await addAccount(d, uid, bankSub, "Meezan Dollar", { currency: "USD" });
+  const usdt = await addAccount(d, uid, bankSub, "Binance", { currency: "USDT" });
+  // starting balance $1,000 at 280
+  await addOpeningBalance(d, uid, usd, 280000_00, "2026-01-01", { foreignAmount: 1000_00, rate: 280 });
+  // sell $200 for rupees into cash at 281
+  await addTransaction(d, uid, { type: "transfer", date: "2026-01-02", amount: 56200_00, fromAccountId: usd, toAccountId: acc("Cash"), currency: "USD", foreignAmount: 200_00, rate: 281 });
+  // a PKR amount into the dollar account is refused with a clear message
+  await assert.rejects(() => addTransaction(d, uid, { type: "receipt", date: "2026-01-03", amount: 100, fromAccountId: acc("Sales"), toAccountId: usd }), /kept in USD/);
+  // USD account to USDT account directly is refused (two different currencies)
+  await assert.rejects(() => addTransaction(d, uid, { type: "transfer", date: "2026-01-03", amount: 100, fromAccountId: usd, toAccountId: usdt, currency: "USD", foreignAmount: 1, rate: 1 }), /two steps/);
+  // buy 100 USDT with cash
+  await addTransaction(d, uid, { type: "transfer", date: "2026-01-04", amount: 28500_00, fromAccountId: acc("Cash"), toAccountId: usdt, currency: "USDT", foreignAmount: 100_00, rate: 285 });
+  const accs = await accountsWithBalances(d, uid);
+  const u = accs.find((a) => a.id === usd)!, t = accs.find((a) => a.id === usdt)!;
+  assert.equal(u.native, 800_00);
+  assert.equal(u.balance, 280000_00 - 56200_00);
+  assert.equal(t.native, 100_00);
+  assert.equal(t.balance, 28500_00);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+  // currency can't change once there are entries
+  await assert.rejects(() => updateAccount(d, uid, usd, { name: "Meezan Dollar", subcategoryId: bankSub, currency: "AED" }), /can't be changed/);
+});

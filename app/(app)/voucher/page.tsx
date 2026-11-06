@@ -95,6 +95,7 @@ export default async function Voucher({
           currency={editing?.currency ?? user.currency}
           foreignAmount={editing?.foreign_amount ? (editing.foreign_amount / 100).toFixed(2) : ""}
           rate={editing?.rate ? String(editing.rate) : ""}
+          accountCurrencies={Object.fromEntries(accounts.filter((a) => a.currency && a.currency !== user.currency).map((a) => [a.id, a.currency!]))}
         />
         <DateField defaultValue={editing?.date ?? today()} label={t("Date")} />
         <div>
@@ -108,7 +109,7 @@ export default async function Voucher({
         <EntryPreview
           tab={type}
           cur={currencySymbol(user.currency)}
-          accounts={accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind, role: a.role, balance: editing && (a.id === editing.from_account_id) ? a.balance + editing.amount : a.balance }))}
+          accounts={accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind, role: a.role, currency: a.currency, native: a.native, balance: editing && (a.id === editing.from_account_id) ? a.balance + editing.amount : a.balance }))}
         />
         <div className="sm:col-span-2">
           <label className="label">{t("Note")}</label>

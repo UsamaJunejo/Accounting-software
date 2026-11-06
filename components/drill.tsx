@@ -10,6 +10,8 @@ export type DrillItem = {
   href: string;
   name: string;
   balance: number;
+  /** For an account kept in another currency: its balance in that currency. */
+  native?: { amount: number; currency: string } | null;
   color: string;
   icon?: string | null;
   kind: string;
@@ -40,7 +42,14 @@ export function DrillTiles({ items, addLabel, addForm }: { items: DrillItem[]; a
             <CategoryBadge name={it.name} kind={it.kind} size="lg" color={it.color} icon={it.icon} />
             <span className="min-w-0">
               <span className="block text-[15px] leading-snug text-body [overflow-wrap:anywhere]">{it.name}</span>
-              <span className="block text-lg font-bold text-ink"><Money value={it.balance} /></span>
+              {it.native ? (
+                <>
+                  <span className="block text-lg font-bold text-ink"><span className="me-1 text-sm font-semibold text-muted">{it.native.currency}</span><Money value={it.native.amount} /></span>
+                  <span className="block text-xs text-muted">≈ <Money value={it.balance} /></span>
+                </>
+              ) : (
+                <span className="block text-lg font-bold text-ink"><Money value={it.balance} /></span>
+              )}
               {it.note && <span className="block text-xs text-muted">{it.note}</span>}
             </span>
           </Link>

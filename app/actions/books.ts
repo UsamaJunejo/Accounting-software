@@ -175,11 +175,14 @@ export async function addAccount(form: FormData) {
 export async function addStartingBalance(form: FormData) {
   const id = int(form, "id");
   await run(`/accounts/${id}`, async (uid, d) => {
-    const amount = toPaisa(str(form, "opening"));
-    if (Number.isNaN(amount) || amount <= 0) throw new Error("Please enter the balance as a number, e.g. 300000");
+    const typed = toPaisa(str(form, "opening"));
+    if (Number.isNaN(typed) || typed <= 0) throw new Error("Please enter the balance as a number, e.g. 300000");
     const date = str(form, "date") || today();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid date");
-    await B.addOpeningBalance(d, uid, id, amount, date);
+    // For an account in another currency the amount is typed in that currency, with a rate.
+    const rate = form.has("rate") ? Number(str(form, "rate").replace(/,/g, "")) : null;
+    if (rate !== null && !(rate > 0 && rate < 1_000_000)) throw new Error("Please enter the exchange rate");
+    await B.addOpeningBalance(d, uid, id, rate ? Math.round(typed * rate) : typed, date, rate ? { foreignAmount: typed, rate } : null);
   }, "Starting balance saved");
 }
 
@@ -194,6 +197,7 @@ export async function updateAccount(form: FormData) {
       phone: str(form, "phone"),
       budgetMonthly: budget(form),
       archived: form.get("archived") === "on",
+      currency: form.has("currency") ? str(form, "currency") || null : undefined,
     });
   }, "Account saved");
 }

@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, KIND_LABEL, subcategories, type Kind } from "@/lib/books";
 import * as A from "@/app/actions/books";
-import { Flash, Money, PageHeader } from "@/components/ui";
+import { AccountBalance, Flash, Money, PageHeader } from "@/components/ui";
 
 
 /** The detailed list of every category, sub-category and account ("List view"). */
@@ -32,7 +32,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
         actions={
           <>
           <Dialog title="Add account" trigger={<><Plus className="h-4 w-4" />Add account</>} triggerClass="btn-primary">
-            <AddAccountPlainForm />
+            <AddAccountPlainForm primary={user.currency} />
           </Dialog>
           <ViewToggle list />
           <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
@@ -102,7 +102,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
                   {a.archived ? <span className="text-xs text-muted/80">(archived)</span> : null}
                 </Link>
                 <div className="flex items-center gap-4">
-                  <Money value={a.balance} />
+                  <AccountBalance a={a} main={user.currency} />
                   <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
                 </div>
               </li>
@@ -180,7 +180,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
                               {a.archived ? <span className="ml-2 text-xs text-muted/80">(archived)</span> : null}
                             </Link>
                             <div className="flex items-center gap-4">
-                              <Money value={a.balance} />
+                              <AccountBalance a={a} main={user.currency} />
                               <Link href={`/accounts/${a.id}/edit`} title="Edit account" aria-label="Edit account" className="inline-flex rounded-md p-1 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
                             </div>
                           </li>

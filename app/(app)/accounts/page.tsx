@@ -28,7 +28,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   const actions = (
     <>
       <Dialog title="Add account" trigger={<><Plus className="h-4 w-4" />Add account</>} triggerClass="btn-primary">
-        <AddAccountPlainForm />
+        <AddAccountPlainForm primary={user.currency} />
       </Dialog>
       <ViewToggle list={false} />
       <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
@@ -39,7 +39,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   if (user.level === 1) {
     const items: DrillItem[] = [...live]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map((a, i) => ({ key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, color: colors.get(a.category_id) ?? colorAt(i), kind: a.kind, note: a.category }));
+      .map((a, i) => ({ key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, native: a.currency && a.native !== null ? { amount: a.native, currency: a.currency } : null, color: colors.get(a.category_id) ?? colorAt(i), kind: a.kind, note: a.category }));
     const chartItems = items.filter((i) => i.kind === "asset" || i.kind === "liability" || i.kind === "equity").sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 8);
     return (
       <>

@@ -2,6 +2,7 @@ import { KIND_LABEL, type Kind } from "@/lib/books";
 import * as A from "@/app/actions/books";
 import * as Q from "@/app/actions/quick";
 import { ACCOUNT_CHOICES } from "@/lib/kinds";
+import { CurrencyPick } from "@/components/currency-pick";
 import { LookPicker } from "@/components/look-picker";
 import { ConfirmButton } from "@/components/confirm-button";
 
@@ -156,7 +157,7 @@ export function EditGroupForm({
 }
 
 /** "Add account" in plain words: a name, what it is, and what it already has. */
-export function AddAccountPlainForm() {
+export function AddAccountPlainForm({ primary = "PKR" }: { primary?: string }) {
   return (
     <form action={Q.addAccountPlain} className="space-y-4">
       <div>
@@ -174,8 +175,9 @@ export function AddAccountPlainForm() {
           ))}
         </div>
       </fieldset>
+      <CurrencyPick primary={primary} needRate />
       <div>
-        <label className="label" htmlFor="plain-opening">Balance it already has (optional)</label>
+        <label className="label" htmlFor="plain-opening">Balance it already has (optional, in the account&apos;s currency)</label>
         <input id="plain-opening" name="opening" inputMode="decimal" placeholder="0.00" className="input" />
         <p className="mt-1 text-sm text-muted">Cash in hand, what a customer owes you, or what you owe a supplier, as of today.</p>
       </div>
