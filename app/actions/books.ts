@@ -62,9 +62,7 @@ async function txnFrom(form: FormData, primary: string, d: Db): Promise<B.TxnInp
 export async function saveTransaction(form: FormData) {
   const id = int(form, "id");
   const type = str(form, "type") || "payment";
-  // "Save & add another" comes back to the same form (an everyday job keeps its preset).
-  const job = str(form, "do");
-  const back = id ? `/voucher?edit=${id}` : form.get("next") === "close" ? "/transactions" : job ? `/voucher?do=${encodeURIComponent(job)}` : `/voucher?type=${type}`;
+  const back = id ? `/voucher?edit=${id}` : form.get("next") === "close" ? "/transactions" : `/voucher?type=${type}`;
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   let note = "";
   await run(
