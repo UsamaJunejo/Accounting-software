@@ -1,4 +1,5 @@
 import type { Db } from "./db.ts";
+import { checkDate, MAX_AMOUNT } from "./books.ts";
 import { addTransaction, type TxnType } from "./books.ts";
 
 export type Frequency = "weekly" | "monthly" | "yearly";
@@ -55,6 +56,11 @@ function check(i: ScheduleInput) {
   if (i.fromAccountId === i.toAccountId) throw new Error("'From' and 'To' must be different accounts");
   if (!["weekly", "monthly", "yearly"].includes(i.frequency)) throw new Error("Choose how often");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(i.startDate)) throw new Error("Invalid start date");
+  // An old start date would add an entry for every month since then, all at once.
+  const yearAgo = new Date(Date.now() - 366 * 86_400_000).toISOString().slice(0, 10);
+  if (i.startDate < yearAgo) throw new Error("The start date can be at most one year back. For older months, add the entries yourself.");
+  checkDate(i.startDate);
+  if (!(i.amount <= MAX_AMOUNT)) throw new Error("That amount is over 100 crore. Please check for an extra zero.");
   if (i.endDate && (!/^\d{4}-\d{2}-\d{2}$/.test(i.endDate) || i.endDate < i.startDate)) throw new Error("End date must be after the start date");
 }
 

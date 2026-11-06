@@ -20,6 +20,31 @@ export function signedBalance(kind: Kind, moneyIn: number, moneyOut: number): nu
 }
 
 const MIN_DATE = "0001-01-01";
+/** Rs 100 crore: anything bigger in one entry is almost surely a typing slip. */
+export const MAX_AMOUNT = 100_00_00_000_00;
+
+/** Dates must be real and sensible: not before 2000 and not more than a year ahead. */
+export function checkDate(date: string) {
+  // Round-trip so impossible days like 31 February are caught (JavaScript would quietly roll them over).
+  const real = /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date)) && new Date(date + "T00:00:00Z").toISOString().slice(0, 10) === date;
+  if (!real) throw new Error("Please choose a valid date");
+  if (date < "2000-01-01") throw new Error("That date is before the year 2000. Please check the year.");
+  const limit = new Date(Date.now() + 366 * 86_400_000).toISOString().slice(0, 10);
+  if (date > limit) throw new Error("That date is more than a year from now. Please check the year.");
+}
+
+/** Account names must be filled in, not too long, and not the same as another account's. */
+async function checkAccountName(d: Db, userId: number, raw: string, exceptId?: number) {
+  const name = raw.trim().replace(/\s+/g, " ");
+  if (!name) throw new Error("Please type a name for the account");
+  if (name.length > 80) throw new Error("That name is too long (80 letters at most)");
+  const [dup] = await d.q<{ name: string }>(
+    "SELECT name FROM accounts WHERE user_id = $1 AND lower(name) = lower($2) AND NOT archived AND id <> $3",
+    [userId, name, exceptId ?? 0],
+  );
+  if (dup) throw new Error(`You already have an account called "${dup.name}". Use that one, or choose a different name.`);
+  return name;
+}
 const MAX_DATE = "9999-12-31";
 
 // Ready-made chart of accounts for a Pakistani small business.
@@ -221,6 +246,7 @@ export async function addAccount(
   extra: { phone?: string | null; budgetMonthly?: number | null } = {},
 ) {
   await own(d, "subcategories", subcategoryId, userId);
+  name = await checkAccountName(d, userId, name);
   const [row] = await d.q<IdRow>(
     "INSERT INTO accounts (user_id, subcategory_id, name, phone, budget_monthly) VALUES ($1, $2, $3, $4, $5) RETURNING id",
     [userId, subcategoryId, name, extra.phone || null, extra.budgetMonthly || null],
@@ -243,6 +269,14 @@ export async function updateAccount(
 ) {
   await own(d, "accounts", id, userId);
   await own(d, "subcategories", f.subcategoryId, userId);
+  const name = await checkAccountName(d, userId, f.name, id);
+  if (f.archived) {
+    // Hiding an account that still holds money makes that money disappear from the lists.
+    const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
+    if (acc && !acc.archived && acc.balance !== 0)
+      throw new Error(`${acc.name} still has a balance of ${(acc.balance / 100).toLocaleString("en-PK")}. Move it to another account (a Transfer) before archiving.`);
+  }
+  f = { ...f, name };
   await d.q(
     "UPDATE accounts SET name = $1, subcategory_id = $2, phone = $3, budget_monthly = $4, archived = $5 WHERE id = $6 AND user_id = $7",
     [f.name, f.subcategoryId, f.phone || null, f.budgetMonthly || null, !!f.archived, id, userId],
@@ -250,7 +284,9 @@ export async function updateAccount(
 }
 
 export async function renameCategory(d: Db, userId: number, id: number, name: string) {
+  name = name.trim();
   if (!name) throw new Error("Name is required");
+  if (name.length > 60) throw new Error("That name is too long");
   await d.q("UPDATE categories SET name = $1 WHERE id = $2 AND user_id = $3", [name, id, userId]);
 }
 
@@ -285,6 +321,8 @@ export async function deleteSubcategory(d: Db, userId: number, id: number) {
 
 export async function deleteCategory(d: Db, userId: number, id: number) {
   await own(d, "categories", id, userId);
+  const [c] = await d.q<{ role: Role; name: string }>("SELECT role, name FROM categories WHERE id = $1", [id]);
+  if (c?.role) throw new Error(`"${c.name}" is needed for your totals and khata, so it can't be deleted. You can rename it.`);
   const [n] = await d.q<{ n: number }>("SELECT COUNT(*)::int AS n FROM subcategories WHERE category_id = $1", [id]);
   if (n.n > 0) throw new Error("Delete its sub-categories first.");
   await d.q("DELETE FROM categories WHERE id = $1", [id]);
@@ -313,9 +351,12 @@ export type TxnInput = {
 async function validate(d: Db, userId: number, t: TxnInput): Promise<TxnType> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || Number.isNaN(Date.parse(t.date))) throw new Error("Invalid date");
   if (!Number.isSafeInteger(t.amount) || t.amount <= 0) throw new Error("Amount must be more than zero");
+  if (t.amount > MAX_AMOUNT) throw new Error("That amount is over 100 crore. Please check for an extra zero.");
+  checkDate(t.date);
+  if ((t.note ?? "").length > 1000) throw new Error("The note is too long. Please keep it under 1,000 letters.");
   if (!t.fromAccountId || !t.toAccountId) throw new Error("Choose both accounts: where the money came from and where it went");
   if (t.fromAccountId === t.toAccountId)
-    throw new Error("From and To are the same account. To record money you already have, open that account and use \"Add starting balance\".");
+    throw new Error("From and To are the same account. To record money you already have, open that account and use \"Starting balance\".");
   await own(d, "accounts", t.fromAccountId, userId);
   await own(d, "accounts", t.toAccountId, userId);
   if (t.projectId) await own(d, "projects", t.projectId, userId);
@@ -509,6 +550,14 @@ export async function addOpeningBalance(d: Db, userId: number, accountId: number
     openingId = await addAccount(d, userId, await defaultSubcategory(d, userId, catId), "Starting balance");
   }
   if (openingId === accountId) throw new Error("Choose another account");
+  // Setting it again changes the old starting balance instead of adding a second one.
+  checkDate(date);
+  const [prev] = await d.q<{ id: number }>(
+    `SELECT id FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND note = 'Starting balance'
+       AND ((from_account_id = $2 AND to_account_id = $3) OR (from_account_id = $3 AND to_account_id = $2)) ORDER BY id LIMIT 1`,
+    [userId, accountId, openingId],
+  );
+  if (prev) await deleteTransaction(d, userId, prev.id);
   // Assets and expenses grow when money goes into them; the rest grow when it comes out.
   const grows = acc.kind === "asset" || acc.kind === "expense";
   return addTransaction(d, userId, {
@@ -913,4 +962,17 @@ export async function quickAddAccount(d: Db, userId: number, rawName: string, ch
   const subId = sub?.id ?? (await defaultSubcategory(d, userId, cat.id));
   const id = await addAccount(d, userId, subId, name);
   return { id, name, category: cat.name, kind: cat.kind, role: cat.role, balance: 0, existed: false };
+}
+
+/** The starting balance already set on an account, if any (for showing on its edit page). */
+export async function startingBalanceOf(d: Db, userId: number, accountId: number) {
+  const [r] = await d.q<{ amount: number; date: string }>(
+    `SELECT t.amount::float8 AS amount, to_char(t.date, 'YYYY-MM-DD') AS date FROM transactions t
+     JOIN accounts o ON o.id = CASE WHEN t.from_account_id = $2 THEN t.to_account_id ELSE t.from_account_id END
+     WHERE t.user_id = $1 AND t.deleted_at IS NULL AND t.note = 'Starting balance'
+       AND (t.from_account_id = $2 OR t.to_account_id = $2) AND o.name IN ('Starting balance', 'Opening Balances')
+     ORDER BY t.id LIMIT 1`,
+    [userId, accountId],
+  );
+  return r;
 }

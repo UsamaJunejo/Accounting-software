@@ -37,6 +37,12 @@ export function SubmitGuard() {
       busy.add(b);
       // Wait a tick so the browser has already read the button's name/value into the form data.
       setTimeout(() => {
+        // Another check on the page stopped this form (e.g. a missing amount): don't lock the button.
+        if (e.defaultPrevented) {
+          delete b.dataset.busy;
+          busy.delete(b);
+          return;
+        }
         // Only attributes change here: the button's text belongs to React and is left alone.
         b.disabled = true;
         b.setAttribute("aria-busy", "true");

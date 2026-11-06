@@ -15,14 +15,43 @@ export function InvoiceForm({ customers, today, currency = "PKR" }: { customers:
   const [customer, setCustomer] = useState("");
   const [tax, setTax] = useState("0");
   const [discount, setDiscount] = useState("");
+  // Kept in state so a mistake doesn't wipe what was typed (React clears plain fields after sending).
+  const [f, setF] = useState({ name: "", phone: "", date: today, due: "", notes: "" });
+  const [check, setCheck] = useState("");
+  const field = (k: keyof typeof f) => ({ value: f[k], onChange: (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value }) });
   const subtotal = rows.reduce((s, r) => s + n(r.qty) * n(r.price), 0);
   const taxable = Math.max(0, subtotal - n(discount));
   const taxAmt = (taxable * n(tax)) / 100;
   const set = (i: number, k: keyof Row, v: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
 
   return (
-    <form action={action} className="space-y-5">
-      {state.error && <div className="rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm text-khata">{state.error}</div>}
+    <form
+      action={action}
+      className="space-y-5"
+      onSubmit={(e) => {
+        // Point out the usual slips before sending, so nothing has to be typed again.
+        const items = rows.filter((r) => r.name.trim() || n(r.price));
+        const problem = !items.length
+          ? "Add at least one item with a name and a price."
+          : items.some((r) => !r.name.trim())
+            ? "Every item needs a name."
+            : items.some((r) => !(n(r.qty) > 0))
+              ? "Every item needs a quantity of more than zero."
+              : n(discount) < 0
+                ? "The discount can't be below zero."
+                : taxable + taxAmt <= 0
+                  ? "The total is zero. Check the prices, or make the discount smaller than the subtotal."
+                  : f.due && f.due < f.date
+                    ? "The due date can't be before the invoice date."
+                    : "";
+        setCheck(problem);
+        if (problem) {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }}
+    >
+      {(check || state.error) && <div role="alert" className="rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-sm font-semibold text-khata">{check || state.error}</div>}
       <input type="hidden" name="items" value={JSON.stringify(rows)} />
       <div className="card grid gap-4 p-5 sm:grid-cols-2">
         <div>
@@ -36,21 +65,21 @@ export function InvoiceForm({ customers, today, currency = "PKR" }: { customers:
           <>
             <div>
               <label className="label">Customer name</label>
-              <input name="customer_name" required className="input" placeholder="e.g. Ahmed Traders" />
+              <input name="customer_name" required {...field("name")} className="input" placeholder="e.g. Ahmed Traders" />
             </div>
             <div>
               <label className="label">Customer mobile (optional)</label>
-              <input name="customer_phone" className="input" placeholder="03XX-XXXXXXX" />
+              <input name="customer_phone" {...field("phone")} className="input" placeholder="03XX-XXXXXXX" />
             </div>
           </>
         )}
         <div>
           <label className="label">Invoice date</label>
-          <input type="date" name="date" defaultValue={today} required className="input" />
+          <input type="date" name="date" {...field("date")} required className="input" />
         </div>
         <div>
           <label className="label">Due date (optional)</label>
-          <input type="date" name="due_date" className="input" />
+          <input type="date" name="due_date" {...field("due")} className="input" />
         </div>
       </div>
 
@@ -91,7 +120,7 @@ export function InvoiceForm({ customers, today, currency = "PKR" }: { customers:
       <div className="card space-y-4 p-5">
         <div>
           <label className="label">Notes (optional)</label>
-          <textarea name="notes" rows={2} className="input" placeholder="e.g. Bank: Meezan 0123… · Thank you for your business!" />
+          <textarea name="notes" rows={2} {...field("notes")} className="input" placeholder="e.g. Bank: Meezan 0123… · Thank you for your business!" />
         </div>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="record" defaultChecked className="mt-1" />

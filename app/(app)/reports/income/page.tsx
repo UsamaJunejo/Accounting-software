@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { incomeStatement } from "@/lib/books";
@@ -12,7 +13,7 @@ export const metadata = { title: "Profit & Loss" };
 
 export default async function Income({ searchParams }: { searchParams: Promise<{ from?: string; to?: string }> }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const [a, b] = monthRange();
   const from = sp.from || a;
   const to = sp.to || b;

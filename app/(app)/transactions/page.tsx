@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import { Download, Filter, Plus, Search } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -14,7 +15,7 @@ export default async function Transactions({
   searchParams: Promise<{ from?: string; to?: string; type?: string; q?: string; project?: string; error?: string; ok?: string }>;
 }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const [mStart, mEnd] = monthRange();
   const from = sp.from ?? mStart;
   const to = sp.to ?? mEnd;

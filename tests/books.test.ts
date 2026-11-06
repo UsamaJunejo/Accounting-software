@@ -254,3 +254,49 @@ test("reset keeps or replaces accounts; delete removes the person", async () => 
   await deleteUser(d, other);
   assert.equal((await d.q("SELECT 1 FROM users WHERE id = $1", [other])).length, 0);
 });
+
+import { toPaisa as parse } from "../lib/format.ts";
+import { startingBalanceOf, renameCategory as rename2, deleteCategory, updateAccount } from "../lib/books.ts";
+
+test("careless input: amounts written in many ways", () => {
+  assert.equal(parse("Rs 500"), 50000);
+  assert.equal(parse("rs.1,00,000"), 10000000);
+  assert.equal(parse("500/-"), 50000);
+  assert.equal(parse("۵۰۰"), 50000);
+  assert.equal(parse("٥٠٠"), 50000);
+  assert.ok(Number.isNaN(parse("five hundred")));
+  assert.ok(Number.isNaN(parse("-500")));
+  assert.ok(Number.isNaN(parse("10.555")));
+});
+
+test("careless input: silly amounts, dates and notes are refused", async () => {
+  const { d, uid, acc } = await setup();
+  const base = { type: "payment" as const, date: "2026-01-01", amount: 100, fromAccountId: acc("Cash"), toAccountId: acc("Rent") };
+  await assert.rejects(() => addTransaction(d, uid, { ...base, amount: 100_00_00_000_00 + 1 }), /extra zero/);
+  await assert.rejects(() => addTransaction(d, uid, { ...base, date: "1926-01-01" }), /before the year 2000/);
+  await assert.rejects(() => addTransaction(d, uid, { ...base, date: "2206-01-01" }), /more than a year/);
+  await assert.rejects(() => addTransaction(d, uid, { ...base, date: "2026-02-31" }), /valid date|year/);
+  await assert.rejects(() => addTransaction(d, uid, { ...base, note: "x".repeat(1001) }), /too long/);
+});
+
+test("careless input: duplicate names, hiding money, deleting key categories", async () => {
+  const { d, uid, acc } = await setup();
+  const sub = (await subcategories(d, uid))[0].id;
+  await assert.rejects(() => addAccount(d, uid, sub, " cash "), /already have an account called "Cash"/);
+  await assert.rejects(() => addAccount(d, uid, sub, "   "), /type a name/);
+  await addTransaction(d, uid, { type: "receipt", date: "2026-01-01", amount: 500, fromAccountId: acc("Sales"), toAccountId: acc("Cash") });
+  await assert.rejects(() => updateAccount(d, uid, acc("Cash"), { name: "Cash", subcategoryId: sub, archived: true }), /still has a balance/);
+  const cashCat = (await categories(d, uid)).find((c) => c.role === "cash")!;
+  await assert.rejects(() => deleteCategory(d, uid, cashCat.id), /can't be deleted/);
+  await assert.rejects(() => rename2(d, uid, cashCat.id, "  "), /required/);
+});
+
+test("careless input: setting the starting balance twice replaces it", async () => {
+  const { d, uid, acc } = await setup();
+  await addOpeningBalance(d, uid, acc("Cash"), 30000000, "2026-01-01");
+  await addOpeningBalance(d, uid, acc("Cash"), 30000000, "2026-01-01");
+  assert.equal((await accountsWithBalances(d, uid)).find((a) => a.name === "Cash")!.balance, 30000000);
+  await addOpeningBalance(d, uid, acc("Cash"), 25000000, "2026-01-02");
+  assert.equal((await accountsWithBalances(d, uid)).find((a) => a.name === "Cash")!.balance, 25000000);
+  assert.equal((await startingBalanceOf(d, uid, acc("Cash")))!.amount, 25000000);
+});

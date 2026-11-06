@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -27,7 +28,7 @@ export const metadata = { title: "Dashboard" };
 
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; welcome?: string }> }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const [mStart, mEnd] = monthRange();
   const from = sp.from || mStart;
   const to = sp.to || mEnd;
@@ -132,7 +133,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <b>{belowZero.map((a) => a.name).join(", ")} {belowZero.length > 1 ? "are" : "is"} below zero.</b>{" "}
           Usually this means the money you started with was never added.{" "}
           {belowZero.map((a) => (
-            <Link key={a.id} href={`/accounts/${a.id}/edit#opening`} className="me-3 font-semibold underline">Add starting balance for {a.name}</Link>
+            <Link key={a.id} href={`/accounts/${a.id}/edit#opening`} className="me-3 font-semibold underline">Set starting balance for {a.name}</Link>
           ))}
         </div>
       )}

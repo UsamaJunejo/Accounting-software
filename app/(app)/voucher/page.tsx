@@ -15,6 +15,7 @@ const LABELS: Record<TxnType, [string, string]> = {
 import { deleteAttachment, saveTransaction } from "@/app/actions/books";
 import { MoneyFields } from "@/components/money-fields";
 import { EntryPreview } from "@/components/entry-preview";
+import { EntryCheck } from "@/components/entry-check";
 import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { AttachmentPicker } from "@/components/attachment-picker";
@@ -85,7 +86,7 @@ export default async function Voucher({
         </div>
       )}
       <Flash sp={sp} />
-      <form action={saveTransaction} className="card mb-6 grid gap-4 p-5 sm:grid-cols-2" key={`${type}-${editing?.id ?? "new"}-${sp.ok ?? ""}`}>
+      <form id="entry-form" action={saveTransaction} className="card mb-6 grid gap-4 p-5 sm:grid-cols-2" key={`${type}-${editing?.id ?? "new"}-${sp.ok ?? ""}`}>
         <input type="hidden" name="type" value={type} />
         {editing && <input type="hidden" name="id" value={editing.id} />}
         <MoneyFields
@@ -165,6 +166,7 @@ export default async function Voucher({
             </div>
           </div>
         </details>
+        <EntryCheck formId="entry-form" />
         <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:items-end sm:justify-end [&>*]:justify-center [&>*]:whitespace-nowrap">
           {editing ? (
             <Link href="/transactions" className="btn-ghost">{t("Cancel")}</Link>

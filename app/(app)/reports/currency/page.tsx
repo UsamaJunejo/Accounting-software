@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { listTransactions } from "@/lib/books";
@@ -10,7 +11,7 @@ export const metadata = { title: "Currency Ledger" };
 
 export default async function CurrencyReport({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; currency?: string }> }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const [, end] = monthRange();
   const to = sp.to || end;
   const from = sp.from || `${to.slice(0, 4)}-01-01`;

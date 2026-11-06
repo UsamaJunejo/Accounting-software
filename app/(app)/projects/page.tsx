@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import Link from "next/link";
 import { FolderKanban, FolderPlus, Save } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -11,7 +12,7 @@ export const metadata = { title: "Projects" };
 
 export default async function Projects({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; error?: string; ok?: string }> }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const [, end] = monthRange();
   const to = sp.to || end;
   const from = sp.from || `${to.slice(0, 4)}-01-01`;

@@ -180,7 +180,7 @@ export async function addStartingBalance(form: FormData) {
     const date = str(form, "date") || today();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid date");
     await B.addOpeningBalance(d, uid, id, amount, date);
-  }, "Starting balance added");
+  }, "Starting balance saved");
 }
 
 export async function updateAccount(form: FormData) {

@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -12,7 +13,7 @@ const SORTS: Record<string, string> = { name: "Name (A–Z)", high: "Highest bal
 
 export default async function Ledger({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; sort?: string; hideZero?: string }> }) {
   const user = await requireUser();
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const to = sp.to || today();
   const from = sp.from || "2000-01-01";
   const sort = sp.sort && SORTS[sp.sort] ? sp.sort : "name";

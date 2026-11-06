@@ -23,12 +23,8 @@ export function money(paisa: number, opts: { brackets?: boolean; style?: "intl" 
   return opts.brackets ? `(${s})` : `−${s}`;
 }
 
-/** "1,500.50" or "1500.5" -> 150050 paisa. Returns NaN for bad input. */
-export function toPaisa(input: string): number {
-  const clean = String(input).replace(/[,\s]/g, "");
-  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return NaN;
-  return Math.round(Number(clean) * 100);
-}
+/** "1,500.50", "Rs 500", "500/-" or "۵۰۰" -> paisa. Returns NaN for bad input. */
+export { parseAmount as toPaisa } from "./kinds.ts";
 
 export function today(): string {
   const d = new Date();
@@ -59,4 +55,23 @@ export function friendlyDate(iso: string, now = today()): string {
   const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", timeZone: "UTC" };
   if (d.slice(0, 4) !== now.slice(0, 4)) opts.year = "numeric";
   return dt.toLocaleDateString("en-GB", opts);
+}
+
+/**
+ * Clean up a "from / to" pair from the address bar: drop anything that isn't a real date,
+ * and swap them if "from" is after "to", so a mix-up shows results instead of nothing (or an error).
+ */
+export function fixRange<T extends { from?: string; to?: string }>(sp: T): T {
+  const ok = (v?: string) =>
+    !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v + "T00:00:00Z").toISOString().slice(0, 10) === v && v >= "1900-01-01" && v <= "2999-12-31";
+  const out = { ...sp };
+  if (!ok(out.from)) delete out.from;
+  if (!ok(out.to)) delete out.to;
+  if (out.from && out.to && out.from > out.to) [out.from, out.to] = [out.to, out.from];
+  return out;
+}
+
+/** A real YYYY-MM-DD date from the address bar, or undefined. */
+export function validDate(v?: string | null): string | undefined {
+  return fixRange({ from: v ?? undefined }).from;
 }

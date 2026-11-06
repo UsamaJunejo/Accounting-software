@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import Link from "next/link";
 import { MessageCircle, Pencil, PlusCircle, Share2 } from "lucide-react";
 import { sharesOfAccount } from "@/lib/sharing";
@@ -25,7 +26,7 @@ export default async function Statement({
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const to = sp.to || today();
   const from = sp.from || `${to.slice(0, 4)}-01-01`;
   let s;
@@ -64,7 +65,7 @@ export default async function Statement({
               </a>
             )}
             <PrintButton />
-            <LinkButton href={`/accounts/${a.id}/edit#opening`}><PlusCircle className="h-4 w-4" />Add starting balance</LinkButton>
+            <LinkButton href={`/accounts/${a.id}/edit#opening`}><PlusCircle className="h-4 w-4" />Starting balance</LinkButton>
             <LinkButton href={`/accounts/${a.id}/edit`}><Pencil className="h-4 w-4" />Edit account</LinkButton>
           </>
         }

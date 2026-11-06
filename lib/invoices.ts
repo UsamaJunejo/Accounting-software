@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Db } from "./db.ts";
-import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, deleteTransaction, subcategories, type Kind, type Role } from "./books.ts";
+import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, checkDate, deleteTransaction, subcategories, type Kind, type Role } from "./books.ts";
 
 export type InvoiceItem = { name: string; qty: number; price: number }; // price in paisa
 
@@ -29,6 +29,8 @@ export function invoiceTotals(items: InvoiceItem[], taxPercent = 0, discount = 0
 function validate(i: InvoiceInput) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(i.date)) throw new Error("Invalid date");
   if (i.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(i.dueDate)) throw new Error("Invalid due date");
+  checkDate(i.date);
+  if (i.dueDate && i.dueDate < i.date) throw new Error("The due date can't be before the invoice date");
   const items = i.items.filter((x) => x.name.trim() || x.price);
   if (!items.length) throw new Error("Add at least one item");
   for (const x of items) {
@@ -224,6 +226,7 @@ export async function recordInvoicePayment(
   if (!Number.isSafeInteger(p.amount) || p.amount <= 0) throw new Error("Amount must be more than zero");
   const due = inv.total - inv.paid;
   if (p.amount > due) throw new Error("That's more than the balance due");
+  checkDate(p.date);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw new Error("Invalid date");
   // Money comes from the customer's khata (or straight from Sales if the invoice wasn't put in the books).
   const from = inv.customer_account_id ?? (await ensureAccount(d, userId, { name: "Income", kind: "income" }, "Sales", "Sales"));

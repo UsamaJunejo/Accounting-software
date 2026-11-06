@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, KIND_LABEL, listTransactions, type TxnType } from "@/lib/books";
-import { today } from "@/lib/format";
+import { today, validDate } from "@/lib/format";
 
 const cell = (v: unknown) => {
   const s = v == null ? "" : String(v);
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const d = await db();
 
   if (p.get("what") === "accounts") {
-    const asOf = p.get("date") || today();
+    const asOf = validDate(p.get("date")) || today();
     const accs = await accountsWithBalances(d, user.id, { to: asOf });
     return csv(
       `accounts-${asOf}`,
@@ -58,8 +58,8 @@ export async function GET(req: NextRequest) {
 
   const [rows, accs] = await Promise.all([
     listTransactions(d, user.id, {
-      from: p.get("from") || undefined,
-      to: p.get("to") || undefined,
+      from: validDate(p.get("from")),
+      to: validDate(p.get("to")),
       type: (p.get("type") as TxnType) || undefined,
       search: p.get("q") || undefined,
       projectId: Number(p.get("project")) || undefined,

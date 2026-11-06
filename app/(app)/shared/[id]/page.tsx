@@ -1,3 +1,4 @@
+import { fixRange } from "@/lib/format";
 import { notFound } from "next/navigation";
 import { Send } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -23,7 +24,7 @@ export default async function SharedAccount({
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const sp = await searchParams;
+  const sp = fixRange(await searchParams);
   const to = sp.to || today();
   const from = sp.from || `${to.slice(0, 4)}-01-01`;
   let s;

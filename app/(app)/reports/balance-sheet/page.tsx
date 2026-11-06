@@ -1,3 +1,4 @@
+import { validDate } from "@/lib/format";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { balanceSheet } from "@/lib/books";
@@ -11,7 +12,7 @@ export const metadata = { title: "Balance Sheet" };
 export default async function BalanceSheetPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const date = sp.date || today();
+  const date = validDate(sp.date) || today();
   const r = await balanceSheet(await db(), user.id, date);
   return (
     <>
