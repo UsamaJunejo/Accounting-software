@@ -15,7 +15,7 @@ import { BottomBar } from "@/components/bottom-bar";
 import { NumFormatProvider } from "@/components/num-format";
 import { SubmitGuard } from "@/components/submit-guard";
 
-const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Scheduled", "Shared", "Reports", "Settings", "Billing", "Admin"];
+const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Items & stock", "Scheduled", "Shared", "Reports", "Settings", "Billing", "Admin"];
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";

@@ -15,14 +15,14 @@ export async function createInvoice(_prev: InvoiceFormState, form: FormData): Pr
   const u = await requireUser();
   let id = 0;
   try {
-    const raw = JSON.parse(str(form, "items") || "[]") as { name: string; qty: string; price: string }[];
+    const raw = JSON.parse(str(form, "items") || "[]") as { name: string; qty: string; price: string; itemId?: number | null }[];
     const items: InvoiceItem[] = raw
       .filter((r) => r.name.trim() || r.price)
       .map((r) => {
         const price = toPaisa(r.price || "0");
         const qty = Number(String(r.qty).replace(/,/g, ""));
         if (Number.isNaN(price)) throw new Error(`Check the price of "${r.name}"`);
-        return { name: r.name.trim(), qty, price };
+        return { name: r.name.trim(), qty, price, itemId: Number(r.itemId) || null };
       });
     const discount = str(form, "discount") ? toPaisa(str(form, "discount")) : 0;
     if (Number.isNaN(discount)) throw new Error("Check the discount");

@@ -348,6 +348,38 @@ export const MIGRATIONS: string[] = [
   );
   ALTER TABLE fx_rates ENABLE ROW LEVEL SECURITY;
   `,
+  /* 17: items and stock */ `
+  CREATE TABLE IF NOT EXISTS items (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'pcs',
+    group_name TEXT,
+    sale_price BIGINT NOT NULL DEFAULT 0 CHECK (sale_price >= 0),
+    cost_price BIGINT NOT NULL DEFAULT 0 CHECK (cost_price >= 0),
+    low_stock NUMERIC(14,3),
+    archived BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_items_name ON items(user_id, lower(name));
+  -- Every change in quantity: + in, - out. The stock of an item is the sum.
+  CREATE TABLE IF NOT EXISTS stock_moves (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    date DATE NOT NULL,
+    qty NUMERIC(14,3) NOT NULL CHECK (qty <> 0),
+    unit_cost BIGINT,
+    reason TEXT NOT NULL CHECK (reason IN ('opening','purchase','sale','count','return')),
+    invoice_id INTEGER REFERENCES invoices(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS idx_stock_moves_item ON stock_moves(item_id, date);
+  ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE stock_moves ENABLE ROW LEVEL SECURITY;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

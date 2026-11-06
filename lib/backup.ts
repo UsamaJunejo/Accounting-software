@@ -3,12 +3,14 @@ import type { Db } from "./db.ts";
 // Every table, parents before children, so a backup can be loaded back in this order.
 const TABLES = [
   "users", "categories", "subcategories", "accounts", "projects", "schedules", "transactions",
-  "attachments", "audit_log", "shares", "shared_entries", "invoices", "invoice_payments",
+  "attachments", "audit_log", "shares", "shared_entries", "invoices", "invoice_payments", "items", "stock_moves",
 ] as const;
 
 /** Photos/PDFs are left out of backups (they're large); everything else is included. */
 const COLUMNS: Partial<Record<(typeof TABLES)[number], string>> = {
   attachments: "id, user_id, transaction_id, filename, mime, size, created_at",
+  // Profile photos are left out too.
+  users: "id, name, email, phone, business_name, password_hash, created_at, currency, is_admin, level, address, ntn, nok_name, nok_relation, nok_phone, nok_email, recovery_hash, must_change_password, session_version, trial_ends_at, paid_until, num_format",
 };
 
 async function dump(d: Db, table: (typeof TABLES)[number], where = "", params: unknown[] = []) {
@@ -37,7 +39,7 @@ export async function userSnapshot(d: Db, userId: number) {
       [userId],
     ),
   };
-  for (const t of ["categories", "subcategories", "accounts", "projects", "schedules", "transactions", "audit_log", "invoices"] as const) {
+  for (const t of ["categories", "subcategories", "accounts", "projects", "schedules", "transactions", "audit_log", "invoices", "items", "stock_moves"] as const) {
     tables[t] = await dump(d, t, byUser, [userId]);
   }
   tables.attachments = await dump(d, "attachments", byUser, [userId]);

@@ -5,11 +5,12 @@ import { Plus, Save, Trash2 } from "lucide-react";
 import { createInvoice, type InvoiceFormState } from "@/app/actions/invoices";
 import { currencySymbol } from "@/lib/currencies";
 
-type Row = { name: string; qty: string; price: string };
+type Row = { name: string; qty: string; price: string; itemId?: number | null };
+export type InvoiceStockItem = { id: number; name: string; unit: string; group: string | null; price: number; stock: number };
 const n = (s: string) => Number(String(s).replace(/,/g, "")) || 0;
 const fmt = (v: number) => new Intl.NumberFormat("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export function InvoiceForm({ customerPicker, today, currency = "PKR" }: { customerPicker: React.ReactNode; today: string; currency?: string }) {
+export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [] }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[] }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(createInvoice, {});
   const [rows, setRows] = useState<Row[]>([{ name: "", qty: "1", price: "" }]);
   const [customer, setCustomer] = useState("");
@@ -32,6 +33,16 @@ export function InvoiceForm({ customerPicker, today, currency = "PKR" }: { custo
   const taxable = Math.max(0, subtotal - n(discount));
   const taxAmt = (taxable * n(tax)) / 100;
   const set = (i: number, k: keyof Row, v: string) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  // Typing (or picking) the exact name of one of your items links the line to it: price filled, stock shown.
+  const setName = (i: number, v: string) =>
+    setRows(
+      rows.map((r, j) => {
+        if (j !== i) return r;
+        const it = stockItems.find((x) => x.name.toLowerCase() === v.trim().toLowerCase());
+        if (!it) return { ...r, name: v, itemId: null };
+        return { ...r, name: it.name, itemId: it.id, price: r.itemId === it.id && r.price ? r.price : (it.price / 100).toFixed(2) };
+      }),
+    );
 
   return (
     <form
@@ -89,25 +100,52 @@ export function InvoiceForm({ customerPicker, today, currency = "PKR" }: { custo
         </div>
       </div>
 
-      <div className="card overflow-x-auto p-5">
-        <table className="table">
-          <thead><tr><th className="w-1/2">Item</th><th className="num">Qty</th><th className="num">Price ({currency})</th><th className="num">Amount</th><th></th></tr></thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <td><input value={r.name} onChange={(e) => set(i, "name", e.target.value)} placeholder="e.g. Cement bag" className="input" /></td>
-                <td><input value={r.qty} onChange={(e) => set(i, "qty", e.target.value)} inputMode="decimal" className="input w-20 text-right" /></td>
-                <td><input value={r.price} onChange={(e) => set(i, "price", e.target.value)} inputMode="decimal" className="input w-28 text-right" /></td>
-                <td className="num align-middle">{fmt(n(r.qty) * n(r.price))}</td>
-                <td className="align-middle">
-                  {rows.length > 1 && (
-                    <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label="Remove item" className="text-khata"><Trash2 className="h-4 w-4" /></button>
+      <div className="card p-5">
+        {/* One line per item. On phones each line is a small card: the item on top, quantity and price under it. */}
+        <div className="hidden grid-cols-[1fr_90px_130px_120px_32px] gap-3 border-b border-rule pb-2 text-sm font-semibold text-muted sm:grid">
+          <span>Item</span><span className="text-end">Qty</span><span className="text-end">Price ({currency})</span><span className="text-end">Amount</span><span />
+        </div>
+        <ul className="divide-y divide-rule">
+          {rows.map((r, i) => {
+            const it = stockItems.find((x) => x.id === r.itemId);
+            const left = it ? it.stock - n(r.qty) : 0;
+            return (
+              <li key={i} className="grid grid-cols-2 gap-x-3 gap-y-2 py-3 sm:grid-cols-[1fr_90px_130px_120px_32px] sm:items-start">
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="label sm:sr-only" htmlFor={`line-${i}-name`}>Item</label>
+                  <input id={`line-${i}-name`} value={r.name} onChange={(e) => setName(i, e.target.value)} list="inv-stock-items" placeholder={stockItems.length ? "Type to pick an item" : "e.g. Cement bag"} className="input" />
+                  {it && (
+                    <span className={`mt-1 block text-xs ${left < 0 ? "font-semibold text-khata" : "text-muted"}`}>
+                      In stock: {it.stock} {it.unit}{left < 0 ? ` · only ${it.stock} left` : ` · ${left} after this`}
+                    </span>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+                <div>
+                  <label className="label sm:sr-only" htmlFor={`line-${i}-qty`}>Qty</label>
+                  <input id={`line-${i}-qty`} value={r.qty} onChange={(e) => set(i, "qty", e.target.value)} inputMode="decimal" className="input text-right" />
+                </div>
+                <div>
+                  <label className="label sm:sr-only" htmlFor={`line-${i}-price`}>Price ({currency})</label>
+                  <input id={`line-${i}-price`} value={r.price} onChange={(e) => set(i, "price", e.target.value)} inputMode="decimal" className="input text-right" />
+                </div>
+                <div className="flex items-center justify-between sm:block sm:pt-2.5 sm:text-end">
+                  <span className="text-sm text-muted sm:hidden">Amount</span>
+                  <span className="font-semibold tabular-nums">{fmt(n(r.qty) * n(r.price))}</span>
+                </div>
+                <div className="flex items-center justify-end sm:pt-2">
+                  {rows.length > 1 && (
+                    <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} aria-label="Remove item" className="inline-flex items-center gap-1 text-sm text-khata">
+                      <Trash2 className="h-4 w-4" /><span className="sm:hidden">Remove</span>
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <datalist id="inv-stock-items">
+          {stockItems.map((it) => <option key={it.id} value={it.name}>{[it.group, `${it.stock} ${it.unit} in stock`].filter(Boolean).join(" · ")}</option>)}
+        </datalist>
         <button type="button" onClick={() => setRows([...rows, { name: "", qty: "1", price: "" }])} className="btn-ghost mt-3"><Plus className="h-4 w-4" />Add item</button>
         <div className="ml-auto mt-4 max-w-sm space-y-2 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>

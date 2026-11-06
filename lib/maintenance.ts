@@ -102,12 +102,14 @@ export async function fixEntryTypes(d: Db) {
 export async function resetBooks(d: Db, userId: number, mode: "entries" | "everything") {
   await d.tx(async (t) => {
     await t.q("DELETE FROM invoices WHERE user_id = $1", [userId]); // payments go with them
+    await t.q("DELETE FROM stock_moves WHERE user_id = $1", [userId]); // stock starts again from zero
     await t.q("DELETE FROM schedules WHERE user_id = $1", [userId]);
     await t.q("DELETE FROM shares WHERE owner_id = $1", [userId]); // and their suggested entries
     await t.q("DELETE FROM transactions WHERE user_id = $1", [userId]); // attachments go with them
     await t.q("DELETE FROM audit_log WHERE user_id = $1", [userId]);
     if (mode === "everything") {
       await t.q("DELETE FROM projects WHERE user_id = $1", [userId]);
+      await t.q("DELETE FROM items WHERE user_id = $1", [userId]);
       await t.q("DELETE FROM accounts WHERE user_id = $1", [userId]);
       await t.q("DELETE FROM subcategories WHERE user_id = $1", [userId]);
       await t.q("DELETE FROM categories WHERE user_id = $1", [userId]);

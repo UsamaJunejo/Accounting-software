@@ -7,7 +7,7 @@ import { Logo } from "@/components/logo";
 import {
   CalendarClock,
   CreditCard,
-  BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
+  BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, Package, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
 } from "lucide-react";
 
 const ITEMS = [
@@ -17,6 +17,7 @@ const ITEMS = [
   { href: "/accounts", label: "Accounts", Icon: Wallet },
   { href: "/khata", label: "Khata", Icon: BookUser },
   { href: "/invoices", label: "Invoices", Icon: FileText },
+  { href: "/items", label: "Items & stock", Icon: Package },
   { href: "/scheduled", label: "Scheduled", Icon: CalendarClock },
   { href: "/shared", label: "Shared", Icon: Share2 },
   { href: "/reports", label: "Reports", Icon: BarChart3 },

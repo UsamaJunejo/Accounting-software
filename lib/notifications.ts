@@ -4,10 +4,11 @@ import { dueReminders } from "./schedules.ts";
 import { invoiceStatus, listInvoices } from "./invoices.ts";
 import { pendingForOwner, sharedWithMe } from "./sharing.ts";
 import { monthRange } from "./format.ts";
+import { lowStock } from "./items.ts";
 
 export type Notice = {
   key: string;
-  kind: "approval" | "invite" | "reminder" | "overdue" | "budget" | "auto" | "billing";
+  kind: "approval" | "invite" | "reminder" | "overdue" | "budget" | "auto" | "billing" | "stock";
   urgent: boolean;
   title: string;
   detail?: string;
@@ -19,7 +20,7 @@ export type Notice = {
 /** Everything that needs the user's attention, worked out fresh each time (nothing to clear by hand). */
 export async function getNotifications(d: Db, userId: number, today: string, isAdmin = false): Promise<Notice[]> {
   const [mStart, mEnd] = monthRange(today);
-  const [pending, shares, reminders, invoices, budgetRows, auto] = await Promise.all([
+  const [pending, shares, reminders, invoices, budgetRows, auto, low] = await Promise.all([
     pendingForOwner(d, userId),
     sharedWithMe(d, userId),
     dueReminders(d, userId, today),
@@ -32,6 +33,7 @@ export async function getNotifications(d: Db, userId: number, today: string, isA
        ORDER BY t.created_at DESC LIMIT 10`,
       [userId],
     ),
+    lowStock(d, userId),
   ]);
   const out: Notice[] = [];
   for (const p of pending)
@@ -44,6 +46,8 @@ export async function getNotifications(d: Db, userId: number, today: string, isA
     out.push({ key: `iv${inv.id}`, kind: "overdue", urgent: true, title: `Invoice #${inv.number} for ${inv.customer_name} is overdue`, detail: "Payment was due", href: `/invoices/${inv.id}`, date: inv.due_date ?? undefined });
   for (const b of budgetRows.filter((x) => x.spent >= x.budget * 0.9))
     out.push({ key: `bu${b.id}`, kind: "budget", urgent: b.spent > b.budget, title: b.spent > b.budget ? `${b.name} is over budget` : `${b.name} is close to its budget`, detail: "This month", href: `/accounts/${b.id}` });
+  for (const i of low)
+    out.push({ key: `st${i.id}`, kind: "stock", urgent: i.stock <= 0, title: i.stock <= 0 ? `${i.name} is out of stock` : `${i.name} is running low`, detail: `${i.stock} ${i.unit} left`, href: `/items/${i.id}` });
   for (const a of auto)
     out.push({ key: `au${a.id}`, kind: "auto", urgent: false, title: `Added automatically: ${a.note || `${a.from_name} → ${a.to_name}`}`, detail: "From a scheduled entry", href: `/voucher?edit=${a.id}`, date: a.date });
   // Payments: admins see what's waiting; everyone sees recent decisions on their own payments.
@@ -75,6 +79,8 @@ export async function urgentCount(d: Db, userId: number, today: string, isAdmin:
      + (SELECT COUNT(*) FROM accounts a WHERE a.user_id = $1 AND a.budget_monthly IS NOT NULL AND a.budget_monthly <
           COALESCE((SELECT SUM(amount) FROM transactions WHERE to_account_id = a.id AND deleted_at IS NULL AND date BETWEEN $3::date AND $4::date), 0)
           - COALESCE((SELECT SUM(amount) FROM transactions WHERE from_account_id = a.id AND deleted_at IS NULL AND date BETWEEN $3::date AND $4::date), 0))
+     + (SELECT COUNT(*) FROM items i WHERE i.user_id = $1 AND NOT i.archived AND i.low_stock IS NOT NULL
+          AND COALESCE((SELECT SUM(qty) FROM stock_moves WHERE item_id = i.id), 0) <= 0)
      + (CASE WHEN $5::bool THEN (SELECT COUNT(*) FROM subscription_payments WHERE status = 'pending') ELSE 0 END)
      AS n`,
     [userId, today, mStart, mEnd, isAdmin],

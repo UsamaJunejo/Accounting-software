@@ -399,3 +399,38 @@ test("an account with money can be merged or deleted, with the effect shown firs
   assert.equal(bal["Rent"], 0);
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
+
+import { addItem, addStock, countStock, deleteItem, getItem, itemMoves, lowStock } from "../lib/items.ts";
+import { cancelInvoice, createInvoice } from "../lib/invoices.ts";
+import { userSnapshot } from "../lib/backup.ts";
+
+test("items and stock: buy, sell on an invoice, cancel, count", async () => {
+  const { d, uid, acc } = await setup();
+  const cement = await addItem(d, uid, { name: "Cement bag", unit: "bag", group: "Cement", salePrice: 1500_00, costPrice: 1300_00, lowStock: 10, openingQty: 20 }, "2026-01-01");
+  await assert.rejects(() => addItem(d, uid, { name: " cement BAG " }, "2026-01-01"), /already have an item/);
+  // buy 30 bags paid from cash: stock 50, Purchases +39,000, Cash −39,000
+  await addStock(d, uid, cement, { qty: 30, unitCost: 1300_00, date: "2026-01-02", fromAccountId: acc("Cash") });
+  assert.equal((await getItem(d, uid, cement))!.stock, 50);
+  let bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Purchases"], 39000_00);
+  assert.equal(bal["Cash"], -39000_00);
+  // invoice for 45 bags: stock 5, which is "running low"
+  const inv = await createInvoice(d, uid, { customerName: "Ahmed", date: "2026-01-03", items: [{ name: "Cement bag", qty: 45, price: 1500_00, itemId: cement }], record: true });
+  assert.equal((await getItem(d, uid, cement))!.stock, 5);
+  assert.deepEqual((await lowStock(d, uid)).map((i) => i.name), ["Cement bag"]);
+  // cancelling the invoice puts the 45 back
+  await cancelInvoice(d, uid, inv);
+  assert.equal((await getItem(d, uid, cement))!.stock, 50);
+  // counted 48: two went missing
+  assert.equal(await countStock(d, uid, cement, 48, "2026-01-04", "2 torn"), -2);
+  const moves = await itemMoves(d, uid, cement);
+  assert.deepEqual(moves.map((m) => [m.reason, m.qty, m.balance]), [["opening", 20, 20], ["purchase", 30, 50], ["count", -2, 48]]);
+  // used items can't be deleted; a new unused one can
+  await assert.rejects(() => deleteItem(d, uid, cement), /Archive it/);
+  const spare = await addItem(d, uid, { name: "Spare" }, "2026-01-01");
+  await deleteItem(d, uid, spare);
+  // backups include items
+  const snap = await userSnapshot(d, uid);
+  assert.equal((snap.tables.items as unknown[]).length, 1);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+});

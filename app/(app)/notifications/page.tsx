@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, BellOff, CreditCard, CalendarClock, CheckCircle2, Clock, Inbox, Mail, Target, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BellOff, CreditCard, CalendarClock, CheckCircle2, Clock, Inbox, Mail, Package, Target, type LucideIcon } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getNotifications, type Notice } from "@/lib/notifications";
@@ -17,6 +17,7 @@ const ICON: Record<Notice["kind"], [LucideIcon, string]> = {
   budget: [Target, "bg-khata-soft text-khata"],
   auto: [CheckCircle2, "bg-ledger-soft text-ledger"],
   billing: [CreditCard, "bg-brand text-white"],
+  stock: [Package, "bg-marigold-soft text-marigold"],
 };
 
 export default async function Notifications({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {

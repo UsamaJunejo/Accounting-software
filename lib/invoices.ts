@@ -2,7 +2,8 @@ import { randomBytes } from "node:crypto";
 import type { Db } from "./db.ts";
 import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, checkDate, deleteTransaction, subcategories, type Kind, type Role } from "./books.ts";
 
-export type InvoiceItem = { name: string; qty: number; price: number }; // price in paisa
+/** One line. itemId is set when it was picked from your Items: then stock goes down by qty. */
+export type InvoiceItem = { name: string; qty: number; price: number; itemId?: number | null }; // price in paisa
 
 export type InvoiceInput = {
   customerAccountId?: number | null;
@@ -116,6 +117,15 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
         i.discount ?? 0, t.subtotal, t.tax, t.total, i.notes || null, txnId, taxTxnId, randomBytes(18).toString("base64url"),
       ],
     );
+    // Lines picked from Items take that many out of stock.
+    for (const it of items.filter((x) => x.itemId)) {
+      const [own] = await x.q("SELECT 1 FROM items WHERE id = $1 AND user_id = $2", [it.itemId, userId]);
+      if (!own) throw new Error(`Item "${it.name}" not found`);
+      await x.q(
+        "INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, reason, invoice_id) VALUES ($1, $2, $3, $4, NULL, 'sale', $5)",
+        [userId, it.itemId, i.date, -it.qty, row.id],
+      );
+    }
     return row.id;
   });
 }
@@ -209,6 +219,8 @@ export async function cancelInvoice(d: Db, userId: number, id: number) {
       }
     }
     await x.q("UPDATE invoices SET cancelled = true WHERE id = $1", [id]);
+    // What it took out of stock goes back.
+    await x.q("DELETE FROM stock_moves WHERE invoice_id = $1 AND user_id = $2", [id, userId]);
   });
 }
 
