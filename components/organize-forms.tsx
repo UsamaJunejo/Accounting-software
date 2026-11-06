@@ -198,7 +198,7 @@ export function GroupForm({ what, mode, primary, back, deleteBack, categories = 
         )}
         {canCurrency && (
           <div>
-            <CurrencyPick primary={primary} value={item?.currency ?? ""} label="Currency for new accounts in it (optional)" />
+            <CurrencyPick primary={primary} value={item?.currency ?? ""} label="Currency for new accounts in it (optional)" forGroup />
             {editing && <p className="mt-1 text-sm text-muted">Accounts already in it keep their own currency.</p>}
           </div>
         )}
