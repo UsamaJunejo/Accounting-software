@@ -1058,6 +1058,19 @@ export async function shareTokenOf(d: Db, userId: number, accountId: number) {
 
 // ---------- Adding an account in plain words ----------
 
+/** Add an account into a category (its first sub-category), from just a name. Returns an existing one with that name. */
+export async function quickAddToCategory(d: Db, userId: number, rawName: string, categoryId: number) {
+  const name = rawName.trim().replace(/\s+/g, " ");
+  const accs = await accountsWithBalances(d, userId);
+  const same = accs.find((a) => !a.archived && a.name.toLowerCase() === name.toLowerCase());
+  if (same) return { id: same.id, name: same.name, category: same.category, kind: same.kind, role: same.role, balance: same.balance, currency: same.currency, existed: true };
+  const cat = (await categories(d, userId)).find((c) => c.id === categoryId);
+  if (!cat) throw new Error("Choose a category");
+  const id = await addAccount(d, userId, await defaultSubcategory(d, userId, cat.id), name);
+  const a = (await accountsWithBalances(d, userId)).find((x) => x.id === id)!;
+  return { id, name: a.name, category: cat.name, kind: cat.kind, role: cat.role, balance: 0, currency: a.currency, existed: false };
+}
+
 /**
  * Add an account from just a name and a plain choice. If one with that name already exists
  * (not archived), it is returned instead of making a duplicate.

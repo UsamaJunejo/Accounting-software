@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search, Star } from "lucide-react";
-import { ACCOUNT_CHOICES, type AccountChoice } from "@/lib/kinds";
 import { quickAccount } from "@/app/actions/quick";
 
 export type PickerOption = { id: number; name: string; group: string; hint?: string; uses: number };
@@ -17,15 +16,21 @@ export function AccountPicker({
   value,
   placeholder = "Choose an account",
   label,
-  suggest = "expense",
+  categories = [],
+  suggestCategory,
+  noneLabel,
 }: {
+  /** Offer an "empty" choice at the top (e.g. "New / walk-in customer"). */
+  noneLabel?: string;
+  /** Categories a new account can go into (same list and words as the "Add account" box). */
+  categories?: { id: number; name: string; hint: string }[];
+  /** The most likely category when someone adds a new account from here. */
+  suggestCategory?: number;
   name: string;
   options: PickerOption[];
   value?: number;
   placeholder?: string;
   label?: string;
-  /** The most likely kind when someone adds a new account from here. */
-  suggest?: AccountChoice;
 }) {
   // Accounts added from inside the picker, shown straight away.
   const [added, setAdded] = useState<PickerOption[]>([]);
@@ -111,10 +116,10 @@ export function AccountPicker({
     setAdding(false);
   };
 
-  async function create(choice: AccountChoice) {
+  async function create(categoryId: number) {
     setBusy(true);
     setErr("");
-    const r = await quickAccount(q, choice);
+    const r = await quickAccount(q, categoryId);
     setBusy(false);
     if (!r.ok) return setErr(r.error);
     const o = { id: r.id, name: r.name, group: r.group, uses: 0 };
@@ -146,7 +151,7 @@ export function AccountPicker({
         className="input flex items-center justify-between gap-2 text-start"
       >
         <span className={current ? "truncate text-body" : "text-muted"}>
-          {current ? current.name : placeholder}
+          {current ? current.name : noneLabel ?? placeholder}
           {current?.hint && <span className="ms-2 text-sm text-muted">{current.hint}</span>}
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
@@ -176,6 +181,11 @@ export function AccountPicker({
             />
           </div>
           <ul ref={list} role="listbox" className="max-h-72 overflow-y-auto py-1">
+            {noneLabel && !q.trim() && (
+              <li role="option" aria-selected={sel === undefined} onClick={() => { setSel(undefined); setOpen(false); }} className="cursor-pointer px-3 py-2 text-[15px] font-semibold text-brand hover:bg-peacock-soft">
+                {noneLabel}
+              </li>
+            )}
             {choices.length === 0 && !q.trim() && <li className="px-3 py-3 text-sm text-muted">No accounts yet.</li>}
             {rows.map((r, k) =>
               r.head ? (
@@ -218,11 +228,11 @@ export function AccountPicker({
                 </button>
               ) : (
                 <div className="space-y-1.5 px-1 py-1">
-                  <div className="text-sm font-semibold text-ink">What is &ldquo;{q.trim()}&rdquo;?</div>
-                  <div className="grid gap-1.5">
-                    {[...ACCOUNT_CHOICES].sort((a, b) => (a[0] === suggest ? -1 : b[0] === suggest ? 1 : 0)).map(([v, l, help]) => (
-                      <button key={v} type="button" disabled={busy} onClick={() => create(v)} className={`rounded-md border px-3 py-2 text-start text-[15px] hover:border-brand disabled:opacity-60 ${v === suggest ? "border-brand bg-peacock-soft" : "border-rule bg-white"}`}>
-                        <span className="font-semibold text-ink">{l}</span> <span className="text-sm text-muted">{help}</span>
+                  <div className="text-sm font-semibold text-ink">Which category does &ldquo;{q.trim()}&rdquo; go in?</div>
+                  <div className="grid max-h-64 gap-1.5 overflow-y-auto">
+                    {[...categories].sort((a, b) => (a.id === suggestCategory ? -1 : b.id === suggestCategory ? 1 : 0)).map((c) => (
+                      <button key={c.id} type="button" disabled={busy} onClick={() => create(c.id)} className={`rounded-md border px-3 py-2 text-start text-[15px] hover:border-brand disabled:opacity-60 ${c.id === suggestCategory ? "border-brand bg-peacock-soft" : "border-rule bg-white"}`}>
+                        <span className="font-semibold text-ink">{c.name}</span> <span className="text-sm text-muted">{c.hint}</span>
                       </button>
                     ))}
                   </div>

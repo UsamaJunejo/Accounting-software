@@ -9,7 +9,8 @@ import { currencySymbol } from "@/lib/currencies";
 import { Flash, Money, PageHeader } from "@/components/ui";
 import { CategoryBadge } from "@/components/icons";
 import { Crumbs, DrillCharts, DrillTiles, type DrillItem } from "@/components/drill";
-import { AddAccountForm, EditGroupForm } from "@/components/account-forms";
+import { GroupForm } from "@/components/organize-forms";
+import { OrganizeButtons } from "@/components/organize";
 import { Dialog } from "@/components/dialog";
 
 export default async function SubcategoryPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; ok?: string }> }) {
@@ -45,9 +46,12 @@ export default async function SubcategoryPage({ params, searchParams }: { params
         title={sub.name}
         subtitle={`${mine.length} ${mine.length === 1 ? "account" : "accounts"} in ${cat.name}`}
         actions={
-          <Dialog title={`Edit ${sub.name}`} triggerClass="btn-ghost" trigger={<><Pencil className="h-4 w-4" />Edit sub-category</>}>
-            <EditGroupForm primary={user.currency} currency={sub.currency} kind="sub" id={sub.id} name={sub.name} color={sub.color} icon={sub.icon} categoryId={cat.id} categories={cats} back={here} deleteBack={`/accounts/category/${cat.id}`} />
-          </Dialog>
+          <>
+            <OrganizeButtons user={user} back={here} categoryId={cat.id} subId={sub.id} only={["account"]} />
+            <Dialog title={`Edit ${sub.name}`} triggerClass="btn-ghost" trigger={<><Pencil className="h-4 w-4" />Edit sub-category</>}>
+              <GroupForm what="sub" mode="edit" categories={cats} primary={user.currency} back={here} deleteBack={`/accounts/category/${cat.id}`} item={{ id: sub.id, name: sub.name, color: sub.color, icon: sub.icon, currency: sub.currency, category_id: cat.id }} />
+            </Dialog>
+          </>
         }
       />
       <Flash sp={sp} />
@@ -58,7 +62,7 @@ export default async function SubcategoryPage({ params, searchParams }: { params
           <div className="text-2xl font-bold text-ink" dir="ltr"><span className="me-1 text-base text-muted">{cur}</span><Money value={total} /></div>
         </div>
       </div>
-      <DrillTiles items={items} addLabel={`Add account to ${sub.name}`} addForm={<AddAccountForm primary={user.currency} currency={sub.currency ?? cat.currency} subcategoryId={sub.id} back={here} />} />
+      <DrillTiles items={items} />
       <DrillCharts items={items} cur={cur} donutTitle={`Share within ${sub.name}`} barsTitle="Account balances" />
     </>
   );

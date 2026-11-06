@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { createInvoice, type InvoiceFormState } from "@/app/actions/invoices";
 import { currencySymbol } from "@/lib/currencies";
@@ -9,10 +9,19 @@ type Row = { name: string; qty: string; price: string };
 const n = (s: string) => Number(String(s).replace(/,/g, "")) || 0;
 const fmt = (v: number) => new Intl.NumberFormat("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export function InvoiceForm({ customers, today, currency = "PKR" }: { customers: { id: number; name: string; phone: string | null }[]; today: string; currency?: string }) {
+export function InvoiceForm({ customerPicker, today, currency = "PKR" }: { customerPicker: React.ReactNode; today: string; currency?: string }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(createInvoice, {});
   const [rows, setRows] = useState<Row[]>([{ name: "", qty: "1", price: "" }]);
   const [customer, setCustomer] = useState("");
+  // The customer box is the same searchable account chooser as everywhere else; it tells us what was picked.
+  useEffect(() => {
+    const onPick = (e: Event) => {
+      const d = (e as CustomEvent<{ name: string; id?: number }>).detail;
+      if (d.name === "customer") setCustomer(d.id ? String(d.id) : "");
+    };
+    window.addEventListener("fc-pick", onPick);
+    return () => window.removeEventListener("fc-pick", onPick);
+  }, []);
   const [tax, setTax] = useState("0");
   const [discount, setDiscount] = useState("");
   // Kept in state so a mistake doesn't wipe what was typed (React clears plain fields after sending).
@@ -56,10 +65,7 @@ export function InvoiceForm({ customers, today, currency = "PKR" }: { customers:
       <div className="card grid gap-4 p-5 sm:grid-cols-2">
         <div>
           <label className="label">Customer</label>
-          <select name="customer" value={customer} onChange={(e) => setCustomer(e.target.value)} className="input">
-            <option value="">New / walk-in customer</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          {customerPicker}
         </div>
         {!customer && (
           <>

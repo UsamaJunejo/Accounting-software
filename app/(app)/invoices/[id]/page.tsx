@@ -9,7 +9,7 @@ import { StatusPill } from "@/components/invoice-status";
 import { cancelInvoice, payInvoice } from "@/app/actions/invoices";
 import { money, prettyDate, today } from "@/lib/format";
 import { currencySymbol } from "@/lib/currencies";
-import { Flash, PageHeader } from "@/components/ui";
+import { Flash, PageHeader , AccountSelect } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { InvoiceView } from "@/components/invoice-view";
 import { CodeBox } from "@/components/code-box";
@@ -84,9 +84,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             </div>
             <div className="sm:col-span-2">
               <label className="label" htmlFor="pay-into">Received into</label>
-              <select id="pay-into" name="into" className="input">
-                {into.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <AccountSelect name="into" accounts={into} value={into[0]?.id} suggest="money" addInto={["cash", "bank"]} />
             </div>
             <button className="btn-primary sm:col-span-2"><Banknote className="h-4 w-4" />Record payment</button>
           </form>

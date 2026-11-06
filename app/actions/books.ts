@@ -210,9 +210,11 @@ export async function updateAccount(form: FormData) {
   await run(`/accounts/${id}/edit`, async (uid, d) => {
     const name = str(form, "name");
     if (!name) throw new Error("Name is required");
+    // Simpler views don't show sub-categories: use the chosen category's first one.
+    const subcategoryId = int(form, "subcategory") || (int(form, "category") ? await B.defaultSubcategory(d, uid, int(form, "category")) : 0);
     await B.updateAccount(d, uid, id, {
       name,
-      subcategoryId: int(form, "subcategory"),
+      subcategoryId,
       phone: str(form, "phone"),
       budgetMonthly: budget(form),
       archived: form.get("archived") === "on",

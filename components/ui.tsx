@@ -4,7 +4,8 @@ import { money } from "@/lib/format";
 import { cache } from "react";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountUsage, type AccountChoice } from "@/lib/books";
+import { accountUsage, categories, type AccountChoice } from "@/lib/books";
+import { categoryHint } from "@/lib/kinds";
 import { friendlyCategory } from "@/lib/look";
 import { AccountPicker, type PickerOption } from "@/components/account-picker";
 import { PeriodSelect } from "@/components/period-select";
@@ -55,6 +56,8 @@ export async function AccountSelect({
   value,
   placeholder,
   suggest,
+  addInto,
+  noneLabel,
 }: {
   name: string;
   accounts: AccountRow[];
@@ -62,6 +65,9 @@ export async function AccountSelect({
   required?: boolean;
   placeholder?: string;
   suggest?: AccountChoice;
+  /** Only offer these kinds of category when adding a new account from the list (e.g. customers). */
+  addInto?: ("cash" | "bank" | "receivable" | "payable")[];
+  noneLabel?: string;
 }) {
   const user = await currentUser();
   const level = user?.level ?? 3;
@@ -75,7 +81,24 @@ export async function AccountSelect({
     hint: [level === 3 ? a.subcategory : undefined, a.currency ?? undefined].filter(Boolean).join(" · ") || undefined,
     uses: uses.get(a.id) ?? 0,
   }));
-  return <AccountPicker name={name} options={options} value={value} suggest={suggest} placeholder={placeholder ?? t("Select account")} />;
+  // The same categories, words and hints as the "Add account" box, for adding one from inside the list.
+  const cats = (user ? await categories(await db(), user.id) : []).filter((c) => !addInto || (c.role && addInto.includes(c.role as "cash")));
+  const pickCat = (choice?: AccountChoice) =>
+    choice === "money" ? cats.find((c) => c.role === "cash") ?? cats.find((c) => c.role === "bank")
+      : choice === "customer" ? cats.find((c) => c.role === "receivable")
+        : choice === "supplier" ? cats.find((c) => c.role === "payable")
+          : choice ? cats.find((c) => c.kind === choice && !c.role) : undefined;
+  return (
+    <AccountPicker
+      name={name}
+      options={options}
+      value={value}
+      categories={cats.map((c) => ({ id: c.id, name: friendlyCategory(c.name), hint: categoryHint(c) }))}
+      suggestCategory={pickCat(suggest)?.id}
+      noneLabel={noneLabel}
+      placeholder={placeholder ?? t("Select account")}
+    />
+  );
 }
 
 export async function DateRange({ from, to, extra }: { from: string; to: string; extra?: React.ReactNode }) {

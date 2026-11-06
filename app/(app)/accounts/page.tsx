@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Download, Plus } from "lucide-react";
-import { Dialog } from "@/components/dialog";
+import { Download } from "lucide-react";
+import { HowOrganised, OrganizeButtons } from "@/components/organize";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories } from "@/lib/books";
@@ -9,7 +9,6 @@ import { accountingTerm, colorAt, friendlyCategory } from "@/lib/look";
 import { currencySymbol } from "@/lib/currencies";
 import { Flash, PageHeader } from "@/components/ui";
 import { DrillCharts, DrillTiles, type DrillItem } from "@/components/drill";
-import { AddAccountForm, AddAccountPlainForm, AddCategoryForm } from "@/components/account-forms";
 import { AccountsList } from "./list-view";
 import { ViewToggle } from "@/components/view-toggle";
 
@@ -27,9 +26,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
 
   const actions = (
     <>
-      <Dialog title="Add account" trigger={<><Plus className="h-4 w-4" />Add account</>} triggerClass="btn-primary">
-        <AddAccountPlainForm primary={user.currency} />
-      </Dialog>
+      <OrganizeButtons user={user} back="/accounts" />
       <ViewToggle list={false} />
       <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
     </>
@@ -45,7 +42,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
       <>
         <PageHeader title="Accounts" subtitle="Tap an account to see its statement." actions={actions} />
         <Flash sp={sp} />
-        <DrillTiles items={items} addLabel="Add account" addForm={<AddAccountForm categories={cats} back="/accounts" primary={user.currency} />} />
+        <HowOrganised level={1} />
+        <DrillTiles items={items} />
         <DrillCharts items={chartItems} cur={cur} donutTitle="Biggest balances" barsTitle="Account balances" />
       </>
     );
@@ -69,7 +67,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     <>
       <PageHeader title="Accounts" subtitle="Tap a category to open it. Each one has its own colour, used in every chart." actions={actions} />
       <Flash sp={sp} />
-      <DrillTiles items={items} addLabel="Add category" addForm={<AddCategoryForm back="/accounts" primary={user.currency} />} />
+      <HowOrganised level={user.level} />
+      <DrillTiles items={items} />
       <DrillCharts items={balanceSheet} cur={cur} donutTitle="Share of each category" barsTitle="Category balances" />
     </>
   );

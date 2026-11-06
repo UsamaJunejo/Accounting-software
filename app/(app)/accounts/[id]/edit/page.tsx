@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { FileText, Save, Trash2 } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, startingBalanceOf, subcategories } from "@/lib/books";
-import { addStartingBalance, updateAccount } from "@/app/actions/books";
+import { addStartingBalance } from "@/app/actions/books";
+import { AccountForm } from "@/components/organize-forms";
 import { money, prettyDate, today } from "@/lib/format";
 import { Flash, PageHeader } from "@/components/ui";
 import { CurrencyPick } from "@/components/currency-pick";
@@ -38,46 +39,19 @@ export default async function EditAccount({
     <>
       <PageHeader title={`Edit: ${a.name}`} />
       <Flash sp={sp} />
-      <form action={updateAccount} className="card mb-4 grid max-w-2xl gap-4 p-5">
-        <input type="hidden" name="id" value={a.id} />
-        <div>
-          <label className="label">Name</label>
-          <input name="name" defaultValue={a.name} required className="input" />
-        </div>
-        <div>
-          <label className="label">Sub-category (move account)</label>
-          <select name="subcategory" defaultValue={a.subcategory_id} className="input">
-            {cats.map((c) => (
-              <optgroup key={c.id} label={c.name}>
-                {subs.filter((s) => s.category_id === c.id).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label">Mobile</label>
-            <input name="phone" defaultValue={a.phone ?? ""} className="input" placeholder="03XX-XXXXXXX" />
-          </div>
-          <div>
-            <label className="label">Monthly budget ({user.currency})</label>
-            <input name="budget" inputMode="decimal" defaultValue={a.budget_monthly ? (a.budget_monthly / 100).toFixed(2) : ""} className="input" />
-          </div>
-        </div>
-        <div>
-          <CurrencyPick primary={user.currency} value={a.currency ?? ""} needRate label="Currency of this account" />
-          <p className="mt-1 text-sm text-muted">
-            Changing it converts this account&apos;s entries at the rate above. Your totals in {user.currency} stay exactly the same.
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="archived" defaultChecked={!!a.archived} /> Archived (hide from lists, keep history)
-        </label>
-        <div className="flex gap-2">
-          <button className="btn-primary"><Save className="h-4 w-4" />Save</button>
-          <Link href={`/accounts/${a.id}`} className="btn-ghost"><FileText className="h-4 w-4" />View statement</Link>
-        </div>
-      </form>
+      <div className="card mb-4 max-w-2xl p-5">
+        <AccountForm
+          mode="edit"
+          categories={cats}
+          subs={subs}
+          level={user.level}
+          primary={user.currency}
+          back={`/accounts/${a.id}/edit`}
+          account={{ id: a.id, name: a.name, subcategory_id: a.subcategory_id, category_id: a.category_id, phone: a.phone, budget: a.budget_monthly, currency: a.currency, archived: a.archived }}
+        />
+        <Link href={`/accounts/${a.id}`} className="btn-ghost mt-3 w-full justify-center"><FileText className="h-4 w-4" />View statement</Link>
+      </div>
+      {(a.kind === "asset" || a.kind === "liability") && (
       <form id="opening" action={addStartingBalance} className="card mb-4 grid max-w-2xl gap-4 p-5 sm:grid-cols-[1fr_200px_auto] sm:items-end">
         <input type="hidden" name="id" value={a.id} />
         <h2 className="text-lg font-bold sm:col-span-3">{start ? "Change starting balance" : "Set starting balance"}</h2>
@@ -104,6 +78,7 @@ export default async function EditAccount({
         )}
         <button className="btn-dark">{start ? "Change" : "Save"}</button>
       </form>
+      )}
       <div className="max-w-2xl">
         <Link href={`/accounts/${a.id}/delete`} className="btn-danger"><Trash2 className="h-4 w-4" />Delete account</Link>
         <p className="mt-1 text-xs text-muted">You&apos;ll see what it affects, and how to deal with its balance, before anything is deleted.</p>

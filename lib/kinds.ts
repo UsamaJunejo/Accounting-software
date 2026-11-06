@@ -46,3 +46,12 @@ export function parseAmount(input: string): number {
   if (!/^\d+(\.\d{1,2})?$/.test(clean)) return NaN;
   return Math.round(Number(clean) * 100);
 }
+
+/** What a category is for, in plain words. */
+export function categoryHint(c: { kind: Kind; role: Role }) {
+  if (c.role === "cash") return "cash in hand";
+  if (c.role === "bank") return "bank accounts and wallets";
+  if (c.role === "receivable") return "customers who owe you";
+  if (c.role === "payable") return "suppliers you owe";
+  return { asset: "things you own", liability: "loans and money you owe", equity: "the owner's money", income: "money you earn", expense: "money you spend" }[c.kind];
+}

@@ -1,5 +1,4 @@
-import { Dialog } from "@/components/dialog";
-import { AddAccountPlainForm } from "@/components/account-forms";
+import { HowOrganised, OrganizeButtons } from "@/components/organize";
 import Link from "next/link";
 import { Archive, ChevronRight, Download, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
 import { CategoryBadge } from "@/components/icons";
@@ -31,9 +30,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
         }
         actions={
           <>
-          <Dialog title="Add account" trigger={<><Plus className="h-4 w-4" />Add account</>} triggerClass="btn-primary">
-            <AddAccountPlainForm primary={user.currency} />
-          </Dialog>
+          <OrganizeButtons user={user} back="/accounts?view=list" />
           <ViewToggle list />
           <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
           <Link href={sp.archived ? "/accounts?view=list" : "/accounts?view=list&archived=1"} className="btn-ghost">
@@ -45,51 +42,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
       />
       <Flash sp={sp} />
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-3">
-        <form action={A.addAccount} className="card space-y-3 p-4">
-          <h2 className="flex items-center gap-2 font-semibold text-ink"><Plus className="h-5 w-5 text-brand" />Add account</h2>
-          {user.level === 3 ? (
-            <select name="subcategory" required className="input" defaultValue="">
-              <option value="" disabled>Choose sub-category</option>
-              {cats.map((c) => (
-                <optgroup key={c.id} label={c.name}>
-                  {subs.filter((s) => s.category_id === c.id).map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          ) : (
-            <select name="category" required className="input" defaultValue="">
-              <option value="" disabled>{user.level === 1 ? "What kind of account?" : "Choose category"}</option>
-              {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          )}
-          <input name="name" required placeholder="Account name, e.g. Ahmed Traders" className="input" />
-          <input name="phone" placeholder="Mobile (for khata reminders)" className="input" />
-          <input name="budget" inputMode="decimal" placeholder="Monthly budget (optional)" className="input" />
-          <button className="btn-primary w-full">Add account</button>
-        </form>
-        {user.level === 3 && <form action={A.addSubcategory} className="card space-y-3 p-4">
-          <h2 className="flex items-center gap-2 font-semibold text-ink"><Layers className="h-5 w-5 text-brand" />Add sub-category</h2>
-          <select name="category" required className="input" defaultValue="">
-            <option value="" disabled>Choose category</option>
-            {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <input name="name" required placeholder="e.g. Marketing" className="input" />
-          <button className="btn-dark w-full">Add sub-category</button>
-        </form>}
-        <form action={A.addCategory} className="card space-y-3 p-4">
-          <h2 className="flex items-center gap-2 font-semibold text-ink"><FolderPlus className="h-5 w-5 text-brand" />Add category</h2>
-          <input name="name" required placeholder="e.g. Online Business" className="input" />
-          <select name="kind" required className="input" defaultValue="">
-            <option value="" disabled>What type is it?</option>
-            {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-          </select>
-          <p className="text-xs text-muted">Type decides where it shows in reports: Asset (things you own), Liability (what you owe), Income, Expense or Equity (owner&apos;s money).</p>
-          <button className="btn-dark w-full">Add category</button>
-        </form>
-      </div>
+      <HowOrganised level={user.level} />
 
       {user.level === 1 && (
         <section className="card overflow-hidden">
