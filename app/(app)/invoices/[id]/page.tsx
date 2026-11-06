@@ -4,7 +4,7 @@ import { Ban, Banknote, MessageCircle } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getInvoice, invoicePayments, invoiceStatus } from "@/lib/invoices";
-import { accountsWithBalances } from "@/lib/books";
+import { accountsWithBalances, isMoney } from "@/lib/books";
 import { StatusPill } from "@/components/invoice-status";
 import { cancelInvoice, payInvoice } from "@/app/actions/invoices";
 import { money, prettyDate, today } from "@/lib/format";
@@ -24,7 +24,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const [payments, accounts] = await Promise.all([invoicePayments(d, user.id, inv.id), accountsWithBalances(d, user.id)]);
   const status = invoiceStatus(inv, today());
   const due = Math.max(0, inv.total - inv.paid);
-  const into = accounts.filter((a) => (a.category === "Cash" || a.category === "Bank") && !a.archived);
+  const into = accounts.filter((a) => isMoney(a) && !a.archived);
   const h = await headers();
   const link = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}/i/${inv.share_token}`;
   const phone = inv.customer_phone?.replace(/\D/g, "").replace(/^0/, "92");

@@ -1,5 +1,5 @@
 import type { Db } from "./db.ts";
-import { accountStatement, accountsWithBalances, addTransaction, signedBalance, type Kind } from "./books.ts";
+import { accountStatement, accountsWithBalances, addTransaction, signedBalance, statementColumns, type Kind } from "./books.ts";
 
 export type ShareRow = {
   id: number;
@@ -95,7 +95,7 @@ export async function approveSharedEntry(d: Db, ownerId: number, entryId: number
   const other = accs.find((a) => a.id === otherAccountId);
   if (!other) throw new Error("Choose the other account");
   const into = flowsIn(e.kind, e.direction);
-  const cashLike = other.category === "Cash" || other.category === "Bank";
+  const cashLike = other.role === "cash" || other.role === "bank";
   // If money comes out of Cash/Bank it's a payment; into Cash/Bank is a receipt.
   const type = cashLike ? (into ? "payment" : "receipt") : "transfer";
   await d.tx(async (t) => {
@@ -175,6 +175,7 @@ export async function sharedStatement(d: Db, userId: number, shareId: number, fr
   );
   return {
     share,
+    columns: statementColumns(st.account),
     opening: st.opening,
     closing: st.closing,
     lines: st.lines.map((l) => ({
@@ -183,6 +184,8 @@ export async function sharedStatement(d: Db, userId: number, shareId: number, fr
       note: l.note,
       moneyIn: l.moneyIn,
       moneyOut: l.moneyOut,
+      up: l.up,
+      down: l.down,
       balance: l.balance,
     })),
     submissions,

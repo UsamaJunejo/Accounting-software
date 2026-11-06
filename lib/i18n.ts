@@ -29,6 +29,8 @@ const UR: Record<string, string> = {
   "Today, across all your accounts": "آج، تمام اکاؤنٹس میں",
   "Cash & bank": "نقد اور بینک",
   "Net position": "خالص حیثیت",
+  "Net worth": "کل مالیت",
+  "Everything you own minus everything you owe": "آپ کی ملکیت، واجبات نکال کر",
   "Loss this period": "اس مدت کا نقصان",
   "Cash & bank balance": "نقد اور بینک بیلنس",
   "How much money you held each day": "ہر دن آپ کے پاس کتنی رقم تھی",

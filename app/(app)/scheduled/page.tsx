@@ -15,7 +15,7 @@ export default async function Scheduled({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const d = await db();
   const [rows, accounts] = await Promise.all([listSchedules(d, user.id), accountsWithBalances(d, user.id)]);
-  const cash = accounts.find((a) => a.category === "Cash")?.id;
+  const cash = accounts.find((a) => a.role === "cash")?.id;
   return (
     <>
       <PageHeader title="Scheduled entries" subtitle="Rent, salaries, bills: set them up once. They're added for you, or you get a reminder to add them." />

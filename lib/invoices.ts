@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { Db } from "./db.ts";
-import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, deleteTransaction, subcategories } from "./books.ts";
+import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, deleteTransaction, subcategories, type Kind, type Role } from "./books.ts";
 
 export type InvoiceItem = { name: string; qty: number; price: number }; // price in paisa
 
@@ -43,12 +43,18 @@ function validate(i: InvoiceInput) {
 }
 
 /** Find an account by name in a category, creating the sub-category/account if needed. */
-async function ensureAccount(d: Db, userId: number, categoryName: string, subName: string, accountName: string) {
+/** Find (or make) an account. The category is found by its role, then by name, then by kind,
+ *  so it still works after the user renames their categories. */
+async function ensureAccount(d: Db, userId: number, want: { role?: Role; name: string; kind: Kind }, subName: string, accountName: string) {
+  const cats = await categories(d, userId);
+  const cat =
+    (want.role ? cats.find((c) => c.role === want.role) : undefined) ??
+    cats.find((c) => c.name === want.name && c.kind === want.kind) ??
+    cats.find((c) => c.kind === want.kind && !c.role);
+  if (!cat) throw new Error(`Category "${want.name}" is missing`);
   const accs = await accountsWithBalances(d, userId);
-  const found = accs.find((a) => a.name.toLowerCase() === accountName.toLowerCase() && a.category === categoryName && !a.archived);
+  const found = accs.find((a) => a.name.toLowerCase() === accountName.toLowerCase() && a.category_id === cat.id && !a.archived);
   if (found) return found.id;
-  const cat = (await categories(d, userId)).find((c) => c.name === categoryName);
-  if (!cat) throw new Error(`Category "${categoryName}" is missing`);
   const sub =
     (await subcategories(d, userId)).find((s) => s.category_id === cat.id && s.name === subName) ??
     (await subcategories(d, userId)).find((s) => s.category_id === cat.id);
@@ -76,8 +82,8 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
     let taxTxnId: number | null = null;
     const [{ n }] = await x.q<{ n: number }>("SELECT COALESCE(MAX(number), 0) + 1 AS n FROM invoices WHERE user_id = $1", [userId]);
     if (i.record) {
-      if (!customerId) customerId = await ensureAccount(x, userId, "Receivables", "Customers (Khata)", customerName);
-      const sales = await ensureAccount(x, userId, "Income", "Sales", "Sales");
+      if (!customerId) customerId = await ensureAccount(x, userId, { role: "receivable", name: "Receivables", kind: "asset" }, "Customers (Khata)", customerName);
+      const sales = await ensureAccount(x, userId, { name: "Income", kind: "income" }, "Sales", "Sales");
       // Customer now owes the total: the sale goes to Sales, the tax to Sales Tax Payable.
       txnId = await addTransaction(x, userId, {
         type: "transfer",
@@ -88,7 +94,7 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
         note: `Invoice #${n}`,
       });
       if (t.tax > 0) {
-        const taxAcc = await ensureAccount(x, userId, "Liabilities", "Taxes Payable", "Sales Tax Payable");
+        const taxAcc = await ensureAccount(x, userId, { name: "Liabilities", kind: "liability" }, "Taxes Payable", "Sales Tax Payable");
         taxTxnId = await addTransaction(x, userId, {
           type: "transfer",
           date: i.date,
@@ -220,7 +226,7 @@ export async function recordInvoicePayment(
   if (p.amount > due) throw new Error("That's more than the balance due");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw new Error("Invalid date");
   // Money comes from the customer's khata (or straight from Sales if the invoice wasn't put in the books).
-  const from = inv.customer_account_id ?? (await ensureAccount(d, userId, "Income", "Sales", "Sales"));
+  const from = inv.customer_account_id ?? (await ensureAccount(d, userId, { name: "Income", kind: "income" }, "Sales", "Sales"));
   await d.tx(async (x) => {
     const txnId = await addTransaction(x, userId, {
       type: "receipt",

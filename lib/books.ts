@@ -1,7 +1,7 @@
 import type { Db } from "./db.ts";
 
-export type Kind = "asset" | "liability" | "equity" | "income" | "expense";
-export type TxnType = "payment" | "receipt" | "transfer";
+export * from "./kinds.ts";
+import { isMoney, isParty, typeFor, type Kind, type Role, type TxnType } from "./kinds.ts";
 
 export const KIND_LABEL: Record<Kind, string> = {
   asset: "Asset",
@@ -23,12 +23,12 @@ const MIN_DATE = "0001-01-01";
 const MAX_DATE = "9999-12-31";
 
 // Ready-made chart of accounts for a Pakistani small business.
-const DEFAULTS: { name: string; kind: Kind; subs: [string, string[]][] }[] = [
-  { name: "Cash", kind: "asset", subs: [["Cash in Hand", ["Cash"]]] },
-  { name: "Bank", kind: "asset", subs: [["Bank Accounts", ["Bank Account"]], ["Mobile Wallets", ["JazzCash", "Easypaisa"]]] },
-  { name: "Receivables", kind: "asset", subs: [["Customers (Khata)", []]] },
+const DEFAULTS: { name: string; kind: Kind; role?: Role; subs: [string, string[]][] }[] = [
+  { name: "Cash", kind: "asset", role: "cash", subs: [["Cash in Hand", ["Cash"]]] },
+  { name: "Bank", kind: "asset", role: "bank", subs: [["Bank Accounts", ["Bank Account"]], ["Mobile Wallets", ["JazzCash", "Easypaisa"]]] },
+  { name: "Receivables", kind: "asset", role: "receivable", subs: [["Customers (Khata)", []]] },
   { name: "Assets", kind: "asset", subs: [["Stock / Inventory", ["Stock"]], ["Fixed Assets", ["Furniture & Equipment"]]] },
-  { name: "Payables", kind: "liability", subs: [["Suppliers", []]] },
+  { name: "Payables", kind: "liability", role: "payable", subs: [["Suppliers", []]] },
   { name: "Liabilities", kind: "liability", subs: [["Loans", []], ["Taxes Payable", ["Sales Tax Payable"]]] },
   { name: "Equity", kind: "equity", subs: [["Owner", ["Owner Capital", "Owner Drawings"]]] },
   { name: "Income", kind: "income", subs: [["Sales", ["Sales"]], ["Other Income", ["Other Income"]]] },
@@ -50,8 +50,8 @@ type IdRow = { id: number };
 export async function seedDefaults(d: Db, userId: number) {
   for (const [i, c] of DEFAULTS.entries()) {
     const [cat] = await d.q<IdRow>(
-      "INSERT INTO categories (user_id, name, kind, sort) VALUES ($1, $2, $3, $4) RETURNING id",
-      [userId, c.name, c.kind, i],
+      "INSERT INTO categories (user_id, name, kind, sort, role) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      [userId, c.name, c.kind, i, c.role ?? null],
     );
     for (const [sub, accs] of c.subs) {
       const [s] = await d.q<IdRow>(
@@ -94,6 +94,7 @@ export type AccountRow = {
   category_id: number;
   category: string;
   kind: Kind;
+  role: Role;
   money_in: number;
   money_out: number;
   balance: number;
@@ -114,7 +115,7 @@ export async function accountsWithBalances(
      outs AS (SELECT from_account_id AS id, SUM(amount) AS s FROM t GROUP BY from_account_id)
      SELECT a.id, a.name, a.phone, a.budget_monthly::float8 AS budget_monthly, a.archived,
             s.id AS subcategory_id, s.name AS subcategory,
-            c.id AS category_id, c.name AS category, c.kind,
+            c.id AS category_id, c.name AS category, c.kind, c.role,
             COALESCE(ins.s, 0)::float8 AS money_in,
             COALESCE(outs.s, 0)::float8 AS money_out
      FROM accounts a
@@ -129,11 +130,11 @@ export async function accountsWithBalances(
   return rows.map((r) => ({ ...r, balance: signedBalance(r.kind, r.money_in, r.money_out) }));
 }
 
-export type Category = { id: number; name: string; kind: Kind; sort: number; color: string | null; icon: string | null };
+export type Category = { id: number; name: string; kind: Kind; sort: number; color: string | null; icon: string | null; role: Role };
 export type Subcategory = { id: number; name: string; category_id: number; color: string | null; icon: string | null };
 
 export function categories(d: Db, userId: number): Promise<Category[]> {
-  return d.q<Category>("SELECT id, name, kind, sort, color, icon FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
+  return d.q<Category>("SELECT id, name, kind, sort, color, icon, role FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
 }
 
 export function subcategories(d: Db, userId: number): Promise<Subcategory[]> {
@@ -164,12 +165,21 @@ function look(l?: { color?: string | null; icon?: string | null }) {
   return [color, icon] as const;
 }
 
-export async function addCategory(d: Db, userId: number, name: string, kind: Kind, l?: { color?: string | null; icon?: string | null }) {
+export async function addCategory(
+  d: Db,
+  userId: number,
+  name: string,
+  kind: Kind,
+  l?: { color?: string | null; icon?: string | null },
+  role: Role = null,
+) {
   if (!(kind in KIND_LABEL)) throw new Error("Choose a type");
+  const allowed: Record<string, Kind> = { cash: "asset", bank: "asset", receivable: "asset", payable: "liability" };
+  if (role && allowed[role] !== kind) throw new Error("Choose a type");
   const [row] = await d.q<IdRow>(
-    `INSERT INTO categories (user_id, name, kind, sort, color, icon)
-     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1), $4, $5) RETURNING id`,
-    [userId, name, kind, ...look(l)],
+    `INSERT INTO categories (user_id, name, kind, sort, color, icon, role)
+     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1), $4, $5, $6) RETURNING id`,
+    [userId, name, kind, ...look(l), role],
   );
   return row.id;
 }
@@ -299,8 +309,8 @@ export type TxnInput = {
   projectId?: number | null;
 };
 
-async function validate(d: Db, userId: number, t: TxnInput) {
-  if (!["payment", "receipt", "transfer"].includes(t.type)) throw new Error("Invalid entry type");
+/** Checks the entry and returns its type, worked out from the two accounts. */
+async function validate(d: Db, userId: number, t: TxnInput): Promise<TxnType> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date) || Number.isNaN(Date.parse(t.date))) throw new Error("Invalid date");
   if (!Number.isSafeInteger(t.amount) || t.amount <= 0) throw new Error("Amount must be more than zero");
   if (!t.fromAccountId || !t.toAccountId) throw new Error("Choose both accounts: where the money came from and where it went");
@@ -313,6 +323,13 @@ async function validate(d: Db, userId: number, t: TxnInput) {
     if (!t.foreignAmount || t.foreignAmount <= 0 || !Number.isSafeInteger(t.foreignAmount)) throw new Error("Enter the amount in " + t.currency);
     if (!t.rate || !(t.rate > 0)) throw new Error("Enter the exchange rate");
   }
+  const roles = await d.q<{ id: number; role: Role }>(
+    `SELECT a.id, c.role FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
+     WHERE a.id = ANY($1::int[])`,
+    [[t.fromAccountId, t.toAccountId]],
+  );
+  const role = (id: number) => ({ role: roles.find((r) => r.id === id)?.role ?? null });
+  return typeFor(role(t.fromAccountId), role(t.toAccountId));
 }
 
 /** The extra columns, cleaned: blank unless a foreign currency was really used. */
@@ -330,8 +347,8 @@ function audit(d: Db, userId: number, action: string, txnId: number | null, deta
   ]);
 }
 
-export async function addTransaction(d: Db, userId: number, t: TxnInput): Promise<number> {
-  await validate(d, userId, t);
+export async function addTransaction(d: Db, userId: number, input: TxnInput): Promise<number> {
+  const t = { ...input, type: await validate(d, userId, input) };
   return d.tx(async (x) => {
     const [row] = await x.q<IdRow>(
       `INSERT INTO transactions (user_id, type, date, amount, from_account_id, to_account_id, note, highlight,
@@ -344,8 +361,8 @@ export async function addTransaction(d: Db, userId: number, t: TxnInput): Promis
   });
 }
 
-export async function updateTransaction(d: Db, userId: number, id: number, t: TxnInput) {
-  await validate(d, userId, t);
+export async function updateTransaction(d: Db, userId: number, id: number, input: TxnInput) {
+  const t = { ...input, type: await validate(d, userId, input) };
   const before = await getTransaction(d, userId, id);
   if (!before || before.deleted_at) throw new Error("Entry not found");
   await d.tx(async (x) => {
@@ -465,10 +482,56 @@ export async function accountStatement(d: Db, userId: number, accountId: number,
   const lines = rows.map((r) => {
     const moneyIn = r.to_account_id === accountId ? r.amount : 0;
     const moneyOut = r.from_account_id === accountId ? r.amount : 0;
-    running += signedBalance(acc.kind, moneyIn, moneyOut);
-    return { ...r, other: moneyIn ? r.from_name : r.to_name, moneyIn, moneyOut, balance: running };
+    const effect = signedBalance(acc.kind, moneyIn, moneyOut);
+    running += effect;
+    // up / down: how the entry changed this account's balance, so the columns always add up.
+    return { ...r, other: moneyIn ? r.from_name : r.to_name, moneyIn, moneyOut, up: Math.max(effect, 0), down: Math.max(-effect, 0), balance: running };
   });
   return { account: acc, opening, closing: running, lines };
+}
+
+/**
+ * Bring in a balance from before (e.g. from the old MunshiBaba books): a customer who already
+ * owes 5,000, cash already in the drawer. Recorded as one entry against "Opening Balances"
+ * (owner's money), so the books still balance.
+ */
+export async function addOpeningBalance(d: Db, userId: number, accountId: number, balance: number, date: string) {
+  if (!Number.isSafeInteger(balance) || balance <= 0) throw new Error("Opening balance must be more than zero");
+  const accs = await accountsWithBalances(d, userId);
+  const acc = accs.find((a) => a.id === accountId);
+  if (!acc) throw new Error("Not found");
+  let opening = accs.find((a) => a.kind === "equity" && a.name === "Opening Balances");
+  let openingId = opening?.id;
+  if (!openingId) {
+    const eq = (await categories(d, userId)).find((c) => c.kind === "equity");
+    const catId = eq?.id ?? (await addCategory(d, userId, "Equity", "equity"));
+    openingId = await addAccount(d, userId, await defaultSubcategory(d, userId, catId), "Opening Balances");
+  }
+  if (openingId === accountId) throw new Error("Choose another account");
+  // Assets and expenses grow when money goes into them; the rest grow when it comes out.
+  const grows = acc.kind === "asset" || acc.kind === "expense";
+  return addTransaction(d, userId, {
+    type: "transfer",
+    date,
+    amount: balance,
+    fromAccountId: grows ? openingId : accountId,
+    toAccountId: grows ? accountId : openingId,
+    note: "Opening balance",
+  });
+}
+
+/** Column names for an account's statement, in plain words for that kind of account. */
+export function statementColumns(a: { kind: Kind; role: Role }): [string, string] {
+  if (isMoney(a)) return ["Money in", "Money out"];
+  if (a.role === "receivable") return ["Udhaar given", "Received"];
+  if (a.role === "payable") return ["Bought on credit", "Paid"];
+  switch (a.kind) {
+    case "asset": return ["Added", "Reduced"];
+    case "expense": return ["Spent", "Refund"];
+    case "income": return ["Earned", "Returned"];
+    case "liability": return ["Borrowed / owed", "Paid back"];
+    case "equity": return ["Put in", "Taken out"];
+  }
 }
 
 // ---------- Reports ----------
@@ -537,7 +600,7 @@ export async function budgets(d: Db, userId: number, monthStart: string, monthEn
 /** Customers / suppliers khata: everyone in Receivables & Payables. */
 export async function khata(d: Db, userId: number) {
   return (await accountsWithBalances(d, userId)).filter(
-    (a) => !a.archived && (a.category === "Receivables" || a.category === "Payables"),
+    (a) => !a.archived && isParty(a),
   );
 }
 
@@ -720,7 +783,7 @@ export async function changeMainCurrency(d: Db, userId: number, next: string, ra
 /** Cash & bank (money you hold) for every day in the window, starting from the opening balance. */
 export async function cashBankDaily(d: Db, userId: number, from: string, to: string) {
   const ids = (await accountsWithBalances(d, userId))
-    .filter((a) => a.category === "Cash" || a.category === "Bank")
+    .filter(isMoney)
     .map((a) => a.id);
   if (!ids.length) return { opening: 0, days: [] as { date: string; inflow: number; outflow: number; balance: number }[] };
   const [o] = await d.q<{ i: number; o: number }>(

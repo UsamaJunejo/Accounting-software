@@ -51,9 +51,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const cur = currencySymbol(user.currency);
   const sumBy = (rows: typeof all, f: (a: (typeof all)[0]) => boolean) => rows.filter(f).reduce((s, a) => s + a.balance, 0);
 
-  const cashBank = sumBy(all, (a) => a.category === "Cash" || a.category === "Bank");
-  const receivable = sumBy(all, (a) => a.category === "Receivables");
-  const payable = sumBy(all, (a) => a.category === "Payables");
+  const cashBank = sumBy(all, (a) => a.role === "cash" || a.role === "bank");
+  const receivable = sumBy(all, (a) => a.role === "receivable");
+  const payable = sumBy(all, (a) => a.role === "payable");
   const pl = summarizeIncome(period);
 
   // Balance-sheet categories get a colour each (same colour on tile, donut and bars);
@@ -79,13 +79,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     const m = monthly.get(dt.toISOString().slice(0, 7));
     return { label: dt.toLocaleString("en", { month: "short", timeZone: "UTC" }), in: m?.income ?? 0, out: m?.expense ?? 0 };
   });
-  const net = cashBank + receivable - payable;
+  // Net worth counts everything: stock, equipment and loans too, not only cash and khata.
+  const net = sumBy(all, (a) => a.kind === "asset") - sumBy(all, (a) => a.kind === "liability");
 
   // "Getting started" checklist for new users; disappears when done or hidden.
   const anyEntry = all.some((a) => a.money_in || a.money_out);
   const steps = [
     { title: "Add the cash you have today", how: "Money In from Owner Capital to Cash", href: "/voucher?type=receipt", done: anyEntry },
-    { title: "Add your first customer", how: "Khata → add their name and mobile", href: "/khata", done: all.some((a) => a.category === "Receivables") },
+    { title: "Add your first customer", how: "Khata → add their name and mobile", href: "/khata", done: all.some((a) => a.role === "receivable") },
     { title: "Record a sale", how: "Money In from Sales, or make an invoice", href: "/voucher?type=receipt", done: all.some((a) => a.kind === "income" && a.balance > 0) },
     { title: "Save your recovery code", how: "So you can get back in if you forget your password", href: "/recovery-code", done: user.has_recovery },
   ];
@@ -128,12 +129,12 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <div className="rounded-2xl bg-brand p-6 text-white shadow-[0_18px_40px_-20px_var(--color-brand)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="text-[15px] text-white/85">{t("Net position")}</div>
+              <div className="text-[15px] text-white/85">{t("Net worth")}</div>
               <div className="mt-1 text-[2.5rem] font-bold leading-tight tracking-tight tabular-nums sm:text-5xl" dir="ltr">
                 <span className="me-2 text-2xl font-semibold text-white/80">{cur}</span>
                 {money(net)}
               </div>
-              <div className="mt-1 text-sm text-white/80">{t("Today, across all your accounts")}</div>
+              <div className="mt-1 text-sm text-white/80">{t("Everything you own minus everything you owe")}</div>
             </div>
             <Link
               href={`/reports/income?from=${from}&to=${to}`}

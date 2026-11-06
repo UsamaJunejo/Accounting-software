@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db, type Db } from "@/lib/db";
 import { requireWriter as requireUser } from "@/lib/auth";
 import * as B from "@/lib/books";
-import { toPaisa } from "@/lib/format";
+import { toPaisa, today } from "@/lib/format";
 import { CURRENCY_CODES } from "@/lib/currencies";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -121,7 +121,8 @@ export async function addCategory(form: FormData) {
   await run(str(form, "back") || "/accounts", async (uid, d) => {
     const name = str(form, "name");
     if (!name) throw new Error("Name is required");
-    await B.addCategory(d, uid, name, str(form, "kind") as B.Kind, look(form));
+    const [kind, role] = str(form, "kind").split(":");
+    await B.addCategory(d, uid, name, kind as B.Kind, look(form), (role || null) as B.Role);
   }, "Category added");
 }
 
@@ -159,7 +160,14 @@ export async function addAccount(form: FormData) {
     const name = str(form, "name");
     if (!name) throw new Error("Name is required");
     const sub = int(form, "subcategory") || (await B.defaultSubcategory(d, uid, int(form, "category")));
-    await B.addAccount(d, uid, sub, name, { phone: str(form, "phone"), budgetMonthly: budget(form) });
+    const raw = str(form, "opening");
+    const opening = raw ? toPaisa(raw) : 0;
+    if (Number.isNaN(opening)) throw new Error("Please enter the balance as a number, e.g. 5000");
+    // Account and its opening balance are saved together, or not at all.
+    await d.tx(async (x) => {
+      const id = await B.addAccount(x, uid, sub, name, { phone: str(form, "phone"), budgetMonthly: budget(form) });
+      if (opening > 0) await B.addOpeningBalance(x, uid, id, opening, today());
+    });
   }, "Account added");
 }
 

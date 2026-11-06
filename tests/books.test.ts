@@ -156,3 +156,67 @@ test("friendly dates", () => {
   assert.equal(friendlyDate("2026-03-02", "2026-05-10"), "2 Mar");
   assert.equal(friendlyDate("2025-12-31", "2026-05-10"), "31 Dec 2025");
 });
+
+import { addOpeningBalance, cashBankDaily, categories, khata, renameCategory, statementColumns } from "../lib/books.ts";
+
+test("entry type always follows the accounts, whatever tab was used", async () => {
+  const { d, uid, acc } = await setup();
+  // Picked "Money In" but chose Cash -> Rent: it is really money going out.
+  const id = await addTransaction(d, uid, { type: "receipt", date: "2026-01-02", amount: 500, fromAccountId: acc("Cash"), toAccountId: acc("Rent") });
+  const rows = await listTransactions(d, uid, {});
+  assert.equal(rows.find((r) => r.id === id)!.type, "payment");
+  await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 500, fromAccountId: acc("Sales"), toAccountId: acc("Bank Account") });
+  await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 500, fromAccountId: acc("Cash"), toAccountId: acc("JazzCash") });
+  const types = (await listTransactions(d, uid, {})).map((r) => r.type).sort();
+  assert.deepEqual(types, ["payment", "receipt", "transfer"]);
+});
+
+test("renaming categories does not break cash, bank or khata", async () => {
+  const { d, uid, acc } = await setup();
+  const cats = await categories(d, uid);
+  for (const c of cats) await renameCategory(d, uid, c.id, c.name + " (mine)");
+  await addTransaction(d, uid, { type: "receipt", date: "2026-01-01", amount: 7000, fromAccountId: acc("Owner Capital"), toAccountId: acc("Cash") });
+  const flow = await cashBankDaily(d, uid, "2026-01-01", "2026-01-01");
+  assert.equal(flow.days[0].balance, 7000);
+  const sub = (await subcategories(d, uid)).find((s) => s.name === "Customers (Khata)")!;
+  await addAccount(d, uid, sub.id, "Bilal");
+  assert.deepEqual((await khata(d, uid)).map((k) => k.name), ["Bilal"]);
+});
+
+test("opening balances: customer owes, supplier is owed, books still balance", async () => {
+  const { d, uid, acc } = await setup();
+  const cust = await addAccount(d, uid, (await subcategories(d, uid)).find((s) => s.name === "Customers (Khata)")!.id, "Ahmed");
+  const sup = await addAccount(d, uid, (await subcategories(d, uid)).find((s) => s.name === "Suppliers")!.id, "Cement Co");
+  await addOpeningBalance(d, uid, cust, 500000, "2026-01-01");
+  await addOpeningBalance(d, uid, sup, 200000, "2026-01-01");
+  await addOpeningBalance(d, uid, acc("Cash"), 100000, "2026-01-01");
+  const bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Ahmed"], 500000);
+  assert.equal(bal["Cement Co"], 200000);
+  assert.equal(bal["Cash"], 100000);
+  assert.equal(bal["Opening Balances"], 400000);
+  const bs = await balanceSheet(d, uid, "2026-12-31");
+  assert.ok(bs.balanced);
+  assert.equal(bs.netWorth, 400000);
+});
+
+test("statement columns add up for income and supplier accounts", async () => {
+  const { d, uid, acc } = await setup();
+  await addTransaction(d, uid, { type: "receipt", date: "2026-01-01", amount: 3000, fromAccountId: acc("Sales"), toAccountId: acc("Cash") });
+  await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 1000, fromAccountId: acc("Cash"), toAccountId: acc("Sales") });
+  const s = await accountStatement(d, uid, acc("Sales"), "2026-01-01", "2026-01-31");
+  assert.deepEqual(statementColumns(s.account), ["Earned", "Returned"]);
+  assert.deepEqual(s.lines.map((l) => [l.up, l.down, l.balance]), [[3000, 0, 3000], [0, 1000, 2000]]);
+});
+
+import { MIGRATIONS } from "../lib/db.ts";
+
+test("upgrade fixes old entries saved with the wrong type", async () => {
+  const { d, uid, acc } = await setup();
+  const id = await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 500, fromAccountId: acc("Owner Capital"), toAccountId: acc("Cash") });
+  await d.q("UPDATE transactions SET type = 'payment' WHERE id = $1", [id]); // how an old mix-up looked
+  await d.q("UPDATE categories SET role = NULL WHERE user_id = $1", [uid]); // as before the upgrade
+  await d.exec(MIGRATIONS[MIGRATIONS.length - 1]);
+  assert.equal((await listTransactions(d, uid, {})).find((r) => r.id === id)!.type, "receipt");
+  assert.equal((await categories(d, uid)).find((c) => c.name === "Cash")!.role, "cash");
+});

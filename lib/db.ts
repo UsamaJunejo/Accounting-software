@@ -304,6 +304,21 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE users ADD COLUMN IF NOT EXISTS num_format TEXT NOT NULL DEFAULT 'intl' CHECK (num_format IN ('intl','lakh'));
   ALTER TABLE accounts ADD COLUMN IF NOT EXISTS share_token TEXT UNIQUE;
   `,
+  /* 11: what a category is for (so renaming "Bank" doesn't break anything), and entry types
+         worked out from the accounts (money in / money out / transfer always match the accounts) */ `
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS role TEXT CHECK (role IN ('cash','bank','receivable','payable','opening'));
+  UPDATE categories SET role = CASE name WHEN 'Cash' THEN 'cash' WHEN 'Bank' THEN 'bank'
+    WHEN 'Receivables' THEN 'receivable' WHEN 'Payables' THEN 'payable' END
+  WHERE role IS NULL AND name IN ('Cash','Bank','Receivables','Payables');
+  UPDATE transactions t SET type = CASE
+      WHEN fc.role IN ('cash','bank') AND tc.role IN ('cash','bank') THEN 'transfer'
+      WHEN fc.role IN ('cash','bank') THEN 'payment'
+      WHEN tc.role IN ('cash','bank') THEN 'receipt'
+      ELSE 'transfer' END
+  FROM accounts fa JOIN subcategories fs ON fs.id = fa.subcategory_id JOIN categories fc ON fc.id = fs.category_id,
+       accounts ta JOIN subcategories ts ON ts.id = ta.subcategory_id JOIN categories tc ON tc.id = ts.category_id
+  WHERE fa.id = t.from_account_id AND ta.id = t.to_account_id;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

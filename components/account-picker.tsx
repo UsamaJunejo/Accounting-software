@@ -72,6 +72,26 @@ export function AccountPicker({
     list.current?.querySelector<HTMLElement>(`[data-i="${hi}"]`)?.scrollIntoView({ block: "nearest" });
   }, [hi]);
 
+  // Tell the rest of the page (the entry preview) what is chosen, and let it swap the two boxes.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("fc-pick", { detail: { name, id: sel } }));
+  }, [name, sel]);
+  useEffect(() => {
+    const set = (e: Event) => {
+      const d = (e as CustomEvent<{ name: string; id?: number }>).detail;
+      if (d.name === name) setSel(d.id);
+    };
+    const ask = () => window.dispatchEvent(new CustomEvent("fc-pick", { detail: { name, id: selRef.current } }));
+    window.addEventListener("fc-set", set);
+    window.addEventListener("fc-ask", ask);
+    return () => {
+      window.removeEventListener("fc-set", set);
+      window.removeEventListener("fc-ask", ask);
+    };
+  }, [name]);
+  const selRef = useRef(sel);
+  selRef.current = sel;
+
   const pick = (o: PickerOption) => {
     setSel(o.id);
     setOpen(false);

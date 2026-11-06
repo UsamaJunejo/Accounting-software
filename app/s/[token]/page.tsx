@@ -19,7 +19,7 @@ export default async function PublicStatement({ params }: { params: Promise<{ to
   const from = new Date(Date.parse(to) - 182 * 86_400_000).toISOString().slice(0, 10);
   const s = await accountStatement(d, acc.user_id, acc.id, from, to);
   const cur = currencySymbol(acc.currency);
-  const isCustomer = s.account.category === "Receivables";
+  const isCustomer = s.account.role === "receivable";
   const bal = s.closing;
   // Worded from the reader's side: a customer owes the shop; a supplier is owed by the shop.
   const headline =
@@ -41,8 +41,7 @@ export default async function PublicStatement({ params }: { params: Promise<{ to
             <tbody>
               <tr className="bg-white/50"><td colSpan={4}>Balance on {prettyDate(from)}</td><td className="num">{money(s.opening)}</td></tr>
               {s.lines.map((l) => {
-                const up = isCustomer ? l.moneyIn : l.moneyOut;
-                const down = isCustomer ? l.moneyOut : l.moneyIn;
+                const { up, down } = l;
                 return (
                   <tr key={l.id}>
                     <td className="whitespace-nowrap">{friendlyDate(l.date, to)}</td>

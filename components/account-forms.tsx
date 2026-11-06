@@ -3,6 +3,19 @@ import * as A from "@/app/actions/books";
 import { LookPicker } from "@/components/look-picker";
 import { ConfirmButton } from "@/components/confirm-button";
 
+// Plain-language choices. "kind:role" marks categories the app treats specially
+// (money accounts, customers, suppliers).
+const CATEGORY_TYPES: [string, string][] = [
+  ["asset:bank", "Money: cash, bank or mobile wallet"],
+  ["asset:receivable", "Customers who owe me (khata)"],
+  ["liability:payable", "Suppliers I owe (khata)"],
+  ["asset", "Things I own: stock, equipment, deposits"],
+  ["liability", "Loans and other things I owe"],
+  ["income", "Income: sales and other earnings"],
+  ["expense", "Expenses: rent, bills, salaries"],
+  ["equity", "Owner's money (capital, drawings)"],
+];
+
 export function AddCategoryForm({ back }: { back: string }) {
   return (
     <form action={A.addCategory} className="space-y-4">
@@ -12,11 +25,11 @@ export function AddCategoryForm({ back }: { back: string }) {
         <input id="cat-name" name="name" required placeholder="e.g. Online Business" className="input" />
       </div>
       <div>
-        <label className="label" htmlFor="cat-kind">What kind of money is it?</label>
+        <label className="label" htmlFor="cat-kind">What will it hold?</label>
         <select id="cat-kind" name="kind" required className="input" defaultValue="asset">
-          {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+          {CATEGORY_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <p className="mt-1 text-sm text-muted">Asset: things you own. Liability: what you owe. Income, Expense, or Equity (owner&apos;s money).</p>
+        <p className="mt-1 text-sm text-muted">This decides how its balance is worked out, so pick the closest one.</p>
       </div>
       <LookPicker />
       <button className="btn-primary w-full">Add category</button>
@@ -78,6 +91,11 @@ export function AddAccountForm({
           <label className="label" htmlFor="acc-budget">Monthly budget (optional)</label>
           <input id="acc-budget" name="budget" inputMode="decimal" className="input" />
         </div>
+      </div>
+      <div>
+        <label className="label" htmlFor="acc-opening">Balance it already has (optional)</label>
+        <input id="acc-opening" name="opening" inputMode="decimal" placeholder="0.00" className="input" />
+        <p className="mt-1 text-sm text-muted">Moving from MunshiBaba or a paper khata? Type today&apos;s balance: cash in hand, what a customer owes, what you owe a supplier.</p>
       </div>
       <button className="btn-primary w-full">Add account</button>
     </form>

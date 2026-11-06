@@ -21,7 +21,7 @@ export default async function Shared({ searchParams }: { searchParams: Promise<{
   ]);
   const invites = mine.filter((s) => s.status === "pending");
   const accepted = mine.filter((s) => s.status === "accepted");
-  const cash = accounts.find((a) => a.category === "Cash")?.id;
+  const cash = accounts.find((a) => a.role === "cash")?.id;
 
   return (
     <>

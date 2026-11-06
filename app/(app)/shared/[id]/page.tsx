@@ -78,15 +78,15 @@ export default async function SharedAccount({
           <Empty>No entries in this period.</Empty>
         ) : (
           <table className="table">
-            <thead><tr><th>Date</th><th>Note</th><th className="num">In</th><th className="num">Out</th><th className="num">Balance</th></tr></thead>
+            <thead><tr><th>Date</th><th>Note</th><th className="num">{s.columns[0]}</th><th className="num">{s.columns[1]}</th><th className="num">Balance</th></tr></thead>
             <tbody>
               <tr className="bg-paper font-medium"><td colSpan={4}>Opening balance</td><td className="num"><Money value={s.opening} /></td></tr>
               {s.lines.map((l) => (
                 <tr key={l.id}>
                   <td className="whitespace-nowrap">{prettyDate(l.date)}</td>
                   <td className="text-muted">{l.note}</td>
-                  <td className="num text-inflow">{l.moneyIn ? money(l.moneyIn) : ""}</td>
-                  <td className="num text-khata">{l.moneyOut ? money(l.moneyOut) : ""}</td>
+                  <td className="num text-inflow">{l.up ? money(l.up) : ""}</td>
+                  <td className="num text-khata">{l.down ? money(l.down) : ""}</td>
                   <td className="num font-medium"><Money value={l.balance} /></td>
                 </tr>
               ))}

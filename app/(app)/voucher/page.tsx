@@ -14,6 +14,8 @@ const LABELS: Record<TxnType, [string, string]> = {
 };
 import { deleteAttachment, saveTransaction } from "@/app/actions/books";
 import { MoneyFields } from "@/components/money-fields";
+import { EntryPreview } from "@/components/entry-preview";
+import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { AttachmentPicker } from "@/components/attachment-picker";
 import { today } from "@/lib/format";
@@ -52,8 +54,8 @@ export default async function Voucher({
   const tab = TABS.find((t) => t.type === type)!;
 
   const accounts = await accountsWithBalances(d, user.id);
-  const cash = accounts.find((a) => a.category === "Cash")?.id;
-  const bank = accounts.find((a) => a.category === "Bank")?.id;
+  const cash = accounts.find((a) => a.role === "cash")?.id;
+  const bank = accounts.find((a) => a.role === "bank")?.id;
   const pre = (v?: string) => (v && accounts.some((a) => a.id === Number(v)) ? Number(v) : undefined);
   // Start from what the user picked last time for this kind of entry.
   const last = editing ? undefined : await lastAccounts(d, user.id, type);
@@ -111,6 +113,11 @@ export default async function Voucher({
           <label className="label">{t(LABELS[type][1])}</label>
           <AccountSelect name="to" accounts={accounts} value={defTo} />
         </div>
+        <EntryPreview
+          tab={type}
+          cur={currencySymbol(user.currency)}
+          accounts={accounts.map((a) => ({ id: a.id, name: a.name, kind: a.kind, role: a.role }))}
+        />
         <div className="sm:col-span-2">
           <label className="label">{t("Note")}</label>
           <textarea name="note" rows={2} defaultValue={editing?.note ?? ""} className="input" placeholder="e.g. Bill no. 245, 10 bags cement" />

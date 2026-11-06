@@ -9,7 +9,7 @@ export const metadata = { title: "New invoice" };
 
 export default async function NewInvoice() {
   const user = await requireUser();
-  const customers = (await khata(await db(), user.id)).filter((a) => a.category === "Receivables");
+  const customers = (await khata(await db(), user.id)).filter((a) => a.role === "receivable");
   return (
     <>
       <PageHeader title="New invoice" subtitle="Make a bill for a customer. You can print it or send it on WhatsApp." />

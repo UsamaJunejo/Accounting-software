@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Banknote, MessageCircle, PackagePlus, Share2, ShoppingBag, Truck, UserPlus, Users } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountsWithBalances, khata, subcategories } from "@/lib/books";
+import { accountsWithBalances, categories, khata, subcategories } from "@/lib/books";
 import { addAccount } from "@/app/actions/books";
 import { Empty, Flash, Money, PageHeader } from "@/components/ui";
 import { money } from "@/lib/format";
@@ -20,25 +20,34 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const people = await khata(d, user.id);
   const accs = await accountsWithBalances(d, user.id);
   const subs = await subcategories(d, user.id);
-  const custSub = subs.find((s) => s.name.startsWith("Customers"));
-  const supSub = subs.find((s) => s.name === "Suppliers");
-  const id = (name: string) => accs.find((a) => a.name === name)?.id ?? "";
-  const cash = accs.find((a) => a.category === "Cash")?.id ?? "";
-  const sales = id("Sales");
-  const purchases = id("Purchases");
+  // Found by what the category is for, so it still works after renaming.
+  const cats = await categories(d, user.id);
+  const subOf = (role: string) => {
+    const c = cats.find((x) => x.role === role);
+    return c ? subs.find((s) => s.category_id === c.id) : undefined;
+  };
+  const custSub = subOf("receivable");
+  const supSub = subOf("payable");
+  const id = (name: string, kind: string) =>
+    (accs.find((a) => a.name === name && a.kind === kind && !a.archived) ?? accs.find((a) => a.kind === kind && !a.archived))?.id ?? "";
+  const cash = accs.find((a) => a.role === "cash")?.id ?? "";
+  const sales = id("Sales", "income");
+  const purchases = id("Purchases", "expense");
 
-  const customers = people.filter((p) => p.category === "Receivables");
-  const suppliers = people.filter((p) => p.category === "Payables");
+  const customers = people.filter((p) => p.role === "receivable");
+  const suppliers = people.filter((p) => p.role === "payable");
 
   const Section = ({
     title,
     rows,
     sub,
     hint,
+    openingHint,
     actions,
     Icon,
   }: {
     Icon: typeof Users;
+    openingHint: string;
     title: string;
     rows: typeof people;
     sub?: { id: number };
@@ -65,8 +74,8 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
                 <span className="me-2 text-end">
                   <Money value={Math.abs(r.balance)} className="font-bold" />
                   {r.balance !== 0 && (
-                    <span className={`block text-xs ${(r.category === "Receivables") === r.balance > 0 ? "text-inflow" : "text-khata"}`}>
-                      {(r.category === "Receivables") === r.balance > 0 ? t("You'll get") : t("You'll give")}
+                    <span className={`block text-xs ${(r.role === "receivable") === r.balance > 0 ? "text-inflow" : "text-khata"}`}>
+                      {(r.role === "receivable") === r.balance > 0 ? t("You'll get") : t("You'll give")}
                     </span>
                   )}
                 </span>
@@ -95,6 +104,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           <input type="hidden" name="back" value="/khata" />
           <input name="name" required placeholder={t("Name")} className="input max-w-48" />
           <input name="phone" placeholder={t("Mobile")} className="input max-w-40" />
+          <input name="opening" inputMode="decimal" placeholder={t(openingHint)} aria-label={t(openingHint)} className="input max-w-44" />
           <button className="btn-dark"><UserPlus className="h-4 w-4" />{t("Add")}</button>
         </form>
       )}
@@ -124,6 +134,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           Icon={Users}
           rows={customers}
           sub={custSub}
+          openingHint="Already owes you (optional)"
           hint="Udhaar sale: goods given on credit. Payment received: customer paid you."
           actions={(pid) => (
             <>
@@ -137,6 +148,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           Icon={Truck}
           rows={suppliers}
           sub={supSub}
+          openingHint="You already owe (optional)"
           hint="Bought on credit: stock received, not paid yet. Paid: you paid the supplier."
           actions={(pid) => (
             <>

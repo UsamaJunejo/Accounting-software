@@ -9,7 +9,7 @@ import { removeShare, shareAccount } from "@/app/actions/sharing";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountStatement, shareTokenOf } from "@/lib/books";
+import { accountStatement, shareTokenOf, statementColumns } from "@/lib/books";
 import { money, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, Flash, LinkButton, Money, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -36,7 +36,8 @@ export default async function Statement({
   }
   const shares = await sharesOfAccount(await db(), user.id, s.account.id);
   const a = s.account;
-  const isParty = a.category === "Receivables" || a.category === "Payables";
+  const cols = statementColumns(a);
+  const isParty = a.role === "receivable" || a.role === "payable";
   const phone = a.phone?.replace(/\D/g, "").replace(/^0/, "92");
   const token = isParty ? await shareTokenOf(await db(), user.id, a.id) : null;
   const h = await headers();
@@ -46,7 +47,7 @@ export default async function Statement({
     `Assalam-o-Alaikum ${a.name}, your balance with ${user.business_name || user.name} is ${cur} ${money(Math.abs(s.closing))} as of ${prettyDate(to)}.${link ? `\nFull statement: ${link}` : ""}\nThank you.`,
   );
   // Khata wording: lena (you will receive) / dena (you will give).
-  const isCustomer = a.category === "Receivables";
+  const isCustomer = a.role === "receivable";
   const lena = isParty && s.closing !== 0 ? ((isCustomer ? s.closing > 0 : s.closing < 0) ? "receive" : "give") : null;
 
   return (
@@ -114,7 +115,7 @@ export default async function Statement({
           <div className="overflow-x-auto">
             <table className="table">
               <thead>
-                <tr><th>Date</th><th>Details</th><th>Note</th><th className="num">In</th><th className="num">Out</th><th className="num">Balance</th></tr>
+                <tr><th>Date</th><th>Details</th><th>Note</th><th className="num">{cols[0]}</th><th className="num">{cols[1]}</th><th className="num">Balance</th></tr>
               </thead>
               <tbody>
                 <tr className="bg-paper font-medium"><td colSpan={5}>Opening balance</td><td className="num"><Money value={s.opening} /></td></tr>
@@ -125,8 +126,8 @@ export default async function Statement({
                       <Link href={`/voucher?edit=${l.id}`} className="hover:text-brand">{l.moneyIn ? "From " : "To "}{l.other}</Link>
                     </td>
                     <td className="text-muted">{l.note}</td>
-                    <td className="num text-inflow">{l.moneyIn ? money(l.moneyIn) : ""}</td>
-                    <td className="num text-khata">{l.moneyOut ? money(l.moneyOut) : ""}</td>
+                    <td className="num text-inflow">{l.up ? money(l.up) : ""}</td>
+                    <td className="num text-khata">{l.down ? money(l.down) : ""}</td>
                     <td className="num font-medium"><Money value={l.balance} /></td>
                   </tr>
                 ))}
