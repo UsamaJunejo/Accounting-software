@@ -97,15 +97,6 @@ export default async function Voucher({
         />
         <DateField defaultValue={editing?.date ?? today()} label={t("Date")} />
         <div>
-          <label className="label">{t("Project (optional)")}</label>
-          <select name="project" defaultValue={editing?.project_id ?? ""} className="input">
-            <option value="">{t("No project")}</option>
-            {projectList.filter((p) => !p.archived || p.id === editing?.project_id).map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
           <label className="label">{t(LABELS[type][0])}</label>
           <AccountSelect name="from" accounts={accounts} value={defFrom} />
         </div>
@@ -122,41 +113,58 @@ export default async function Voucher({
           <label className="label">{t("Note")}</label>
           <textarea name="note" rows={2} defaultValue={editing?.note ?? ""} className="input" placeholder="e.g. Bill no. 245, 10 bags cement" />
         </div>
-        <div>
-          <label className="label">{t("Highlight")}</label>
-          <div className="flex flex-wrap gap-3 pt-1">
-            {HIGHLIGHTS.map(([c, n]) => (
-              <label key={n} className="flex items-center gap-1 text-sm">
-                <input type="radio" name="highlight" value={c} defaultChecked={(editing?.highlight ?? "") === c} />
-                <span className="inline-block h-4 w-4 rounded border" style={{ background: c || "white" }} />
-                {n}
-              </label>
-            ))}
+        {/* Extras most people don't need every time, kept out of the way. */}
+        <details className="group sm:col-span-2" open={Boolean(editing && (editing.project_id || editing.highlight || existing.length))}>
+          <summary className="cursor-pointer select-none py-1 text-[15px] font-semibold text-brand">
+            {t("More options")} <span className="font-normal text-muted">({t("project, colour, bill photo")})</span>
+          </summary>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">{t("Project (optional)")}</label>
+              <select name="project" defaultValue={editing?.project_id ?? ""} className="input">
+                <option value="">{t("No project")}</option>
+                {projectList.filter((p) => !p.archived || p.id === editing?.project_id).map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">{t("Highlight")}</label>
+              <div className="flex flex-wrap gap-3 pt-1">
+                {HIGHLIGHTS.map(([c, n]) => (
+                  <label key={n} className="flex items-center gap-1 text-sm">
+                    <input type="radio" name="highlight" value={c} defaultChecked={(editing?.highlight ?? "") === c} />
+                    <span className="inline-block h-4 w-4 rounded border" style={{ background: c || "white" }} />
+                    {n}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="sm:col-span-2">
+              {existing.length > 0 && (
+                <ul className="mb-3 flex flex-wrap gap-2">
+                  {existing.map((f) => (
+                    <li key={f.id} className="flex items-center gap-2 rounded-lg border border-rule bg-paper px-2 py-1 text-xs">
+                      <a href={`/api/attachments/${f.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-medium text-ink">
+                        {f.mime.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={`/api/attachments/${f.id}`} alt="" className="h-10 w-10 rounded object-cover" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                        {f.filename}
+                      </a>
+                      <button formAction={deleteAttachment} name="attachment" value={f.id} formNoValidate className="text-khata" aria-label="Remove attachment">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <AttachmentPicker max={MAX_ATTACHMENTS - existing.length} />
+            </div>
           </div>
-        </div>
-        <div className="sm:col-span-2">
-          {existing.length > 0 && (
-            <ul className="mb-3 flex flex-wrap gap-2">
-              {existing.map((f) => (
-                <li key={f.id} className="flex items-center gap-2 rounded-lg border border-rule bg-paper px-2 py-1 text-xs">
-                  <a href={`/api/attachments/${f.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 font-medium text-ink">
-                    {f.mime.startsWith("image/") ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`/api/attachments/${f.id}`} alt="" className="h-10 w-10 rounded object-cover" />
-                    ) : (
-                      <FileText className="h-4 w-4" />
-                    )}
-                    {f.filename}
-                  </a>
-                  <button formAction={deleteAttachment} name="attachment" value={f.id} formNoValidate className="text-khata" aria-label="Remove attachment">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <AttachmentPicker max={MAX_ATTACHMENTS - existing.length} />
-        </div>
+        </details>
         <div className="flex items-end justify-end gap-2 sm:col-span-2">
           {editing ? (
             <Link href="/transactions" className="btn-ghost">{t("Cancel")}</Link>

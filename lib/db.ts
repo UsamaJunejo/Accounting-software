@@ -319,6 +319,13 @@ export const MIGRATIONS: string[] = [
        accounts ta JOIN subcategories ts ON ts.id = ta.subcategory_id JOIN categories tc ON tc.id = ts.category_id
   WHERE fa.id = t.from_account_id AND ta.id = t.to_account_id;
   `,
+  /* 12: plain words for the account that holds starting balances */ `
+  UPDATE accounts a SET name = 'Starting balance'
+  FROM subcategories s JOIN categories c ON c.id = s.category_id
+  WHERE s.id = a.subcategory_id AND c.kind = 'equity' AND a.name = 'Opening Balances'
+    AND NOT EXISTS (SELECT 1 FROM accounts x WHERE x.user_id = a.user_id AND x.name = 'Starting balance');
+  UPDATE transactions SET note = 'Starting balance' WHERE note = 'Opening balance';
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

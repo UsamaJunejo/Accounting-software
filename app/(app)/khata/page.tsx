@@ -134,7 +134,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           Icon={Users}
           rows={customers}
           sub={custSub}
-          openingHint="Already owes you (optional)"
+          openingHint="Owes you now"
           hint="Udhaar sale: goods given on credit. Payment received: customer paid you."
           actions={(pid) => (
             <>
@@ -148,7 +148,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           Icon={Truck}
           rows={suppliers}
           sub={supSub}
-          openingHint="You already owe (optional)"
+          openingHint="You owe now"
           hint="Bought on credit: stock received, not paid yet. Paid: you paid the supplier."
           actions={(pid) => (
             <>

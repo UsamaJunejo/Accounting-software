@@ -194,7 +194,7 @@ test("opening balances: customer owes, supplier is owed, books still balance", a
   assert.equal(bal["Ahmed"], 500000);
   assert.equal(bal["Cement Co"], 200000);
   assert.equal(bal["Cash"], 100000);
-  assert.equal(bal["Opening Balances"], 400000);
+  assert.equal(bal["Starting balance"], 400000);
   const bs = await balanceSheet(d, uid, "2026-12-31");
   assert.ok(bs.balanced);
   assert.equal(bs.netWorth, 400000);
@@ -216,7 +216,7 @@ test("upgrade fixes old entries saved with the wrong type", async () => {
   const id = await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 500, fromAccountId: acc("Owner Capital"), toAccountId: acc("Cash") });
   await d.q("UPDATE transactions SET type = 'payment' WHERE id = $1", [id]); // how an old mix-up looked
   await d.q("UPDATE categories SET role = NULL WHERE user_id = $1", [uid]); // as before the upgrade
-  await d.exec(MIGRATIONS[MIGRATIONS.length - 1]);
+  await d.exec(MIGRATIONS[9]); // version 11
   assert.equal((await listTransactions(d, uid, {})).find((r) => r.id === id)!.type, "receipt");
   assert.equal((await categories(d, uid)).find((c) => c.name === "Cash")!.role, "cash");
 });

@@ -501,12 +501,12 @@ export async function addOpeningBalance(d: Db, userId: number, accountId: number
   const accs = await accountsWithBalances(d, userId);
   const acc = accs.find((a) => a.id === accountId);
   if (!acc) throw new Error("Not found");
-  let opening = accs.find((a) => a.kind === "equity" && a.name === "Opening Balances");
+  const opening = accs.find((a) => a.kind === "equity" && (a.name === "Starting balance" || a.name === "Opening Balances"));
   let openingId = opening?.id;
   if (!openingId) {
     const eq = (await categories(d, userId)).find((c) => c.kind === "equity");
     const catId = eq?.id ?? (await addCategory(d, userId, "Equity", "equity"));
-    openingId = await addAccount(d, userId, await defaultSubcategory(d, userId, catId), "Opening Balances");
+    openingId = await addAccount(d, userId, await defaultSubcategory(d, userId, catId), "Starting balance");
   }
   if (openingId === accountId) throw new Error("Choose another account");
   // Assets and expenses grow when money goes into them; the rest grow when it comes out.
@@ -517,7 +517,7 @@ export async function addOpeningBalance(d: Db, userId: number, accountId: number
     amount: balance,
     fromAccountId: grows ? openingId : accountId,
     toAccountId: grows ? accountId : openingId,
-    note: "Opening balance",
+    note: "Starting balance",
   });
 }
 

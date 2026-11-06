@@ -7,7 +7,8 @@ import { today } from "@/lib/format";
 const cell = (v: unknown) => {
   const s = v == null ? "" : String(v);
   // Quote, and stop spreadsheet formula injection.
-  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
+  // Plain numbers (including negative ones like -10000.00) stay numbers so Excel can add them up.
+  const safe = /^[=+\-@\t\r]/.test(s) && !/^-\d+(\.\d+)?$/.test(s) ? `'${s}` : s;
   return `"${safe.replace(/"/g, '""')}"`;
 };
 const rs = (paisa: number) => (paisa / 100).toFixed(2);
