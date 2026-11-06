@@ -1,6 +1,6 @@
 import { fixRange } from "@/lib/format";
 import Link from "next/link";
-import { MessageCircle, Pencil, PlusCircle, Share2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, MessageCircle, Pencil, PlusCircle, Share2 } from "lucide-react";
 import { sharesOfAccount } from "@/lib/sharing";
 import { headers } from "next/headers";
 import { friendlyCategory } from "@/lib/look";
@@ -10,7 +10,7 @@ import { removeShare, shareAccount } from "@/app/actions/sharing";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountStatement, shareTokenOf, statementColumns } from "@/lib/books";
+import { accountStatement, isMoney, shareTokenOf, statementColumns } from "@/lib/books";
 import { money, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, Flash, LinkButton, Money, PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -63,6 +63,13 @@ export default async function Statement({
                 <MessageCircle className="h-4 w-4" />
                 Send on WhatsApp
               </a>
+            )}
+            {isMoney(a) && (
+              <>
+                {/* Money that comes into or goes out of this account, with the account already filled in. */}
+                <Link href={`/voucher?type=receipt&to=${a.id}`} className="btn bg-inflow text-white hover:opacity-90"><ArrowDownLeft className="h-4 w-4" />Money In</Link>
+                <Link href={`/voucher?type=payment&from=${a.id}`} className="btn bg-khata text-white hover:opacity-90"><ArrowUpRight className="h-4 w-4" />Money Out</Link>
+              </>
             )}
             <PrintButton />
             <LinkButton href={`/accounts/${a.id}/edit#opening`}><PlusCircle className="h-4 w-4" />Starting balance</LinkButton>
