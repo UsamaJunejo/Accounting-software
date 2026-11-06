@@ -8,6 +8,9 @@ import { approvePayment, grantMonths, rejectPayment, saveBillingSettings } from 
 import { money, today } from "@/lib/format";
 import { Empty, Flash, PageHeader } from "@/components/ui";
 import { AdminReset } from "@/components/admin-reset";
+import { ConfirmButton } from "@/components/confirm-button";
+import { adminDeleteUser } from "@/app/actions/maintenance";
+import Link from "next/link";
 
 export const metadata = { title: "Admin" };
 
@@ -51,7 +54,11 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
 
   return (
     <>
-      <PageHeader title="Admin" subtitle={`${total} registered ${total === 1 ? "user" : "users"}. Only admins can see this page.`} />
+      <PageHeader
+        title="Admin"
+        subtitle={`${total} registered ${total === 1 ? "user" : "users"}. Only admins can see this page.`}
+        actions={<Link href="/admin/check" className="btn-dark"><ShieldCheck className="h-4 w-4" />Check everyone&apos;s books</Link>}
+      />
       <Flash sp={sp} />
       <form className="card mb-5 flex gap-2 p-4">
         <div className="relative flex-1">
@@ -102,6 +109,12 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
                   <td>{u.has_recovery ? "Saved" : <span className="text-marigold">Not yet</span>}</td>
                   <td className="space-y-2">
                     {u.id !== me.id && <AdminReset id={u.id} name={u.name} phone={u.phone} />}
+                    {u.id !== me.id && (
+                      <form action={adminDeleteUser}>
+                        <input type="hidden" name="id" value={u.id} />
+                        <ConfirmButton className="text-xs font-semibold text-khata" message={`Delete ${u.name} (${u.email}) and all their data? This can't be undone.`} confirmLabel="Delete user">Delete user</ConfirmButton>
+                      </form>
+                    )}
                     {u.id !== me.id && (
                       <form action={adminSetAdmin}>
                         <input type="hidden" name="id" value={u.id} />

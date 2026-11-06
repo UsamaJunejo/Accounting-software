@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Coins, Database, Hash, Palette, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, UserRound } from "lucide-react";
+import { Coins, Database, Hash, Palette, Download, Gift, HeartHandshake, KeyRound, Layers, LifeBuoy, MessageCircle, RotateCcw, Trash2, UserRound } from "lucide-react";
+import { deleteMyAccount, resetMyBooks } from "@/app/actions/maintenance";
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { CurrencySettings } from "@/components/currency-settings";
@@ -131,6 +132,33 @@ export default async function Settings({ searchParams }: { searchParams: Promise
               <a href="/backup" className="btn-ghost"><Download className="h-4 w-4" />Everything (backup file)</a>
             </div>
             <p className="text-sm text-muted">Budgets are set per account: open <Link href="/accounts" className="font-semibold text-brand">Accounts</Link> → Edit.</p>
+          </div>
+          <div id="start-again" className="card space-y-4 border border-khata/30 p-5">
+            <h2 className="flex items-center gap-2 font-semibold text-khata"><RotateCcw className="h-5 w-5" />Start again</h2>
+            <p className="text-sm text-muted">
+              This can&apos;t be undone. <a href="/backup" className="font-semibold text-brand">Download everything</a> first if you might want it later.
+            </p>
+            <form action={resetMyBooks} className="space-y-3">
+              <fieldset className="space-y-1.5 text-[15px]">
+                <legend className="label">What should be removed?</legend>
+                <label className="flex items-start gap-2"><input type="radio" name="mode" value="entries" defaultChecked className="mt-1" />All entries, invoices and repeating entries. <span className="text-muted">Keep my accounts.</span></label>
+                <label className="flex items-start gap-2"><input type="radio" name="mode" value="everything" className="mt-1" />Everything, and give me the ready-made accounts again.</label>
+              </fieldset>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className="label" htmlFor="reset-pw">Your password</label><input id="reset-pw" name="password" type="password" required autoComplete="current-password" className="input" /></div>
+                <div><label className="label" htmlFor="reset-word">Type RESET</label><input id="reset-word" name="confirm" required autoComplete="off" className="input" /></div>
+              </div>
+              <button className="btn-danger"><RotateCcw className="h-4 w-4" />Reset my books</button>
+            </form>
+            <form action={deleteMyAccount} className="space-y-3 border-t border-rule pt-4">
+              <h3 className="flex items-center gap-2 font-semibold text-khata"><Trash2 className="h-5 w-5" />Delete my account</h3>
+              <p className="text-sm text-muted">Removes your login and all your data from FinanceChachu for good.</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className="label" htmlFor="del-pw">Your password</label><input id="del-pw" name="password" type="password" required autoComplete="current-password" className="input" /></div>
+                <div><label className="label" htmlFor="del-word">Type DELETE</label><input id="del-word" name="confirm" required autoComplete="off" className="input" /></div>
+              </div>
+              <button className="btn-danger"><Trash2 className="h-4 w-4" />Delete my account</button>
+            </form>
           </div>
         </div>
       </div>

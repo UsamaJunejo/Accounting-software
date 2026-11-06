@@ -220,3 +220,37 @@ test("upgrade fixes old entries saved with the wrong type", async () => {
   assert.equal((await listTransactions(d, uid, {})).find((r) => r.id === id)!.type, "receipt");
   assert.equal((await categories(d, uid)).find((c) => c.name === "Cash")!.role, "cash");
 });
+
+import { checkBooks, deleteUser, fixEntryTypes, resetBooks } from "../lib/maintenance.ts";
+
+test("books check finds cash below zero, double saves and wrong labels", async () => {
+  const { d, uid, acc } = await setup();
+  const pay = { type: "payment" as const, date: "2026-01-02", amount: 5000, fromAccountId: acc("Cash"), toAccountId: acc("Rent") };
+  await addTransaction(d, uid, pay);
+  await addTransaction(d, uid, pay);
+  const id = await addTransaction(d, uid, { ...pay, toAccountId: acc("Fuel") });
+  await d.q("UPDATE transactions SET type = 'receipt' WHERE id = $1", [id]);
+  const text = (await checkBooks(d, uid, "2026-06-01")).map((i) => i.text).join("\n");
+  assert.match(text, /Cash is below zero/);
+  assert.match(text, /1 entries look saved twice/);
+  assert.match(text, /1 entries are labelled/);
+  assert.doesNotMatch(text, /does not balance/);
+  assert.equal(await fixEntryTypes(d), 1);
+  assert.doesNotMatch((await checkBooks(d, uid, "2026-06-01")).map((i) => i.text).join("\n"), /labelled/);
+});
+
+test("reset keeps or replaces accounts; delete removes the person", async () => {
+  const { d, uid, acc } = await setup();
+  const other = await createUser(d, { name: "B", email: "b3@example.com", passwordHash: "x" });
+  await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 100, fromAccountId: acc("Cash"), toAccountId: acc("Rent") });
+  await addAccount(d, uid, (await subcategories(d, uid))[0].id, "My extra account");
+  await resetBooks(d, uid, "entries");
+  assert.equal((await listTransactions(d, uid, {})).length, 0);
+  assert.ok((await accountsWithBalances(d, uid)).some((a) => a.name === "My extra account"));
+  await resetBooks(d, uid, "everything");
+  const names = (await accountsWithBalances(d, uid)).map((a) => a.name);
+  assert.ok(!names.includes("My extra account") && names.includes("Cash"));
+  await assert.rejects(() => deleteUser(d, uid), /only admin/); // first user is the admin
+  await deleteUser(d, other);
+  assert.equal((await d.q("SELECT 1 FROM users WHERE id = $1", [other])).length, 0);
+});
