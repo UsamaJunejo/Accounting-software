@@ -334,6 +334,10 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_mime TEXT CHECK (photo_mime IN ('image/jpeg','image/png','image/webp'));
   ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_at TIMESTAMPTZ;
   `,
+  /* 15: default currency for new accounts made inside a category or sub-category */ `
+  ALTER TABLE categories ADD COLUMN IF NOT EXISTS currency TEXT CHECK (currency ~ '^[A-Z]{3,4}$');
+  ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS currency TEXT CHECK (currency ~ '^[A-Z]{3,4}$');
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

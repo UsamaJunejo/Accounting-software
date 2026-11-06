@@ -45,7 +45,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
       <>
         <PageHeader title="Accounts" subtitle="Tap an account to see its statement." actions={actions} />
         <Flash sp={sp} />
-        <DrillTiles items={items} addLabel="Add account" addForm={<AddAccountForm categories={cats} back="/accounts" />} />
+        <DrillTiles items={items} addLabel="Add account" addForm={<AddAccountForm categories={cats} back="/accounts" primary={user.currency} />} />
         <DrillCharts items={chartItems} cur={cur} donutTitle="Biggest balances" barsTitle="Account balances" />
       </>
     );
@@ -69,7 +69,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     <>
       <PageHeader title="Accounts" subtitle="Tap a category to open it. Each one has its own colour, used in every chart." actions={actions} />
       <Flash sp={sp} />
-      <DrillTiles items={items} addLabel="Add category" addForm={<AddCategoryForm back="/accounts" />} />
+      <DrillTiles items={items} addLabel="Add category" addForm={<AddCategoryForm back="/accounts" primary={user.currency} />} />
       <DrillCharts items={balanceSheet} cur={cur} donutTitle="Share of each category" barsTitle="Category balances" />
     </>
   );

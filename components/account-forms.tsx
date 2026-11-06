@@ -19,7 +19,8 @@ const CATEGORY_TYPES: [string, string][] = [
   ["equity", "Owner's money (capital, drawings)"],
 ];
 
-export function AddCategoryForm({ back }: { back: string }) {
+export function AddCategoryForm({ back, primary = "PKR" }: { back: string; primary?: string }) {
+  const currency = "";
   return (
     <form action={A.addCategory} className="space-y-4">
       <input type="hidden" name="back" value={back} />
@@ -34,13 +35,14 @@ export function AddCategoryForm({ back }: { back: string }) {
         </select>
         <p className="mt-1 text-sm text-muted">This decides how its balance is worked out, so pick the closest one.</p>
       </div>
+      <CurrencyPick primary={primary} value={currency ?? ""} label="Currency for accounts in it (optional)" />
       <LookPicker />
       <button className="btn-primary w-full">Add category</button>
     </form>
   );
 }
 
-export function AddSubcategoryForm({ categoryId, back }: { categoryId: number; back: string }) {
+export function AddSubcategoryForm({ categoryId, back, primary = "PKR", currency = null }: { categoryId: number; back: string; primary?: string; currency?: string | null }) {
   return (
     <form action={A.addSubcategory} className="space-y-4">
       <input type="hidden" name="back" value={back} />
@@ -49,6 +51,7 @@ export function AddSubcategoryForm({ categoryId, back }: { categoryId: number; b
         <label className="label" htmlFor="sub-name">Sub-category name</label>
         <input id="sub-name" name="name" required placeholder="e.g. Vehicles" className="input" />
       </div>
+      <CurrencyPick primary={primary} value={currency ?? ""} label="Currency for accounts in it (optional)" />
       <LookPicker />
       <button className="btn-primary w-full">Add sub-category</button>
     </form>
@@ -61,11 +64,16 @@ export function AddAccountForm({
   categories,
   categoryId,
   back,
+  primary = "PKR",
+  currency = null,
 }: {
   subcategoryId?: number;
   categoryId?: number;
   categories?: { id: number; name: string }[];
   back: string;
+  primary?: string;
+  /** Pre-selected currency (the sub-category's or category's default). */
+  currency?: string | null;
 }) {
   return (
     <form action={A.addAccount} className="space-y-4">
@@ -95,8 +103,9 @@ export function AddAccountForm({
           <input id="acc-budget" name="budget" inputMode="decimal" className="input" />
         </div>
       </div>
+      <CurrencyPick primary={primary} value={currency ?? ""} needRate />
       <div>
-        <label className="label" htmlFor="acc-opening">Balance it already has (optional)</label>
+        <label className="label" htmlFor="acc-opening">Balance it already has (optional, in the account&apos;s currency)</label>
         <input id="acc-opening" name="opening" inputMode="decimal" placeholder="0.00" className="input" />
         <p className="mt-1 text-sm text-muted">Moving from MunshiBaba or a paper khata? Type today&apos;s balance: cash in hand, what a customer owes, what you owe a supplier.</p>
       </div>
@@ -115,7 +124,11 @@ export function EditGroupForm({
   categories,
   back,
   deleteBack,
+  primary = "PKR",
+  currency = null,
 }: {
+  primary?: string;
+  currency?: string | null;
   kind: "category" | "sub";
   id: number;
   name: string;
@@ -143,6 +156,10 @@ export function EditGroupForm({
             </select>
           </div>
         )}
+        <div>
+          <CurrencyPick primary={primary} value={currency ?? ""} label="Currency for new accounts in it (optional)" />
+          <p className="mt-1 text-sm text-muted">Accounts already in it keep their own currency. Change those on each account&apos;s edit page.</p>
+        </div>
         <LookPicker color={color} icon={icon} />
         <button className="btn-primary w-full">Save changes</button>
       </form>

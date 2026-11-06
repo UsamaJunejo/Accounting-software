@@ -323,8 +323,8 @@ test("accounts in their own currency: USD bank and USDT wallet", async () => {
   assert.equal(t.native, 100_00);
   assert.equal(t.balance, 28500_00);
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
-  // currency can't change once there are entries
-  await assert.rejects(() => updateAccount(d, uid, usd, { name: "Meezan Dollar", subcategoryId: bankSub, currency: "AED" }), /can't be changed/);
+  // changing to another currency needs a rate for the old entries
+  await assert.rejects(() => updateAccount(d, uid, usd, { name: "Meezan Dollar", subcategoryId: bankSub, currency: "AED" }), /Enter the rate/);
 });
 
 import { getPhoto, removePhoto, setPhoto } from "../lib/profile.ts";
@@ -339,4 +339,59 @@ test("profile photo: real pictures only, can be removed", async () => {
   await assert.rejects(() => setPhoto(d, uid, new Uint8Array(3 * 1024 * 1024)), /too big/);
   await removePhoto(d, uid);
   assert.equal(await getPhoto(d, uid), null);
+});
+
+import { accountImpact, addSubcategory, changeAccountCurrency, deleteAccountWithEntries, mergeAccount } from "../lib/books.ts";
+
+test("changing an account's currency converts its entries and keeps every total", async () => {
+  const { d, uid, acc } = await setup();
+  await addTransaction(d, uid, { type: "receipt", date: "2026-01-01", amount: 280000_00, fromAccountId: acc("Owner Capital"), toAccountId: acc("Bank Account") });
+  await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 28000_00, fromAccountId: acc("Bank Account"), toAccountId: acc("Rent") });
+  const before = await balanceSheet(d, uid, "2026-12-31");
+  await assert.rejects(() => changeAccountCurrency(d, uid, acc("Bank Account"), "USD", null), /Enter the rate/);
+  await changeAccountCurrency(d, uid, acc("Bank Account"), "USD", 280);
+  const bank = (await accountsWithBalances(d, uid)).find((a) => a.name === "Bank Account")!;
+  assert.equal(bank.currency, "USD");
+  assert.equal(bank.native, 900_00); // $1,000 in, $100 out
+  assert.equal(bank.balance, 252000_00); // rupee value unchanged
+  const after = await balanceSheet(d, uid, "2026-12-31");
+  assert.equal(after.totalAssets, before.totalAssets);
+  assert.ok(after.balanced);
+  // and back to the main currency
+  await changeAccountCurrency(d, uid, acc("Bank Account"), "", null);
+  const back = (await accountsWithBalances(d, uid)).find((a) => a.name === "Bank Account")!;
+  assert.equal(back.currency, null);
+  assert.equal(back.balance, 252000_00);
+});
+
+test("new accounts take the currency of their sub-category or category", async () => {
+  const { d, uid } = await setup();
+  const bankCat = (await categories(d, uid)).find((c) => c.role === "bank")!;
+  const sub = await addSubcategory(d, uid, bankCat.id, "Crypto", { currency: "USDT" });
+  const id = await addAccount(d, uid, sub, "Binance");
+  assert.equal((await accountsWithBalances(d, uid)).find((a) => a.id === id)!.currency, "USDT");
+  const id2 = await addAccount(d, uid, sub, "Local wallet", { currency: "" });
+  assert.equal((await accountsWithBalances(d, uid)).find((a) => a.id === id2)!.currency, null);
+});
+
+test("an account with money can be merged or deleted, with the effect shown first", async () => {
+  const { d, uid, acc } = await setup();
+  const sub = (await subcategories(d, uid)).find((s) => s.name === "Bank Accounts")!.id;
+  const old = await addAccount(d, uid, sub, "Old Bank");
+  await addTransaction(d, uid, { type: "receipt", date: "2026-01-01", amount: 5000, fromAccountId: acc("Sales"), toAccountId: old });
+  await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 1000, fromAccountId: old, toAccountId: acc("Rent") });
+  const imp = await accountImpact(d, uid, old);
+  assert.equal(imp.entries, 2);
+  assert.deepEqual(imp.others.map((o) => [o.name, o.change]), [["Sales", -5000], ["Rent", -1000]]);
+  // merge into Bank Account: balance moves, nothing else changes
+  await mergeAccount(d, uid, old, acc("Bank Account"));
+  let bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Bank Account"], 4000);
+  assert.equal(bal["Old Bank"], undefined);
+  // delete with entries: Sales and Rent lose them
+  await deleteAccountWithEntries(d, uid, acc("Bank Account"));
+  bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Sales"], 0);
+  assert.equal(bal["Rent"], 0);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });

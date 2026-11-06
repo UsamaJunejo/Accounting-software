@@ -103,12 +103,13 @@ export default async function Statement({
       {a.currency && a.native !== null && (
         <section className="card mb-5 flex flex-wrap items-baseline justify-between gap-3 p-5">
           <div>
-            <div className="text-sm text-muted">Balance in {a.currency} today</div>
-            <div className="text-3xl font-bold tabular-nums text-ink" dir="ltr">{a.currency} <Money value={a.native} /></div>
+            <div className="text-sm text-muted">Balance today</div>
+            <div className="text-3xl font-bold tabular-nums text-ink" dir="ltr">{cur} <Money value={a.balance} /></div>
+            <div className="text-lg font-semibold tabular-nums text-muted" dir="ltr">{a.currency} <Money value={a.native} /></div>
           </div>
-          <div className="text-sm text-muted" dir="ltr">
-            In your books: {cur} {money(a.balance)}
-            <span className="block text-xs">at the rates you entered</span>
+          <div className="text-sm text-muted">
+            This account is kept in {a.currency}.
+            <span className="block text-xs">{cur} values use the rates you entered.</span>
           </div>
         </section>
       )}

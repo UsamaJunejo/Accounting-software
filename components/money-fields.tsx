@@ -34,6 +34,7 @@ export function MoneyFields({
   const picked = useRef<{ from?: number; to?: number }>({});
   const known = useRef<Record<number, string>>({ ...accountCurrencies });
   const curRef = useRef(cur);
+  const auto = useRef(false);
   curRef.current = cur;
   useEffect(() => {
     const apply = () => {
@@ -43,6 +44,12 @@ export function MoneyFields({
         setCur(need);
         setR("");
         fetchRate(need);
+        auto.current = true;
+      } else if (!need && auto.current && curRef.current !== primary) {
+        // We switched it for a foreign account that's no longer picked: back to the main currency.
+        setCur(primary);
+        setMsg("");
+        auto.current = false;
       }
     };
     const onPick = (e: Event) => {

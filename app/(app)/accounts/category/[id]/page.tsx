@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, KIND_LABEL, subcategories } from "@/lib/books";
@@ -44,13 +44,13 @@ export default async function CategoryPage({ params, searchParams }: { params: P
           note: `${inSub.length} ${inSub.length === 1 ? "account" : "accounts"}`,
         };
       });
-    add = { label: `Add to ${cat.name}`, form: <AddSubcategoryForm categoryId={cat.id} back={here} /> };
+    add = { label: `Add sub-category to ${cat.name}`, form: <AddSubcategoryForm categoryId={cat.id} back={here} primary={user.currency} currency={cat.currency} /> };
   } else {
     items = mine.map((a, i) => {
       const s = subs.find((x) => x.id === a.subcategory_id);
       return { key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, native: a.currency && a.native !== null ? { amount: a.native, currency: a.currency } : null, color: s?.color ?? colorAt(i), icon: s?.icon ?? cat.icon ?? defaultIconKey(cat.name, cat.kind), kind: cat.kind };
     });
-    add = { label: `Add account to ${cat.name}`, form: <AddAccountForm categoryId={cat.id} back={here} /> };
+    add = { label: `Add account to ${cat.name}`, form: <AddAccountForm categoryId={cat.id} back={here} primary={user.currency} currency={cat.currency} /> };
   }
 
   return (
@@ -60,9 +60,17 @@ export default async function CategoryPage({ params, searchParams }: { params: P
         title={friendlyCategory(cat.name)}
         subtitle={`${accountingTerm(cat.name) ? `${cat.name}, ` : ""}${KIND_LABEL[cat.kind]} | ${mine.length} ${mine.length === 1 ? "account" : "accounts"}`}
         actions={
-          <Dialog title={`Edit ${cat.name}`} triggerClass="btn-ghost" trigger={<><Pencil className="h-4 w-4" />Edit category</>}>
-            <EditGroupForm kind="category" id={cat.id} name={cat.name} color={cat.color} icon={cat.icon} back={here} deleteBack="/accounts" />
-          </Dialog>
+          <>
+            {/* Detailed view: an account can still go straight in (into its first sub-category, or a new "General" one). */}
+            {user.level === 3 && (
+              <Dialog title={`Add account to ${cat.name}`} triggerClass="btn-primary" trigger={<><Plus className="h-4 w-4" />Add account</>}>
+                <AddAccountForm categoryId={cat.id} back={here} primary={user.currency} currency={cat.currency} />
+              </Dialog>
+            )}
+            <Dialog title={`Edit ${cat.name}`} triggerClass="btn-ghost" trigger={<><Pencil className="h-4 w-4" />Edit category</>}>
+              <EditGroupForm primary={user.currency} currency={cat.currency} kind="category" id={cat.id} name={cat.name} color={cat.color} icon={cat.icon} back={here} deleteBack="/accounts" />
+            </Dialog>
+          </>
         }
       />
       <Flash sp={sp} />

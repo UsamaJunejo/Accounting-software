@@ -115,7 +115,12 @@ export async function restoreTransaction(form: FormData) {
   await run(back && back.startsWith("/") ? back : "/reports/deleted", (uid, d) => B.restoreTransaction(d, uid, int(form, "id")), "Entry restored");
 }
 
-const look = (form: FormData) => ({ color: str(form, "color") || null, icon: str(form, "icon") || null });
+const look = (form: FormData) => ({
+  color: str(form, "color") || null,
+  icon: str(form, "icon") || null,
+  // Only when the form has a currency box; "" means the main currency.
+  ...(form.has("currency") ? { currency: str(form, "currency") || null } : {}),
+});
 
 export async function addCategory(form: FormData) {
   await run(str(form, "back") || "/accounts", async (uid, d) => {
@@ -165,8 +170,20 @@ export async function addAccount(form: FormData) {
     if (Number.isNaN(opening)) throw new Error("Please enter the balance as a number, e.g. 5000");
     // Account and its opening balance are saved together, or not at all.
     await d.tx(async (x) => {
-      const id = await B.addAccount(x, uid, sub, name, { phone: str(form, "phone"), budgetMonthly: budget(form) });
-      if (opening > 0) await B.addOpeningBalance(x, uid, id, opening, today());
+      const id = await B.addAccount(x, uid, sub, name, {
+        phone: str(form, "phone"),
+        budgetMonthly: budget(form),
+        currency: form.has("currency") ? str(form, "currency") || null : undefined,
+      });
+      if (opening > 0) {
+        const acc = (await B.accountsWithBalances(x, uid)).find((a) => a.id === id)!;
+        if (acc.currency) {
+          // Typed in the account's own currency, so it needs the rate to the main currency too.
+          const rate = Number(str(form, "rate").replace(/,/g, ""));
+          if (!(rate > 0)) throw new Error(`Enter the rate for ${acc.currency}, so the balance can be shown in your main currency too.`);
+          await B.addOpeningBalance(x, uid, id, Math.round(opening * rate), today(), { foreignAmount: opening, rate });
+        } else await B.addOpeningBalance(x, uid, id, opening, today());
+      }
     });
   }, "Account added");
 }
@@ -198,6 +215,7 @@ export async function updateAccount(form: FormData) {
       budgetMonthly: budget(form),
       archived: form.get("archived") === "on",
       currency: form.has("currency") ? str(form, "currency") || null : undefined,
+      rate: form.has("rate") ? Number(str(form, "rate").replace(/,/g, "")) || null : null,
     });
   }, "Account saved");
 }
@@ -237,4 +255,33 @@ export async function deleteSubcategory(form: FormData) {
 export async function setStatementLink(form: FormData) {
   const id = int(form, "id");
   await run(`/accounts/${id}`, (uid, d) => B.statementLink(d, uid, id, form.get("on") === "1"), form.get("on") === "1" ? "Statement link ready" : "Statement link turned off");
+}
+
+/** Move everything from one account into another, then delete the first. */
+export async function mergeAccount(form: FormData) {
+  const id = int(form, "id");
+  const into = int(form, "into");
+  const u = await requireUser();
+  try {
+    if (!into) throw new Error("Choose the account to move it into");
+    await B.mergeAccount(await db(), u.id, id, into);
+  } catch (e) {
+    redirect(`/accounts/${id}/delete?n=${Date.now()}&error=${encodeURIComponent((e as Error).message)}`);
+  }
+  revalidatePath("/", "layout");
+  redirect(`/accounts/${into}?n=${Date.now()}&ok=${encodeURIComponent("Moved and deleted. Its entries are now in this account.")}`);
+}
+
+/** Delete an account and every entry it has (after the person has seen what changes). */
+export async function deleteAccountEverything(form: FormData) {
+  const id = int(form, "id");
+  const u = await requireUser();
+  try {
+    if (str(form, "confirm").toUpperCase() !== "DELETE") throw new Error("Type DELETE in the box to confirm.");
+    await B.deleteAccountWithEntries(await db(), u.id, id);
+  } catch (e) {
+    redirect(`/accounts/${id}/delete?n=${Date.now()}&error=${encodeURIComponent((e as Error).message)}`);
+  }
+  revalidatePath("/", "layout");
+  redirect(`/accounts?n=${Date.now()}&ok=${encodeURIComponent("Account and its entries deleted")}`);
 }

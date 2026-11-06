@@ -46,7 +46,7 @@ export default async function SubcategoryPage({ params, searchParams }: { params
         subtitle={`${mine.length} ${mine.length === 1 ? "account" : "accounts"} in ${cat.name}`}
         actions={
           <Dialog title={`Edit ${sub.name}`} triggerClass="btn-ghost" trigger={<><Pencil className="h-4 w-4" />Edit sub-category</>}>
-            <EditGroupForm kind="sub" id={sub.id} name={sub.name} color={sub.color} icon={sub.icon} categoryId={cat.id} categories={cats} back={here} deleteBack={`/accounts/category/${cat.id}`} />
+            <EditGroupForm primary={user.currency} currency={sub.currency} kind="sub" id={sub.id} name={sub.name} color={sub.color} icon={sub.icon} categoryId={cat.id} categories={cats} back={here} deleteBack={`/accounts/category/${cat.id}`} />
           </Dialog>
         }
       />
@@ -58,7 +58,7 @@ export default async function SubcategoryPage({ params, searchParams }: { params
           <div className="text-2xl font-bold text-ink" dir="ltr"><span className="me-1 text-base text-muted">{cur}</span><Money value={total} /></div>
         </div>
       </div>
-      <DrillTiles items={items} addLabel={`Add account to ${sub.name}`} addForm={<AddAccountForm subcategoryId={sub.id} back={here} />} />
+      <DrillTiles items={items} addLabel={`Add account to ${sub.name}`} addForm={<AddAccountForm primary={user.currency} currency={sub.currency ?? cat.currency} subcategoryId={sub.id} back={here} />} />
       <DrillCharts items={items} cur={cur} donutTitle={`Share within ${sub.name}`} barsTitle="Account balances" />
     </>
   );

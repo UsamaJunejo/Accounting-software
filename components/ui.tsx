@@ -33,13 +33,14 @@ export function Money({ value, className = "" }: { value: number; className?: st
   return <span dir="ltr" className={`tabular-nums ${value < 0 ? "text-khata" : ""} ${className}`}>{money(value)}</span>;
 }
 
-/** An account's balance: in its own currency when it has one (e.g. USDT 1,250.00), with the main-currency value under it. */
+/** An account's balance in the main currency, with its own currency under it when it has one (e.g. USDT 600.00). */
 export function AccountBalance({ a, main }: { a: { balance: number; native: number | null; currency: string | null }; main?: string }) {
   if (!a.currency || a.native === null) return <Money value={a.balance} />;
+  // Main-currency value first (so columns add up), the account's own currency under it.
   return (
     <span className="inline-flex flex-col items-end leading-tight">
-      <Money value={a.native} className="font-semibold" />
-      <span className="text-xs font-normal text-muted" dir="ltr">{a.currency}{main ? ` · ${main} ${money(a.balance)}` : ""}</span>
+      <Money value={a.balance} />
+      <span className="text-xs font-normal text-muted" dir="ltr">{a.currency} {money(a.native)}</span>
     </span>
   );
 }

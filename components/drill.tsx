@@ -42,13 +42,9 @@ export function DrillTiles({ items, addLabel, addForm }: { items: DrillItem[]; a
             <CategoryBadge name={it.name} kind={it.kind} size="lg" color={it.color} icon={it.icon} />
             <span className="min-w-0">
               <span className="block text-[15px] leading-snug text-body [overflow-wrap:anywhere]">{it.name}</span>
-              {it.native ? (
-                <>
-                  <span className="block text-lg font-bold text-ink"><span className="me-1 text-sm font-semibold text-muted">{it.native.currency}</span><Money value={it.native.amount} /></span>
-                  <span className="block text-xs text-muted">≈ <Money value={it.balance} /></span>
-                </>
-              ) : (
-                <span className="block text-lg font-bold text-ink"><Money value={it.balance} /></span>
+              <span className="block text-lg font-bold text-ink"><Money value={it.balance} /></span>
+              {it.native && (
+                <span className="block text-xs font-semibold text-muted" dir="ltr">{it.native.currency} <Money value={it.native.amount} /></span>
               )}
               {it.note && <span className="block text-xs text-muted">{it.note}</span>}
             </span>

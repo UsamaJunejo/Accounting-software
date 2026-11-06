@@ -41,6 +41,42 @@ async function accountCurrency(d: Db, userId: number, c?: string | null) {
   return c === main ? null : c;
 }
 
+/**
+ * Change the currency an account is kept in. Its entries are converted: their value in the main
+ * currency stays exactly the same (so every total and report is unchanged), and the amount in the
+ * new currency is worked out with `rate` (main currency for 1 unit of the new one).
+ */
+export async function changeAccountCurrency(d: Db, userId: number, id: number, wanted: string | null, rate: number | null) {
+  const next = await accountCurrency(d, userId, wanted);
+  const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
+  if (!acc) throw new Error("Not found");
+  if ((acc.currency ?? null) === next) return;
+  const rows = await d.q<{ id: number; amount: number; currency: string | null; other: string; other_currency: string | null }>(
+    `SELECT t.id, t.amount::float8 AS amount, t.currency, o.name AS other, o.currency AS other_currency
+     FROM transactions t JOIN accounts o ON o.id = CASE WHEN t.from_account_id = $1 THEN t.to_account_id ELSE t.from_account_id END
+     WHERE t.user_id = $2 AND (t.from_account_id = $1 OR t.to_account_id = $1)`,
+    [id, userId],
+  );
+  // An entry can only carry one other currency: it can't be both this account's and the other side's.
+  const clash = next ? rows.find((r) => r.other_currency && r.other_currency !== next) : undefined;
+  if (clash)
+    throw new Error(`Some entries go to or from ${clash.other}, which is kept in ${clash.other_currency}. Change one of the two accounts so they share a currency, or move those entries through a main-currency account first.`);
+  if (next && rows.some((r) => r.currency !== next) && !(rate && rate > 0 && rate < 1_000_000))
+    throw new Error(`Enter the rate for ${next}, so the old entries can be converted.`);
+  await d.tx(async (x) => {
+    for (const r of rows) {
+      if (!next) {
+        // Back to the main currency: the amounts already are in it.
+        if (!r.other_currency) await x.q("UPDATE transactions SET currency = NULL, foreign_amount = NULL, rate = NULL WHERE id = $1", [r.id]);
+      } else if (r.currency !== next) {
+        await x.q("UPDATE transactions SET currency = $1, foreign_amount = $2, rate = $3 WHERE id = $4", [next, Math.max(1, Math.round(r.amount / rate!)), rate, r.id]);
+      }
+    }
+    await x.q("UPDATE accounts SET currency = $1 WHERE id = $2 AND user_id = $3", [next, id, userId]);
+    await audit(x, userId, "currency", null, { account: acc.name, from: acc.currency, to: next, rate, entries: rows.length });
+  });
+}
+
 /** Account names must be filled in, not too long, and not the same as another account's. */
 async function checkAccountName(d: Db, userId: number, raw: string, exceptId?: number) {
   const name = raw.trim().replace(/\s+/g, " ");
@@ -179,15 +215,15 @@ export async function accountsWithBalances(
   }));
 }
 
-export type Category = { id: number; name: string; kind: Kind; sort: number; color: string | null; icon: string | null; role: Role };
-export type Subcategory = { id: number; name: string; category_id: number; color: string | null; icon: string | null };
+export type Category = { id: number; name: string; kind: Kind; sort: number; color: string | null; icon: string | null; role: Role; currency: string | null };
+export type Subcategory = { id: number; name: string; category_id: number; color: string | null; icon: string | null; currency: string | null };
 
 export function categories(d: Db, userId: number): Promise<Category[]> {
-  return d.q<Category>("SELECT id, name, kind, sort, color, icon, role FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
+  return d.q<Category>("SELECT id, name, kind, sort, color, icon, role, currency FROM categories WHERE user_id = $1 ORDER BY sort, name", [userId]);
 }
 
 export function subcategories(d: Db, userId: number): Promise<Subcategory[]> {
-  return d.q<Subcategory>("SELECT id, name, category_id, color, icon FROM subcategories WHERE user_id = $1 ORDER BY name", [userId]);
+  return d.q<Subcategory>("SELECT id, name, category_id, color, icon, currency FROM subcategories WHERE user_id = $1 ORDER BY name", [userId]);
 }
 
 export async function categoryTotals(d: Db, userId: number, opts: { from?: string; to?: string } = {}) {
@@ -219,33 +255,35 @@ export async function addCategory(
   userId: number,
   name: string,
   kind: Kind,
-  l?: { color?: string | null; icon?: string | null },
+  l?: { color?: string | null; icon?: string | null; currency?: string | null },
   role: Role = null,
 ) {
   if (!(kind in KIND_LABEL)) throw new Error("Choose a type");
   const allowed: Record<string, Kind> = { cash: "asset", bank: "asset", receivable: "asset", payable: "liability" };
   if (role && allowed[role] !== kind) throw new Error("Choose a type");
   const [row] = await d.q<IdRow>(
-    `INSERT INTO categories (user_id, name, kind, sort, color, icon, role)
-     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1), $4, $5, $6) RETURNING id`,
-    [userId, name, kind, ...look(l), role],
+    `INSERT INTO categories (user_id, name, kind, sort, color, icon, role, currency)
+     VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort), 0) + 1 FROM categories WHERE user_id = $1), $4, $5, $6, $7) RETURNING id`,
+    [userId, name, kind, ...look(l), role, await accountCurrency(d, userId, l?.currency)],
   );
   return row.id;
 }
 
-export async function addSubcategory(d: Db, userId: number, categoryId: number, name: string, l?: { color?: string | null; icon?: string | null }) {
+export async function addSubcategory(d: Db, userId: number, categoryId: number, name: string, l?: { color?: string | null; icon?: string | null; currency?: string | null }) {
   await own(d, "categories", categoryId, userId);
   const [row] = await d.q<IdRow>(
-    "INSERT INTO subcategories (user_id, category_id, name, color, icon) VALUES ($1, $2, $3, $4, $5) RETURNING id",
-    [userId, categoryId, name, ...look(l)],
+    "INSERT INTO subcategories (user_id, category_id, name, color, icon, currency) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+    [userId, categoryId, name, ...look(l), await accountCurrency(d, userId, l?.currency)],
   );
   return row.id;
 }
 
-export async function updateCategory(d: Db, userId: number, id: number, name: string, l?: { color?: string | null; icon?: string | null }) {
+export async function updateCategory(d: Db, userId: number, id: number, name: string, l?: { color?: string | null; icon?: string | null; currency?: string | null }) {
   if (!name) throw new Error("Name is required");
   await own(d, "categories", id, userId);
   await d.q("UPDATE categories SET name = $1, color = $2, icon = $3 WHERE id = $4", [name, ...look(l), id]);
+  // Only the default for accounts added later: existing accounts keep their own currency.
+  if (l?.currency !== undefined) await d.q("UPDATE categories SET currency = $1 WHERE id = $2", [await accountCurrency(d, userId, l.currency), id]);
 }
 
 export async function updateSubcategory(
@@ -254,12 +292,13 @@ export async function updateSubcategory(
   id: number,
   name: string,
   categoryId: number,
-  l?: { color?: string | null; icon?: string | null },
+  l?: { color?: string | null; icon?: string | null; currency?: string | null },
 ) {
   if (!name) throw new Error("Name is required");
   await own(d, "subcategories", id, userId);
   await own(d, "categories", categoryId, userId);
   await d.q("UPDATE subcategories SET name = $1, category_id = $2, color = $3, icon = $4 WHERE id = $5", [name, categoryId, ...look(l), id]);
+  if (l?.currency !== undefined) await d.q("UPDATE subcategories SET currency = $1 WHERE id = $2", [await accountCurrency(d, userId, l.currency), id]);
 }
 
 export async function addAccount(
@@ -271,7 +310,17 @@ export async function addAccount(
 ) {
   await own(d, "subcategories", subcategoryId, userId);
   name = await checkAccountName(d, userId, name);
-  const currency = await accountCurrency(d, userId, extra.currency);
+  // No currency chosen: use the sub-category's, then the category's default.
+  // (undefined = not asked; "" or null = the main currency, chosen on purpose)
+  let wanted = extra.currency;
+  if (wanted === undefined) {
+    const [def] = await d.q<{ c: string | null }>(
+      "SELECT COALESCE(s.currency, c.currency) AS c FROM subcategories s JOIN categories c ON c.id = s.category_id WHERE s.id = $1",
+      [subcategoryId],
+    );
+    wanted = def?.c ?? null;
+  }
+  const currency = await accountCurrency(d, userId, wanted);
   const [row] = await d.q<IdRow>(
     "INSERT INTO accounts (user_id, subcategory_id, name, phone, budget_monthly, currency) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
     [userId, subcategoryId, name, extra.phone || null, extra.budgetMonthly || null, currency],
@@ -290,7 +339,7 @@ export async function updateAccount(
   d: Db,
   userId: number,
   id: number,
-  f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean; currency?: string | null },
+  f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean; currency?: string | null; rate?: number | null },
 ) {
   await own(d, "accounts", id, userId);
   await own(d, "subcategories", f.subcategoryId, userId);
@@ -299,22 +348,10 @@ export async function updateAccount(
     // Hiding an account that still holds money makes that money disappear from the lists.
     const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
     if (acc && !acc.archived && acc.balance !== 0)
-      throw new Error(`${acc.name} still has a balance of ${(acc.balance / 100).toLocaleString("en-PK")}. Move it to another account (a Transfer) before archiving.`);
+      throw new Error(`${acc.name} still has a balance of ${(acc.balance / 100).toLocaleString("en-PK")}. Move it with a Transfer first, or use "Delete account" to move everything into another account.`);
   }
   f = { ...f, name };
-  if (f.currency !== undefined) {
-    const next = await accountCurrency(d, userId, f.currency);
-    const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
-    if (acc && (acc.currency ?? null) !== next) {
-      // Changing it later would make the old entries count in the wrong currency.
-      const [{ n }] = await d.q<{ n: number }>(
-        "SELECT COUNT(*)::int AS n FROM transactions WHERE deleted_at IS NULL AND (from_account_id = $1 OR to_account_id = $1)",
-        [id],
-      );
-      if (n > 0) throw new Error("This account already has entries, so its currency can't be changed. Make a new account in the other currency and move the money with a Transfer.");
-      await d.q("UPDATE accounts SET currency = $1 WHERE id = $2 AND user_id = $3", [next, id, userId]);
-    }
-  }
+  if (f.currency !== undefined) await changeAccountCurrency(d, userId, id, f.currency, f.rate ?? null);
   await d.q(
     "UPDATE accounts SET name = $1, subcategory_id = $2, phone = $3, budget_monthly = $4, archived = $5 WHERE id = $6 AND user_id = $7",
     [f.name, f.subcategoryId, f.phone || null, f.budgetMonthly || null, !!f.archived, id, userId],
@@ -1034,4 +1071,92 @@ export async function startingBalanceOf(d: Db, userId: number, accountId: number
     [userId, accountId],
   );
   return r;
+}
+
+// ---------- Deleting an account that is in use ----------
+
+export type AccountImpact = {
+  account: AccountRow;
+  entries: number;
+  first: string | null;
+  last: string | null;
+  /** Other accounts whose balance changes if this account's entries are deleted, and by how much. */
+  others: { id: number; name: string; change: number }[];
+  invoices: number;
+  schedules: number;
+  shares: number;
+};
+
+/** What deleting an account would touch, in plain numbers, before anything is done. */
+export async function accountImpact(d: Db, userId: number, id: number): Promise<AccountImpact> {
+  const accs = await accountsWithBalances(d, userId);
+  const account = accs.find((a) => a.id === id);
+  if (!account) throw new Error("Not found");
+  const [{ n, first, last }] = await d.q<{ n: number; first: string | null; last: string | null }>(
+    `SELECT COUNT(*)::int AS n, to_char(MIN(date), 'YYYY-MM-DD') AS first, to_char(MAX(date), 'YYYY-MM-DD') AS last
+     FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND (from_account_id = $2 OR to_account_id = $2)`,
+    [userId, id],
+  );
+  const flows = await d.q<{ other: number; i: number; o: number }>(
+    `SELECT CASE WHEN from_account_id = $2 THEN to_account_id ELSE from_account_id END AS other,
+            COALESCE(SUM(CASE WHEN to_account_id <> $2 THEN amount END), 0)::float8 AS i,
+            COALESCE(SUM(CASE WHEN from_account_id <> $2 THEN amount END), 0)::float8 AS o
+     FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND (from_account_id = $2 OR to_account_id = $2) GROUP BY 1`,
+    [userId, id],
+  );
+  // Removing an entry takes its effect away from the other account: the change is minus what it added.
+  const others = flows
+    .map((f) => {
+      const o = accs.find((a) => a.id === f.other)!;
+      return { id: o.id, name: o.name, change: -signedBalance(o.kind, f.i, f.o) };
+    })
+    .filter((x) => x.change !== 0)
+    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+  const [{ inv }] = await d.q<{ inv: number }>("SELECT COUNT(*)::int AS inv FROM invoices WHERE user_id = $1 AND customer_account_id = $2", [userId, id]);
+  const [{ sch }] = await d.q<{ sch: number }>("SELECT COUNT(*)::int AS sch FROM schedules WHERE user_id = $1 AND (from_account_id = $2 OR to_account_id = $2)", [userId, id]);
+  const [{ sh }] = await d.q<{ sh: number }>("SELECT COUNT(*)::int AS sh FROM shares WHERE owner_id = $1 AND account_id = $2", [userId, id]);
+  return { account, entries: n, first, last, others, invoices: inv, schedules: sch, shares: sh };
+}
+
+/**
+ * Join an account into another one: all its entries, invoices and repeating entries move over,
+ * so the balance and history move too, then it is deleted. Entries between the two cancel out and go.
+ */
+export async function mergeAccount(d: Db, userId: number, id: number, intoId: number) {
+  if (id === intoId) throw new Error("Choose a different account to move it into");
+  const accs = await accountsWithBalances(d, userId);
+  const from = accs.find((a) => a.id === id), into = accs.find((a) => a.id === intoId);
+  if (!from || !into) throw new Error("Not found");
+  if ((from.currency ?? null) !== (into.currency ?? null))
+    throw new Error(`${from.name} is in ${from.currency ?? "your main currency"} but ${into.name} is in ${into.currency ?? "your main currency"}. Choose an account in the same currency, or change one account's currency first.`);
+  await d.tx(async (x) => {
+    await x.q("DELETE FROM transactions WHERE user_id = $1 AND ((from_account_id = $2 AND to_account_id = $3) OR (from_account_id = $3 AND to_account_id = $2))", [userId, id, intoId]);
+    await x.q("UPDATE transactions SET from_account_id = $3 WHERE user_id = $1 AND from_account_id = $2", [userId, id, intoId]);
+    await x.q("UPDATE transactions SET to_account_id = $3 WHERE user_id = $1 AND to_account_id = $2", [userId, id, intoId]);
+    await x.q("UPDATE invoices SET customer_account_id = $3 WHERE user_id = $1 AND customer_account_id = $2", [userId, id, intoId]);
+    await x.q("DELETE FROM schedules WHERE user_id = $1 AND ((from_account_id = $2 AND to_account_id = $3) OR (from_account_id = $3 AND to_account_id = $2))", [userId, id, intoId]);
+    await x.q("UPDATE schedules SET from_account_id = $3 WHERE user_id = $1 AND from_account_id = $2", [userId, id, intoId]);
+    await x.q("UPDATE schedules SET to_account_id = $3 WHERE user_id = $1 AND to_account_id = $2", [userId, id, intoId]);
+    await x.q("DELETE FROM accounts WHERE id = $1 AND user_id = $2", [id, userId]);
+    await audit(x, userId, "merge-account", null, { from: from.name, into: into.name, balance: from.balance });
+  });
+}
+
+/**
+ * Delete an account together with all its entries. Other accounts lose what those entries gave them
+ * (see accountImpact). Invoices keep the customer's name but are no longer linked.
+ */
+export async function deleteAccountWithEntries(d: Db, userId: number, id: number) {
+  const impact = await accountImpact(d, userId, id);
+  await d.tx(async (x) => {
+    await x.q("UPDATE invoices SET customer_account_id = NULL WHERE user_id = $1 AND customer_account_id = $2", [userId, id]);
+    await x.q("DELETE FROM transactions WHERE user_id = $1 AND (from_account_id = $2 OR to_account_id = $2)", [userId, id]);
+    await x.q("DELETE FROM accounts WHERE id = $1 AND user_id = $2", [id, userId]);
+    await audit(x, userId, "delete-account", null, {
+      account: impact.account.name,
+      balance: impact.account.balance,
+      entries: impact.entries,
+      others: impact.others,
+    });
+  });
 }

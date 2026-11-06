@@ -4,10 +4,9 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories, startingBalanceOf, subcategories } from "@/lib/books";
-import { addStartingBalance, deleteAccount, updateAccount } from "@/app/actions/books";
+import { addStartingBalance, updateAccount } from "@/app/actions/books";
 import { money, prettyDate, today } from "@/lib/format";
 import { Flash, PageHeader } from "@/components/ui";
-import { ConfirmButton } from "@/components/confirm-button";
 import { CurrencyPick } from "@/components/currency-pick";
 
 export default async function EditAccount({
@@ -65,7 +64,12 @@ export default async function EditAccount({
             <input name="budget" inputMode="decimal" defaultValue={a.budget_monthly ? (a.budget_monthly / 100).toFixed(2) : ""} className="input" />
           </div>
         </div>
-        <CurrencyPick primary={user.currency} value={a.currency ?? ""} />
+        <div>
+          <CurrencyPick primary={user.currency} value={a.currency ?? ""} needRate label="Currency of this account" />
+          <p className="mt-1 text-sm text-muted">
+            Changing it converts this account&apos;s entries at the rate above. Your totals in {user.currency} stay exactly the same.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="archived" defaultChecked={!!a.archived} /> Archived (hide from lists, keep history)
         </label>
@@ -100,11 +104,11 @@ export default async function EditAccount({
         )}
         <button className="btn-dark">{start ? "Change" : "Save"}</button>
       </form>
-      <form action={deleteAccount} className="max-w-2xl">
-        <input type="hidden" name="id" value={a.id} />
-        <ConfirmButton className="btn-danger" message={`Delete the account "${a.name}"? This cannot be undone.`} confirmLabel="Delete"><Trash2 className="h-4 w-4" />Delete account</ConfirmButton>
-        <p className="mt-1 text-xs text-muted">Only possible if it has no entries. Otherwise archive it.</p>
-      </form>
+      <div className="max-w-2xl">
+        <Link href={`/accounts/${a.id}/delete`} className="btn-danger"><Trash2 className="h-4 w-4" />Delete account</Link>
+        <p className="mt-1 text-xs text-muted">You&apos;ll see what it affects, and how to deal with its balance, before anything is deleted.</p>
+      </div>
+
     </>
   );
 }
