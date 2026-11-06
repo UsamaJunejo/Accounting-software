@@ -1,6 +1,7 @@
 /** Round profile picture, or the person's initials when there is no photo. */
 export function Avatar({ name, v, size = 32, className = "" }: { name: string; v: string | null; size?: number; className?: string }) {
-  const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
+  // First letter of the first two words. Array.from keeps emoji whole (w[0] would cut one in half).
+  const initials = name.replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => Array.from(w)[0]?.toUpperCase() ?? "").join("") || "?";
   const style = { width: size, height: size };
   return v ? (
     // eslint-disable-next-line @next/next/no-img-element
