@@ -98,11 +98,11 @@ export default async function Voucher({
         <DateField defaultValue={editing?.date ?? today()} label={t("Date")} />
         <div>
           <label className="label">{t(LABELS[type][0])}</label>
-          <AccountSelect name="from" accounts={accounts} value={defFrom} />
+          <AccountSelect name="from" accounts={accounts} value={defFrom} suggest={type === "receipt" ? "income" : "money"} />
         </div>
         <div>
           <label className="label">{t(LABELS[type][1])}</label>
-          <AccountSelect name="to" accounts={accounts} value={defTo} />
+          <AccountSelect name="to" accounts={accounts} value={defTo} suggest={type === "payment" ? "expense" : "money"} />
         </div>
         <EntryPreview
           tab={type}
@@ -165,7 +165,7 @@ export default async function Voucher({
             </div>
           </div>
         </details>
-        <div className="flex items-end justify-end gap-2 sm:col-span-2">
+        <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:items-end sm:justify-end [&>*]:justify-center [&>*]:whitespace-nowrap">
           {editing ? (
             <Link href="/transactions" className="btn-ghost">{t("Cancel")}</Link>
           ) : (

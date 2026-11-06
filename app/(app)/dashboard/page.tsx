@@ -237,7 +237,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <Link href={`/accounts/category/${c.id}`} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
                 <CategoryBadge name={c.name} kind={c.kind} size="lg" color={c.color} />
                 <span className="min-w-0">
-                  <span className="block truncate text-[15px] text-body">{friendlyCategory(c.name)}</span>
+                  <span className="block text-[15px] leading-snug text-body [overflow-wrap:anywhere]">{friendlyCategory(c.name)}</span>
                   <span className="block text-lg font-bold text-ink"><Money value={c.balance} /></span>
                   {c.note && <span className="block text-xs text-muted">{c.note}</span>}
                 </span>

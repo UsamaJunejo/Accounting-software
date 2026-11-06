@@ -4,7 +4,7 @@ import { money } from "@/lib/format";
 import { cache } from "react";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { accountUsage } from "@/lib/books";
+import { accountUsage, type AccountChoice } from "@/lib/books";
 import { friendlyCategory } from "@/lib/look";
 import { AccountPicker, type PickerOption } from "@/components/account-picker";
 import { PeriodSelect } from "@/components/period-select";
@@ -42,12 +42,14 @@ export async function AccountSelect({
   accounts,
   value,
   placeholder,
+  suggest,
 }: {
   name: string;
   accounts: AccountRow[];
   value?: number;
   required?: boolean;
   placeholder?: string;
+  suggest?: AccountChoice;
 }) {
   const user = await currentUser();
   const level = user?.level ?? 3;
@@ -61,7 +63,7 @@ export async function AccountSelect({
     hint: level === 3 ? a.subcategory : undefined,
     uses: uses.get(a.id) ?? 0,
   }));
-  return <AccountPicker name={name} options={options} value={value} placeholder={placeholder ?? t("Select account")} />;
+  return <AccountPicker name={name} options={options} value={value} suggest={suggest} placeholder={placeholder ?? t("Select account")} />;
 }
 
 export async function DateRange({ from, to, extra }: { from: string; to: string; extra?: React.ReactNode }) {

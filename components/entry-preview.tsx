@@ -30,6 +30,12 @@ function line(a: PreviewAccount, up: boolean, amt: string) {
 export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[]; tab: TxnType; cur: string }) {
   const [ids, setIds] = useState<{ from?: number; to?: number }>({});
   const [amount, setAmount] = useState(0);
+  const [added, setAdded] = useState<PreviewAccount[]>([]);
+  useEffect(() => {
+    const onAdded = (e: Event) => setAdded((a) => [...a, (e as CustomEvent<PreviewAccount>).detail]);
+    window.addEventListener("fc-added", onAdded);
+    return () => window.removeEventListener("fc-added", onAdded);
+  }, []);
 
   useEffect(() => {
     const onPick = (e: Event) => {
@@ -52,8 +58,9 @@ export function EntryPreview({ accounts, tab, cur }: { accounts: PreviewAccount[
     };
   }, []);
 
-  const from = accounts.find((a) => a.id === ids.from);
-  const to = accounts.find((a) => a.id === ids.to);
+  const all = [...accounts, ...added];
+  const from = all.find((a) => a.id === ids.from);
+  const to = all.find((a) => a.id === ids.to);
   if (from && to && from.id === to.id)
     return (
       <div role="alert" className="rounded-lg border border-khata/30 bg-khata-soft px-4 py-3 text-[15px] text-khata sm:col-span-2">

@@ -1,3 +1,5 @@
+import { Dialog } from "@/components/dialog";
+import { AddAccountPlainForm } from "@/components/account-forms";
 import Link from "next/link";
 import { Archive, ChevronRight, Download, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
 import { CategoryBadge } from "@/components/icons";
@@ -29,6 +31,9 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
         }
         actions={
           <>
+          <Dialog title="Add account" trigger={<><Plus className="h-4 w-4" />Add account</>} triggerClass="btn-primary">
+            <AddAccountPlainForm />
+          </Dialog>
           <ViewToggle list />
           <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
           <Link href={sp.archived ? "/accounts?view=list" : "/accounts?view=list&archived=1"} className="btn-ghost">

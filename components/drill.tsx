@@ -39,7 +39,7 @@ export function DrillTiles({ items, addLabel, addForm }: { items: DrillItem[]; a
           <Link href={it.href} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
             <CategoryBadge name={it.name} kind={it.kind} size="lg" color={it.color} icon={it.icon} />
             <span className="min-w-0">
-              <span className="block truncate text-[15px] text-body">{it.name}</span>
+              <span className="block text-[15px] leading-snug text-body [overflow-wrap:anywhere]">{it.name}</span>
               <span className="block text-lg font-bold text-ink"><Money value={it.balance} /></span>
               {it.note && <span className="block text-xs text-muted">{it.note}</span>}
             </span>
@@ -68,7 +68,8 @@ export function DrillTiles({ items, addLabel, addForm }: { items: DrillItem[]; a
 
 /** Donut (share of each positive balance) and bars (every balance, above or below zero), like MunshiBaba. */
 export function DrillCharts({ items, cur, donutTitle, barsTitle }: { items: DrillItem[]; cur: string; donutTitle: string; barsTitle: string }) {
-  if (!items.length) return null;
+  // Nothing to draw yet: say so once, instead of two empty charts.
+  if (!items.some((i) => i.balance !== 0)) return null;
   const data = items.map((i) => ({ name: i.name, value: i.balance, color: i.color }));
   return (
     <section className="mb-6 grid gap-5 lg:grid-cols-2">

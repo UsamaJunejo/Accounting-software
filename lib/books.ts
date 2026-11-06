@@ -1,7 +1,7 @@
 import type { Db } from "./db.ts";
 
 export * from "./kinds.ts";
-import { isMoney, isParty, typeFor, type Kind, type Role, type TxnType } from "./kinds.ts";
+import { isMoney, isParty, typeFor, type AccountChoice, type Kind, type Role, type TxnType } from "./kinds.ts";
 
 export const KIND_LABEL: Record<Kind, string> = {
   asset: "Asset",
@@ -869,4 +869,48 @@ export async function accountByToken(d: Db, token: string) {
 export async function shareTokenOf(d: Db, userId: number, accountId: number) {
   const [r] = await d.q<{ share_token: string | null }>("SELECT share_token FROM accounts WHERE id = $1 AND user_id = $2", [accountId, userId]);
   return r?.share_token ?? null;
+}
+
+// ---------- Adding an account in plain words ----------
+
+/**
+ * Add an account from just a name and a plain choice. If one with that name already exists
+ * (not archived), it is returned instead of making a duplicate.
+ */
+export async function quickAddAccount(d: Db, userId: number, rawName: string, choice: AccountChoice) {
+  const name = rawName.trim().replace(/\s+/g, " ");
+  if (!name) throw new Error("Type a name for the account");
+  if (name.length > 80) throw new Error("Name is too long");
+  const accs = await accountsWithBalances(d, userId);
+  const same = accs.find((a) => !a.archived && a.name.toLowerCase() === name.toLowerCase());
+  if (same) return { id: same.id, name: same.name, category: same.category, kind: same.kind, role: same.role, balance: same.balance, existed: true };
+  const cats = await categories(d, userId);
+  const subs = await subcategories(d, userId);
+  const pick: Record<AccountChoice, () => Category | undefined> = {
+    expense: () => cats.find((c) => c.kind === "expense"),
+    income: () => cats.find((c) => c.kind === "income"),
+    money: () => cats.find((c) => c.role === "bank") ?? cats.find((c) => c.role === "cash"),
+    customer: () => cats.find((c) => c.role === "receivable"),
+    supplier: () => cats.find((c) => c.role === "payable"),
+    owned: () => cats.find((c) => c.kind === "asset" && !c.role),
+    owed: () => cats.find((c) => c.kind === "liability" && !c.role),
+  };
+  const fallback: Record<AccountChoice, [string, Kind, Role]> = {
+    expense: ["Expense", "expense", null], income: ["Income", "income", null], money: ["Bank", "asset", "bank"],
+    customer: ["Receivables", "asset", "receivable"], supplier: ["Payables", "liability", "payable"],
+    owned: ["Assets", "asset", null], owed: ["Liabilities", "liability", null],
+  };
+  if (!(choice in pick)) throw new Error("Choose what kind of account it is");
+  let cat = pick[choice]();
+  if (!cat) {
+    const [n, k, r] = fallback[choice];
+    const id = await addCategory(d, userId, n, k, undefined, r);
+    cat = (await categories(d, userId)).find((c) => c.id === id)!;
+  }
+  // Prefer an "Other …" sub-category for odd expenses and income, so they don't land under "Purchases".
+  const mine = subs.filter((s) => s.category_id === cat.id);
+  const sub = (choice === "expense" || choice === "income" ? mine.find((s) => /^other/i.test(s.name)) : undefined) ?? mine[0];
+  const subId = sub?.id ?? (await defaultSubcategory(d, userId, cat.id));
+  const id = await addAccount(d, userId, subId, name);
+  return { id, name, category: cat.name, kind: cat.kind, role: cat.role, balance: 0, existed: false };
 }

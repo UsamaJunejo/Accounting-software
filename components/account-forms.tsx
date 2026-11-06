@@ -1,5 +1,7 @@
 import { KIND_LABEL, type Kind } from "@/lib/books";
 import * as A from "@/app/actions/books";
+import * as Q from "@/app/actions/quick";
+import { ACCOUNT_CHOICES } from "@/lib/kinds";
 import { LookPicker } from "@/components/look-picker";
 import { ConfirmButton } from "@/components/confirm-button";
 
@@ -150,5 +152,34 @@ export function EditGroupForm({
         <p className="mt-1 text-sm text-muted">Only possible when it&apos;s empty. Move or delete what&apos;s inside first.</p>
       </form>
     </div>
+  );
+}
+
+/** "Add account" in plain words: a name, what it is, and what it already has. */
+export function AddAccountPlainForm() {
+  return (
+    <form action={Q.addAccountPlain} className="space-y-4">
+      <div>
+        <label className="label" htmlFor="plain-name">Name</label>
+        <input id="plain-name" name="name" required placeholder="e.g. Tea, Meezan Bank, Ahmed Traders" className="input" />
+      </div>
+      <fieldset>
+        <legend className="label">What is it?</legend>
+        <div className="grid gap-1.5">
+          {ACCOUNT_CHOICES.map(([v, l, help], i) => (
+            <label key={v} className="flex cursor-pointer items-start gap-2 rounded-md border border-rule bg-white px-3 py-2 has-[:checked]:border-brand has-[:checked]:bg-peacock-soft">
+              <input type="radio" name="choice" value={v} defaultChecked={i === 0} className="mt-1" />
+              <span><span className="font-semibold text-ink">{l}</span> <span className="text-sm text-muted">{help}</span></span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <div>
+        <label className="label" htmlFor="plain-opening">Balance it already has (optional)</label>
+        <input id="plain-opening" name="opening" inputMode="decimal" placeholder="0.00" className="input" />
+        <p className="mt-1 text-sm text-muted">Cash in hand, what a customer owes you, or what you owe a supplier, as of today.</p>
+      </div>
+      <button className="btn-primary w-full">Add account</button>
+    </form>
   );
 }

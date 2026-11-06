@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, Plus } from "lucide-react";
+import { Dialog } from "@/components/dialog";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, categories } from "@/lib/books";
@@ -8,7 +9,7 @@ import { accountingTerm, colorAt, friendlyCategory } from "@/lib/look";
 import { currencySymbol } from "@/lib/currencies";
 import { Flash, PageHeader } from "@/components/ui";
 import { DrillCharts, DrillTiles, type DrillItem } from "@/components/drill";
-import { AddAccountForm, AddCategoryForm } from "@/components/account-forms";
+import { AddAccountForm, AddAccountPlainForm, AddCategoryForm } from "@/components/account-forms";
 import { AccountsList } from "./list-view";
 import { ViewToggle } from "@/components/view-toggle";
 
@@ -26,6 +27,9 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
 
   const actions = (
     <>
+      <Dialog title="Add account" trigger={<><Plus className="h-4 w-4" />Add account</>} triggerClass="btn-primary">
+        <AddAccountPlainForm />
+      </Dialog>
       <ViewToggle list={false} />
       <Link href="/export?what=accounts" className="btn-ghost"><Download className="h-4 w-4" />Download</Link>
     </>

@@ -216,10 +216,11 @@ export function CategoryBars({ data, cur }: { data: Slice[]; cur: string }) {
   const hasNeg = pts.some((d) => d.value < 0);
   return (
     <div role="img" aria-label="Balance of each category">
-      <ResponsiveContainer width="100%" height={260}>
+      <ResponsiveContainer width="100%" height={300}>
         <BarChart data={pts} margin={{ top: 16, right: 12, left: 4, bottom: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={C.grid} vertical={false} />
-          <XAxis dataKey="name" {...axisProps} interval={0} tick={{ fill: C.axis, fontSize: 12 }} tickFormatter={(v: string) => (v.length > 16 ? v.slice(0, 15) + "…" : v)} />
+          {/* Slanted names so they never sit on top of each other on a phone. */}
+          <XAxis dataKey="name" {...axisProps} interval={0} angle={-35} textAnchor="end" height={78} tick={{ fill: C.axis, fontSize: 12 }} tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 13) + "…" : v)} />
           <YAxis {...axisProps} axisLine={false} tickFormatter={short} width={56} />
           {hasNeg && <ReferenceLine y={0} stroke={C.axis} />}
           <Tooltip content={<Tip cur={cur} />} cursor={{ fill: "#e6ecef", opacity: 0.6 }} />

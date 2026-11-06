@@ -20,3 +20,15 @@ export function typeFor(from: { role: Role }, to: { role: Role }): TxnType {
   if (isMoney(to)) return "receipt";
   return "transfer";
 }
+
+/** What a beginner picks when adding an account; the app works out where it goes. */
+export type AccountChoice = "expense" | "income" | "money" | "customer" | "supplier" | "owned" | "owed";
+export const ACCOUNT_CHOICES: [AccountChoice, string, string][] = [
+  ["expense", "Expense", "something you spend on: tea, rent, bills"],
+  ["income", "Income", "money you earn: sales, commission"],
+  ["money", "Cash / bank / wallet", "where money is kept"],
+  ["customer", "Customer", "someone who buys on credit (khata)"],
+  ["supplier", "Supplier", "someone you buy from on credit"],
+  ["owned", "Something you own", "stock, equipment, a deposit"],
+  ["owed", "Loan / you owe", "a loan or other money you owe"],
+];

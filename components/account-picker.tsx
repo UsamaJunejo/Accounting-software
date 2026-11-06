@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Search, Star } from "lucide-react";
+import { Check, ChevronDown, Plus, Search, Star } from "lucide-react";
+import { ACCOUNT_CHOICES, type AccountChoice } from "@/lib/kinds";
+import { quickAccount } from "@/app/actions/quick";
 
 export type PickerOption = { id: number; name: string; group: string; hint?: string; uses: number };
 
@@ -15,13 +17,22 @@ export function AccountPicker({
   value,
   placeholder = "Choose an account",
   label,
+  suggest = "expense",
 }: {
   name: string;
   options: PickerOption[];
   value?: number;
   placeholder?: string;
   label?: string;
+  /** The most likely kind when someone adds a new account from here. */
+  suggest?: AccountChoice;
 }) {
+  // Accounts added from inside the picker, shown straight away.
+  const [added, setAdded] = useState<PickerOption[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  options = useMemo(() => [...options, ...added], [options, added]);
   const [sel, setSel] = useState<number | undefined>(value);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -62,6 +73,7 @@ export function AccountPicker({
   useEffect(() => {
     if (!open) return;
     setHi(0);
+    if (window.innerHeight < 900) box.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     setTimeout(() => input.current?.focus(), 0);
     const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
     document.addEventListener("mousedown", close);
@@ -96,11 +108,34 @@ export function AccountPicker({
     setSel(o.id);
     setOpen(false);
     setQ("");
+    setAdding(false);
   };
+
+  async function create(choice: AccountChoice) {
+    setBusy(true);
+    setErr("");
+    const r = await quickAccount(q, choice);
+    setBusy(false);
+    if (!r.ok) return setErr(r.error);
+    const o = { id: r.id, name: r.name, group: r.group, uses: 0 };
+    if (!options.some((x) => x.id === r.id)) setAdded((a) => [...a, o]);
+    // Let any other account box on the page offer it too.
+    window.dispatchEvent(new CustomEvent("fc-added", { detail: { ...o, kind: r.kind, role: r.role, balance: r.balance } }));
+    pick(o);
+  }
+
+  useEffect(() => {
+    const onAdded = (e: Event) => {
+      const o = (e as CustomEvent<PickerOption>).detail;
+      setAdded((a) => (a.some((x) => x.id === o.id) ? a : [...a, o]));
+    };
+    window.addEventListener("fc-added", onAdded);
+    return () => window.removeEventListener("fc-added", onAdded);
+  }, []);
 
   let i = -1;
   return (
-    <div ref={box} className="relative">
+    <div ref={box} className="relative scroll-mt-20">
       <input type="hidden" name={name} value={sel ?? ""} />
       <button
         type="button"
@@ -141,7 +176,7 @@ export function AccountPicker({
             />
           </div>
           <ul ref={list} role="listbox" className="max-h-72 overflow-y-auto py-1">
-            {choices.length === 0 && <li className="px-3 py-3 text-sm text-muted">No account called &ldquo;{q}&rdquo;. Add it from Accounts.</li>}
+            {choices.length === 0 && !q.trim() && <li className="px-3 py-3 text-sm text-muted">No accounts yet.</li>}
             {rows.map((r, k) =>
               r.head ? (
                 <li key={`h${k}`} className="flex items-center gap-1 px-3 pb-1 pt-2 text-xs font-semibold text-muted">
@@ -174,6 +209,28 @@ export function AccountPicker({
               ),
             )}
           </ul>
+          {q.trim() && !options.some((o) => o.name.toLowerCase() === q.trim().toLowerCase()) && (
+            <div className="border-t border-rule p-2">
+              {!adding ? (
+                <button type="button" onClick={() => setAdding(true)} className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-start text-[15px] font-semibold text-brand hover:bg-peacock-soft">
+                  <Plus className="h-4 w-4 shrink-0" />
+                  {choices.length === 0 ? `No "${q.trim()}" yet. Add it as a new account` : `Add "${q.trim()}" as a new account`}
+                </button>
+              ) : (
+                <div className="space-y-1.5 px-1 py-1">
+                  <div className="text-sm font-semibold text-ink">What is &ldquo;{q.trim()}&rdquo;?</div>
+                  <div className="grid gap-1.5">
+                    {[...ACCOUNT_CHOICES].sort((a, b) => (a[0] === suggest ? -1 : b[0] === suggest ? 1 : 0)).map(([v, l, help]) => (
+                      <button key={v} type="button" disabled={busy} onClick={() => create(v)} className={`rounded-md border px-3 py-2 text-start text-[15px] hover:border-brand disabled:opacity-60 ${v === suggest ? "border-brand bg-peacock-soft" : "border-rule bg-white"}`}>
+                        <span className="font-semibold text-ink">{l}</span> <span className="text-sm text-muted">{help}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {err && <p className="text-sm text-khata">{err}</p>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
