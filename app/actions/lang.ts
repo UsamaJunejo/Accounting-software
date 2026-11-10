@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { go as redirect } from "@/lib/go";
 import { revalidatePath } from "next/cache";
 import { isScheme } from "@/lib/schemes";
 

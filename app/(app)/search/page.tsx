@@ -48,7 +48,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <ul>
             {r.entries.map((e) => (
               <li key={e.id} className="border-t border-rule/70">
-                <Link href={`/voucher?edit=${e.id}`} className="flex items-start gap-3 px-5 py-2.5 hover:bg-white/60">
+                <Link href={`/voucher?edit=${e.id}&back=${encodeURIComponent(`/search?q=${encodeURIComponent(q)}`)}`} className="flex items-start gap-3 px-5 py-2.5 hover:bg-white/60">
                   <span className="flex-1"><span className="text-ink">{e.from_name} → <b>{e.to_name}</b></span><span className="block text-sm text-muted">{friendlyDate(e.date)} {e.note}</span></span>
                   <span className={`font-bold tabular-nums ${e.type === "payment" ? "text-khata" : e.type === "receipt" ? "text-inflow" : "text-ink"}`}>{money(e.amount)}</span>
                 </Link>

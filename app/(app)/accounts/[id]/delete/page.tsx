@@ -41,7 +41,7 @@ export default async function DeleteAccount({ params, searchParams }: { params: 
           <p>{imp.schedules > 0 && `Its ${imp.schedules} repeating ${imp.schedules === 1 ? "entry" : "entries"} will be removed too. `}This can&apos;t be undone.</p>
           <div className="flex gap-2">
             <button className="btn-danger"><Trash2 className="h-4 w-4" />Delete {a.name}</button>
-            <Link href={`/accounts/${a.id}`} className="btn-ghost">Keep it</Link>
+            <Link href={`/accounts/${a.id}`} replace className="btn-ghost">Keep it</Link>
           </div>
         </form>
       </>

@@ -8,7 +8,9 @@ import { getT } from "@/lib/lang";
 
 const tone = (type: string) => (type === "payment" ? "text-khata" : type === "receipt" ? "text-inflow" : "text-ink");
 
-function Extras({ t }: { t: TxnRow }) {
+const editHref = (id: number, back: string) => `/voucher?edit=${id}&back=${encodeURIComponent(back)}`;
+
+function Extras({ t, back = "/transactions" }: { t: TxnRow; back?: string }) {
   if (!t.currency && !t.project && !t.attachments) return null;
   return (
     <div className="mt-0.5 flex flex-wrap gap-1.5 text-xs">
@@ -19,7 +21,7 @@ function Extras({ t }: { t: TxnRow }) {
         </Link>
       )}
       {t.attachments > 0 && (
-        <Link href={`/voucher?edit=${t.id}`} className="inline-flex items-center gap-1 rounded bg-paper px-1.5 text-body">
+        <Link href={editHref(t.id, back)} className="inline-flex items-center gap-1 rounded bg-paper px-1.5 text-body">
           <Paperclip className="h-3 w-3" />{t.attachments}
         </Link>
       )}
@@ -30,7 +32,7 @@ function Extras({ t }: { t: TxnRow }) {
 function Actions({ t, back }: { t: TxnRow; back: string }) {
   return (
     <span className="no-print inline-flex">
-      <Link href={`/voucher?edit=${t.id}`} title="Edit" aria-label="Edit entry" className="inline-flex rounded-md p-2 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
+      <Link href={editHref(t.id, back)} title="Edit" aria-label="Edit entry" className="inline-flex rounded-md p-2 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
       <form action={deleteTransaction} className="inline">
         <input type="hidden" name="id" value={t.id} />
         <input type="hidden" name="back" value={back} />
@@ -85,7 +87,7 @@ export async function TxnTable({ rows, back, groupByDay = false }: { rows: TxnRo
                       <span className="truncate font-semibold">{t.to_name}</span>
                     </div>
                     <div className="text-sm text-muted">{groupByDay ? "" : `${friendlyDate(t.date, now)} `}{t.note}</div>
-                    <Extras t={t} />
+                    <Extras t={t} back={back} />
                   </div>
                   <div className="text-end">
                     <div className={`font-bold tabular-nums ${tone(t.type)}`} dir="ltr">{money(t.amount)}</div>
@@ -118,8 +120,8 @@ export async function TxnTable({ rows, back, groupByDay = false }: { rows: TxnRo
                   {!groupByDay && <td className="whitespace-nowrap">{friendlyDate(t.date, now)}</td>}
                   <td><TypeBadge type={t.type} /></td>
                   <td>{t.from_name}</td>
-                  <td>{t.to_name}<div className="md:hidden"><Extras t={t} /></div></td>
-                  <td className="hidden max-w-xs text-muted md:table-cell">{t.note}<Extras t={t} /></td>
+                  <td>{t.to_name}<div className="md:hidden"><Extras t={t} back={back} /></div></td>
+                  <td className="hidden max-w-xs text-muted md:table-cell">{t.note}<Extras t={t} back={back} /></td>
                   <td className={`num font-semibold ${tone(t.type)}`}>{money(t.amount)}</td>
                   <td className="whitespace-nowrap text-right"><Actions t={t} back={back} /></td>
                 </tr>

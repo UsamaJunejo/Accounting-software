@@ -434,3 +434,25 @@ test("items and stock: buy, sell on an invoice, cancel, count", async () => {
   assert.equal((snap.tables.items as unknown[]).length, 1);
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
+
+test("currency change: 'already in USDT' keeps 2 as 2; 'convert' keeps the rupee value", async () => {
+  const { d, uid, acc } = await setup();
+  // Rs 2 in Bank, then the person says the account was really USDT all along
+  await addOpeningBalance(d, uid, acc("Bank Account"), 200, "2026-01-01");
+  await changeAccountCurrency(d, uid, acc("Bank Account"), "USDT", null, "relabel");
+  let bank = (await accountsWithBalances(d, uid)).find((a) => a.name === "Bank Account")!;
+  assert.equal(bank.native, 200); // USDT 2.00
+  assert.equal(bank.balance, 2 * 283_00); // worth Rs 566 at today's 283
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+  // and back to rupees, again keeping the number: 2 USDT -> Rs 2
+  await changeAccountCurrency(d, uid, acc("Bank Account"), "", null, "relabel");
+  bank = (await accountsWithBalances(d, uid)).find((a) => a.name === "Bank Account")!;
+  assert.equal(bank.currency, null);
+  assert.equal(bank.balance, 200);
+  // 'convert': Rs 2 becomes about 0.01 USDT and the rupee value stays Rs 2 in the books
+  await changeAccountCurrency(d, uid, acc("Bank Account"), "USDT", null, "convert");
+  bank = (await accountsWithBalances(d, uid)).find((a) => a.name === "Bank Account")!;
+  assert.equal(bank.book, 200);
+  assert.equal(bank.native, 1);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+});

@@ -146,7 +146,7 @@ export default async function Statement({
                   <tr key={l.id} style={l.highlight ? { background: l.highlight + "33" } : undefined}>
                     <td className="whitespace-nowrap">{prettyDate(l.date)}</td>
                     <td>
-                      <Link href={`/voucher?edit=${l.id}`} className="hover:text-brand">{l.moneyIn ? "From " : "To "}{l.other}</Link>
+                      <Link href={`/voucher?edit=${l.id}&back=${encodeURIComponent(`/accounts/${a.id}?from=${from}&to=${to}`)}`} className="hover:text-brand">{l.moneyIn ? "From " : "To "}{l.other}</Link>
                     </td>
                     <td className="text-muted">
                       {l.note}

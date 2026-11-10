@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { redirect } from "next/navigation";
+import { go as redirect } from "@/lib/go";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { endSession, requireAdmin, requireUser } from "@/lib/auth";

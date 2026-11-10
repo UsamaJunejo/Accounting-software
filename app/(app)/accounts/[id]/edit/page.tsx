@@ -26,6 +26,10 @@ export default async function EditAccount({
   const cats = await categories(d, user.id);
   const subs = await subcategories(d, user.id);
   const start = await startingBalanceOf(d, user.id, a.id);
+  const [{ n: entryCount }] = await d.q<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM transactions WHERE user_id = $1 AND deleted_at IS NULL AND (from_account_id = $2 OR to_account_id = $2)",
+    [user.id, a.id],
+  );
   const startHelp =
     a.role === "cash" || a.role === "bank"
       ? `How much money was already in ${a.name} before you started using FinanceChachu.`
@@ -47,7 +51,7 @@ export default async function EditAccount({
           level={user.level}
           primary={user.currency}
           back={`/accounts/${a.id}/edit`}
-          account={{ id: a.id, name: a.name, subcategory_id: a.subcategory_id, category_id: a.category_id, phone: a.phone, budget: a.budget_monthly, currency: a.currency, archived: a.archived }}
+          account={{ id: a.id, name: a.name, subcategory_id: a.subcategory_id, category_id: a.category_id, phone: a.phone, budget: a.budget_monthly, currency: a.currency, archived: a.archived, entries: entryCount, balance: a.balance, native: a.native }}
         />
         <Link href={`/accounts/${a.id}`} className="btn-ghost mt-3 w-full justify-center"><FileText className="h-4 w-4" />View statement</Link>
       </div>

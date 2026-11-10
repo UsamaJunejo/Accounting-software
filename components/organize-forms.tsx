@@ -61,7 +61,7 @@ export type AccountFormProps = {
   /** When opened from inside a category or sub-category, it starts there. */
   categoryId?: number;
   subId?: number;
-  account?: { id: number; name: string; subcategory_id: number; category_id: number; phone: string | null; budget: number | null; currency: string | null; archived: boolean };
+  account?: { id: number; name: string; subcategory_id: number; category_id: number; phone: string | null; budget: number | null; currency: string | null; archived: boolean; entries?: number; balance?: number; native?: number | null };
 };
 
 export function AccountForm({ mode, categories, subs, level, primary, back, categoryId, subId, account }: AccountFormProps) {
@@ -77,6 +77,12 @@ export function AccountForm({ mode, categories, subs, level, primary, back, cate
   // The currency a new account starts with: its sub-category's, then its category's.
   const defaultCur = account ? account.currency ?? "" : s?.currency ?? c?.currency ?? "";
   const editing = mode === "edit";
+  // Changing the currency of an account that already has entries: ask what it means.
+  const [newCur, setNewCur] = useState(account?.currency ?? primary);
+  const oldCur = account?.currency ?? primary;
+  const asking = editing && (account?.entries ?? 0) > 0 && newCur !== oldCur;
+  const shownNow = account ? (account.currency && account.native !== null && account.native !== undefined ? account.native : account.balance ?? 0) / 100 : 0;
+  const n2 = (v: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigits: 2 }).format(v);
 
   return (
     <form action={editing ? A.updateAccount : A.addAccount} className="space-y-4">
@@ -102,8 +108,20 @@ export function AccountForm({ mode, categories, subs, level, primary, back, cate
       )}
       {canCurrency && (
         <div key={`${cat}-${sub}`}>
-          <CurrencyPick primary={primary} value={defaultCur} needRate label="Currency" />
-          {editing && <p className="mt-1 text-sm text-muted">Changing it converts this account&apos;s entries at today&apos;s rate. Totals in {primary} stay the same.</p>}
+          <CurrencyPick primary={primary} value={defaultCur} needRate label="Currency" onChange={setNewCur} />
+          {asking && (
+            <fieldset className="mt-3 space-y-2 rounded-lg border border-marigold/40 bg-marigold-soft p-3">
+              <legend className="px-1 text-sm font-semibold text-ink">This account has {oldCur} {n2(shownNow)} in it. What should happen?</legend>
+              <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white px-3 py-2">
+                <input type="radio" name="currency_mode" value="relabel" defaultChecked className="mt-1" />
+                <span><b>The amounts were already in {newCur}.</b> I picked the wrong currency. <span className="block text-sm text-muted">{n2(shownNow)} stays {n2(shownNow)}, now in {newCur}.</span></span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 rounded-md bg-white px-3 py-2">
+                <input type="radio" name="currency_mode" value="convert" className="mt-1" />
+                <span><b>Convert the money at today&apos;s rate.</b> <span className="block text-sm text-muted">{oldCur} {n2(shownNow)} becomes the same value in {newCur}. Totals in {primary} stay the same.</span></span>
+              </label>
+            </fieldset>
+          )}
         </div>
       )}
       {isParty && (

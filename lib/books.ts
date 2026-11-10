@@ -47,7 +47,22 @@ async function accountCurrency(d: Db, userId: number, c?: string | null) {
  * currency stays exactly the same (so every total and report is unchanged), and the amount in the
  * new currency is worked out with `rate` (main currency for 1 unit of the new one).
  */
-export async function changeAccountCurrency(d: Db, userId: number, id: number, wanted: string | null, rate: number | null = null) {
+/**
+ * Change the currency an account is kept in. Two meanings, chosen by the person:
+ *  - "convert": the money is the same, just counted in another currency. Each entry keeps its value in the
+ *    main currency (so every total stays the same) and gets its amount in the new currency at today's rate.
+ *  - "relabel": the wrong currency was picked. The numbers stay the same (2 stays 2) but now mean the new
+ *    currency, so their value in the main currency changes (at today's rate); the other side of each entry
+ *    changes with it, so the books still balance.
+ */
+export async function changeAccountCurrency(
+  d: Db,
+  userId: number,
+  id: number,
+  wanted: string | null,
+  rate: number | null = null,
+  mode: "convert" | "relabel" = "convert",
+) {
   const next = await accountCurrency(d, userId, wanted);
   const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
   if (!acc) throw new Error("Not found");
@@ -59,8 +74,8 @@ export async function changeAccountCurrency(d: Db, userId: number, id: number, w
     const [{ currency: main }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [userId]);
     rate = await rateFor(d, main, next);
   }
-  const rows = await d.q<{ id: number; amount: number; currency: string | null; other: string; other_currency: string | null }>(
-    `SELECT t.id, t.amount::float8 AS amount, t.currency, o.name AS other, o.currency AS other_currency
+  const rows = await d.q<{ id: number; amount: number; currency: string | null; foreign_amount: number | null; other: string; other_currency: string | null }>(
+    `SELECT t.id, t.amount::float8 AS amount, t.currency, t.foreign_amount::float8 AS foreign_amount, o.name AS other, o.currency AS other_currency
      FROM transactions t JOIN accounts o ON o.id = CASE WHEN t.from_account_id = $1 THEN t.to_account_id ELSE t.from_account_id END
      WHERE t.user_id = $2 AND (t.from_account_id = $1 OR t.to_account_id = $1)`,
     [id, userId],
@@ -69,8 +84,23 @@ export async function changeAccountCurrency(d: Db, userId: number, id: number, w
   const clash = next ? rows.find((r) => r.other_currency && r.other_currency !== next) : undefined;
   if (clash)
     throw new Error(`Some entries go to or from ${clash.other}, which is kept in ${clash.other_currency}. Change one of the two accounts so they share a currency, or move those entries through a main-currency account first.`);
+  if (mode === "relabel") {
+    const other = rows.find((r) => r.other_currency);
+    if (other)
+      throw new Error(`Some entries go to or from ${other.other}, which is kept in ${other.other_currency}, so their amounts can't simply be relabelled. Use "convert" instead.`);
+  }
   await d.tx(async (x) => {
     for (const r of rows) {
+      if (mode === "relabel") {
+        // The number as it showed in this account (in its old currency) now means the new currency.
+        const shown = acc.currency && r.currency === acc.currency && r.foreign_amount ? r.foreign_amount : r.amount;
+        if (next) {
+          await x.q("UPDATE transactions SET currency = $1, foreign_amount = $2, rate = $3, amount = $4 WHERE id = $5", [next, shown, rate, Math.max(1, Math.round(shown * rate!)), r.id]);
+        } else {
+          await x.q("UPDATE transactions SET currency = NULL, foreign_amount = NULL, rate = NULL, amount = $1 WHERE id = $2", [shown, r.id]);
+        }
+        continue;
+      }
       if (!next) {
         // Back to the main currency: the amounts already are in it.
         if (!r.other_currency) await x.q("UPDATE transactions SET currency = NULL, foreign_amount = NULL, rate = NULL WHERE id = $1", [r.id]);
@@ -79,7 +109,7 @@ export async function changeAccountCurrency(d: Db, userId: number, id: number, w
       }
     }
     await x.q("UPDATE accounts SET currency = $1 WHERE id = $2 AND user_id = $3", [next, id, userId]);
-    await audit(x, userId, "currency", null, { account: acc.name, from: acc.currency, to: next, rate, entries: rows.length });
+    await audit(x, userId, "currency", null, { account: acc.name, from: acc.currency, to: next, rate, mode, entries: rows.length });
   });
 }
 
@@ -372,7 +402,7 @@ export async function updateAccount(
   d: Db,
   userId: number,
   id: number,
-  f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean; currency?: string | null; rate?: number | null },
+  f: { name: string; subcategoryId: number; phone?: string | null; budgetMonthly?: number | null; archived?: boolean; currency?: string | null; rate?: number | null; currencyMode?: "convert" | "relabel" },
 ) {
   await own(d, "accounts", id, userId);
   await own(d, "subcategories", f.subcategoryId, userId);
@@ -384,7 +414,7 @@ export async function updateAccount(
       throw new Error(`${acc.name} still has a balance of ${(acc.balance / 100).toLocaleString("en-PK")}. Move it with a Transfer first, or use "Delete account" to move everything into another account.`);
   }
   f = { ...f, name };
-  if (f.currency !== undefined) await changeAccountCurrency(d, userId, id, f.currency);
+  if (f.currency !== undefined) await changeAccountCurrency(d, userId, id, f.currency, null, f.currencyMode ?? "convert");
   await d.q(
     "UPDATE accounts SET name = $1, subcategory_id = $2, phone = $3, budget_monthly = $4, archived = $5 WHERE id = $6 AND user_id = $7",
     [f.name, f.subcategoryId, f.phone || null, f.budgetMonthly || null, !!f.archived, id, userId],

@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { go as redirect } from "@/lib/go";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireWriter as requireUser } from "@/lib/auth";

@@ -8,7 +8,9 @@ import { RateNote } from "@/components/rate-note";
  * "Which currency is this account in?" and, when it isn't the main currency, today's rate to the main
  * currency. The rate is only shown: the app fetches it daily and uses that same rate when saving.
  */
-export function CurrencyPick({ primary, value = "", fixed, needRate, label = "Currency of this account", forGroup }: {
+export function CurrencyPick({ primary, value = "", fixed, needRate, label = "Currency of this account", forGroup, onChange }: {
+  /** Told whenever the chosen currency changes. */
+  onChange?: (currency: string) => void;
   /** On a category or sub-category: the currency only sets what new accounts in it start with. */
   forGroup?: boolean;
   primary: string;
@@ -26,7 +28,7 @@ export function CurrencyPick({ primary, value = "", fixed, needRate, label = "Cu
       {!fixed && (
         <div>
           <label className="label" htmlFor="acc-currency">{label}</label>
-          <select id="acc-currency" name="currency" value={cur === primary ? "" : cur} onChange={(e) => setCur(e.target.value || primary)} className="input">
+          <select id="acc-currency" name="currency" value={cur === primary ? "" : cur} onChange={(e) => { setCur(e.target.value || primary); onChange?.(e.target.value || primary); }} className="input">
             {CURRENCIES.map(([c, n]) => <option key={c} value={c === primary ? "" : c}>{c} – {n}{c === primary ? " (main)" : ""}</option>)}
           </select>
           {foreign && (

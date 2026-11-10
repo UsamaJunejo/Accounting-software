@@ -42,7 +42,7 @@ const HIGHLIGHTS = [
 export default async function Voucher({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; edit?: string; from?: string; to?: string; error?: string; ok?: string }>;
+  searchParams: Promise<{ type?: string; edit?: string; back?: string; from?: string; to?: string; error?: string; ok?: string }>;
 }) {
   const user = await requireUser();
   const sp = await searchParams;
@@ -50,6 +50,8 @@ export default async function Voucher({
   const t = await getT();
   const tr = t;
   const editing = sp.edit ? await getTransaction(d, user.id, Number(sp.edit)) : undefined;
+  // Where this edit was opened from: Save and Cancel both go back there.
+  const returnTo = sp.back && sp.back.startsWith("/") && !sp.back.startsWith("//") ? sp.back : "/transactions";
   if (sp.edit && (!editing || editing.deleted_at)) notFound();
   const type = (editing?.type ?? (TABS.some((t) => t.type === sp.type) ? sp.type : "payment")) as TxnType;
   const tab = TABS.find((t) => t.type === type)!;
@@ -89,6 +91,7 @@ export default async function Voucher({
       <form id="entry-form" action={saveTransaction} className="card mb-6 grid gap-4 p-5 sm:grid-cols-2" key={`${type}-${editing?.id ?? "new"}-${sp.ok ?? ""}`}>
         <input type="hidden" name="type" value={type} />
         {editing && <input type="hidden" name="id" value={editing.id} />}
+        {editing && <input type="hidden" name="return" value={returnTo} />}
         <MoneyFields
           amount={editing ? (editing.amount / 100).toFixed(2) : ""}
           primary={user.currency}
@@ -170,7 +173,7 @@ export default async function Voucher({
         <EntryCheck formId="entry-form" />
         <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:items-end sm:justify-end [&>*]:justify-center [&>*]:whitespace-nowrap">
           {editing ? (
-            <Link href="/transactions" className="btn-ghost">{t("Cancel")}</Link>
+            <Link href={returnTo} replace className="btn-ghost">{t("Cancel")}</Link>
           ) : (
             <button type="reset" className="btn-ghost"><Eraser className="h-4 w-4" />{t("Clear")}</button>
           )}

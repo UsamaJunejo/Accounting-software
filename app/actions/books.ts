@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { go as redirect } from "@/lib/go";
 import { revalidatePath } from "next/cache";
 import { db, type Db } from "@/lib/db";
 import { requireWriter as requireUser } from "@/lib/auth";
@@ -13,7 +13,7 @@ const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const int = (f: FormData, k: string) => Number(f.get(k));
 
 /** Run an action; on error go back to `path` showing the message. */
-async function run(path: string, fn: (uid: number, d: Db) => Promise<unknown>, ok?: string, extra?: () => string) {
+async function run(path: string, fn: (uid: number, d: Db) => Promise<unknown>, ok?: string, extra?: () => string, okPath?: string) {
   const u = await requireUser();
   let error: string | null = null;
   try {
@@ -24,7 +24,16 @@ async function run(path: string, fn: (uid: number, d: Db) => Promise<unknown>, o
   revalidatePath("/", "layout");
   const sep = path.includes("?") ? "&" : "?";
   if (error) redirect(`${path}${sep}n=${Date.now()}&error=${encodeURIComponent(error)}`);
-  redirect(ok ? `${path}${sep}n=${Date.now()}&ok=${encodeURIComponent(ok + (extra?.() ?? ""))}` : path);
+  // On success, an edit form can send you back to the page you opened it from (errors stay on the form).
+  const target = okPath ?? path;
+  const sep2 = target.includes("?") ? "&" : "?";
+  redirect(ok ? `${target}${sep2}n=${Date.now()}&ok=${encodeURIComponent(ok + (extra?.() ?? ""))}` : target);
+}
+
+/** A page inside this app to return to (never another site). */
+function returnPath(form: FormData) {
+  const r = str(form, "return");
+  return r.startsWith("/") && !r.startsWith("//") ? r : undefined;
 }
 
 async function txnFrom(form: FormData, primary: string, d: Db): Promise<B.TxnInput> {
@@ -62,7 +71,8 @@ async function txnFrom(form: FormData, primary: string, d: Db): Promise<B.TxnInp
 export async function saveTransaction(form: FormData) {
   const id = int(form, "id");
   const type = str(form, "type") || "payment";
-  const back = id ? `/voucher?edit=${id}` : form.get("next") === "close" ? "/transactions" : `/voucher?type=${type}`;
+  const ret = returnPath(form);
+  const back = id ? `/voucher?edit=${id}${ret ? `&back=${encodeURIComponent(ret)}` : ""}` : form.get("next") === "close" ? "/transactions" : `/voucher?type=${type}`;
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   let note = "";
   await run(
@@ -85,6 +95,8 @@ export async function saveTransaction(form: FormData) {
     },
     id ? "Entry updated" : "Entry saved",
     () => note,
+    // After editing, go back to where the entry was opened from (or the entries list).
+    id ? ret ?? "/transactions" : undefined,
   );
 }
 
@@ -219,8 +231,9 @@ export async function updateAccount(form: FormData) {
       budgetMonthly: budget(form),
       archived: form.get("archived") === "on",
       currency: form.has("currency") ? str(form, "currency") || null : undefined,
+      currencyMode: str(form, "currency_mode") === "relabel" ? "relabel" : "convert",
     });
-  }, "Account saved");
+  }, "Account saved", undefined, `/accounts/${id}`);
 }
 
 export async function deleteAccount(form: FormData) {

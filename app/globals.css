@@ -214,3 +214,15 @@ button[aria-busy="true"]::after {
 @media (prefers-reduced-motion: reduce) {
   button[aria-busy="true"]::after { animation-duration: 2s; }
 }
+
+/* Amounts covered until "Show" is tapped (see PrivateAmounts): replaced by dots, not just blurred. */
+[data-private="hidden"] .secret { position: relative; color: transparent !important; user-select: none; }
+[data-private="hidden"] .secret * { color: transparent !important; }
+[data-private="hidden"] .secret::after {
+  content: "••••••";
+  position: absolute;
+  inset: 0;
+  color: var(--secret-dot, rgb(255 255 255 / 0.85));
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}

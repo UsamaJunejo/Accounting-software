@@ -14,6 +14,7 @@ import { CategoryBadge } from "@/components/icons";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, Circle, CircleCheck, FileText } from "lucide-react";
 import { cookies } from "next/headers";
 import { hideChecklist } from "@/app/actions/lang";
+import { PrivateAmounts, Secret, ShowHideButton } from "@/components/private-amounts";
 import { friendlyCategory } from "@/lib/look";
 
 const QUICK = [
@@ -139,22 +140,22 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       )}
       <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* The balance card, like the top of a banking app. */}
-        <div className="rounded-2xl bg-brand p-6 text-white shadow-[0_18px_40px_-20px_var(--color-brand)]">
+        <PrivateAmounts className="rounded-2xl bg-brand p-6 text-white shadow-[0_18px_40px_-20px_var(--color-brand)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="text-[15px] text-white/85">{t("Net worth")}</div>
+              <div className="flex items-center gap-3 text-[15px] text-white/85">{t("Net worth")} <ShowHideButton /></div>
               <div className="mt-1 text-[2.5rem] font-bold leading-tight tracking-tight tabular-nums sm:text-5xl" dir="ltr">
                 <span className="me-2 text-2xl font-semibold text-white/80">{cur}</span>
-                {money(net)}
+                <Secret>{money(net)}</Secret>
               </div>
               <div className="mt-1 text-sm text-white/80">{t("Everything you own minus everything you owe")}</div>
             </div>
             <Link
               href={`/reports/income?from=${from}&to=${to}`}
-              className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-ink"
+              className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-ink [--secret-dot:var(--color-ink)]"
             >
               {pl.profit >= 0 ? t("Profit this period") : t("Loss this period")}:{" "}
-              <span className={pl.profit >= 0 ? "text-ledger" : "text-khata"} dir="ltr">{cur} {money(Math.abs(pl.profit))}</span>
+              <span className={pl.profit >= 0 ? "text-ledger" : "text-khata"} dir="ltr">{cur} <Secret>{money(Math.abs(pl.profit))}</Secret></span>
             </Link>
           </div>
           <dl className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
@@ -165,7 +166,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             ].map(([label, value, href]) => (
               <Link key={String(label)} href={String(href)} className="rounded-xl bg-white/12 px-2.5 py-2.5 ring-1 ring-white/15 hover:bg-white/20 sm:px-4 sm:py-3">
                 <dt className="text-xs leading-snug text-white/85 sm:text-sm">{label}</dt>
-                <dd className="text-[15px] font-bold tabular-nums sm:text-xl" dir="ltr">{money(Number(value))}</dd>
+                <dd className="text-[15px] font-bold tabular-nums sm:text-xl" dir="ltr"><Secret>{money(Number(value))}</Secret></dd>
               </Link>
             ))}
           </dl>
@@ -179,7 +180,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </Link>
             ))}
           </nav>
-        </div>
+        </PrivateAmounts>
         <div className="card p-5">
           <h2 className="text-lg font-bold">{t("Cash & bank balance")}</h2>
           <p className="mb-3 text-sm text-muted">{t("How much money you held each day")}</p>

@@ -40,7 +40,7 @@ export default async function Attachments() {
                 <div className="text-xs text-muted">{prettyDate(r.date)} · {r.from_name} → {r.to_name}</div>
                 <div className="flex justify-between text-xs">
                   <span className="font-semibold">{currencySymbol(user.currency)} {money(r.amount)}</span>
-                  <Link href={`/voucher?edit=${r.transaction_id}`} className="font-semibold text-brand">Open entry</Link>
+                  <Link href={`/voucher?edit=${r.transaction_id}&back=${encodeURIComponent("/reports/attachments")}`} className="font-semibold text-brand">Open entry</Link>
                 </div>
               </div>
             </div>
