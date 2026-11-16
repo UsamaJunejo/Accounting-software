@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Package, Plus, TriangleAlert } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { listItems, stockValue } from "@/lib/items";
+import { bookStock, listItems, stockValue } from "@/lib/items";
 import { money } from "@/lib/format";
 import { currencySymbol } from "@/lib/currencies";
 import { Empty, Flash, PageHeader } from "@/components/ui";
@@ -16,7 +16,9 @@ const qty = (n: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigit
 export default async function Items({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string; archived?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const items = await listItems(await db(), user.id, { archived: !!sp.archived });
+  const d = await db();
+  await bookStock(d, user.id);
+  const items = await listItems(d, user.id, { archived: !!sp.archived });
   const cur = currencySymbol(user.currency);
   const groups = [...new Set(items.map((i) => i.group_name).filter(Boolean) as string[])];
   const low = items.filter((i) => i.low_stock !== null && i.stock <= i.low_stock);
@@ -40,7 +42,7 @@ export default async function Items({ searchParams }: { searchParams: Promise<{ 
       <Flash sp={sp} />
       <section className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="card p-4"><div className="text-sm text-muted">Items</div><div className="text-2xl font-bold">{items.length}</div></div>
-        <div className="card p-4"><div className="text-sm text-muted">Stock value (at buying price)</div><div className="text-2xl font-bold" dir="ltr">{cur} {money(Math.round(stockValue(items)))}</div></div>
+        <div className="card p-4"><div className="text-sm text-muted">Stock value (what it cost you)</div><div className="text-2xl font-bold" dir="ltr">{cur} {money(Math.round(stockValue(items)))}</div></div>
         <div className={`card p-4 ${low.length ? "border border-marigold/40 bg-marigold-soft" : ""}`}>
           <div className="text-sm text-muted">Running low</div>
           <div className={`text-2xl font-bold ${low.length ? "text-marigold" : ""}`}>{low.length}</div>

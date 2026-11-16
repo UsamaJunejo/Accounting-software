@@ -2,6 +2,7 @@ import { fixRange } from "@/lib/format";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bookStock } from "@/lib/items";
 import { accountsWithBalances, budgets, cashBankDaily, categories, listTransactions, monthlyTotals, summarizeIncome } from "@/lib/books";
 import { friendlyDate, money, monthRange, prettyDate, today } from "@/lib/format";
 import { DateRange, Empty, Money, PageHeader } from "@/components/ui";
@@ -34,6 +35,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const from = sp.from || mStart;
   const to = sp.to || mEnd;
   const d = await db();
+  await bookStock(d, user.id); // stock from before it had a value
   const t = await getT();
 
   const base = new Date(to + "T00:00:00Z");

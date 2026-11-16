@@ -1,6 +1,7 @@
 import { validDate } from "@/lib/format";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bookStock } from "@/lib/items";
 import { balanceSheet } from "@/lib/books";
 import { prettyDate, today } from "@/lib/format";
 import { Money, PageHeader } from "@/components/ui";
@@ -13,7 +14,9 @@ export default async function BalanceSheetPage({ searchParams }: { searchParams:
   const user = await requireUser();
   const sp = await searchParams;
   const date = validDate(sp.date) || today();
-  const r = await balanceSheet(await db(), user.id, date);
+  const d = await db();
+  await bookStock(d, user.id);
+  const r = await balanceSheet(d, user.id, date);
   return (
     <>
       <PageHeader title="Balance Sheet" subtitle={`${user.business_name || user.name} · as of ${prettyDate(date)}`} actions={<PrintButton />} />

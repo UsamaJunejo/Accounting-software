@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Db } from "./db.ts";
-import { addAccount, addSubcategory, addTransaction, accountsWithBalances, categories, checkDate, deleteTransaction, subcategories, type Kind, type Role } from "./books.ts";
+import { addTransaction, accountsWithBalances, checkDate, deleteTransaction, ensureAccount } from "./books.ts";
+import { bookStock, removeEntries } from "./items.ts";
 
 /** One line. itemId is set when it was picked from your Items: then stock goes down by qty. */
 export type InvoiceItem = { name: string; qty: number; price: number; itemId?: number | null }; // price in paisa
@@ -43,26 +44,6 @@ function validate(i: InvoiceInput) {
   if (!(tax >= 0 && tax <= 100)) throw new Error("Tax must be between 0 and 100%");
   if (!Number.isSafeInteger(i.discount ?? 0) || (i.discount ?? 0) < 0) throw new Error("Invalid discount");
   return items;
-}
-
-/** Find an account by name in a category, creating the sub-category/account if needed. */
-/** Find (or make) an account. The category is found by its role, then by name, then by kind,
- *  so it still works after the user renames their categories. */
-async function ensureAccount(d: Db, userId: number, want: { role?: Role; name: string; kind: Kind }, subName: string, accountName: string) {
-  const cats = await categories(d, userId);
-  const cat =
-    (want.role ? cats.find((c) => c.role === want.role) : undefined) ??
-    cats.find((c) => c.name === want.name && c.kind === want.kind) ??
-    cats.find((c) => c.kind === want.kind && !c.role);
-  if (!cat) throw new Error(`Category "${want.name}" is missing`);
-  const accs = await accountsWithBalances(d, userId);
-  const found = accs.find((a) => a.name.toLowerCase() === accountName.toLowerCase() && a.category_id === cat.id && !a.archived);
-  if (found) return found.id;
-  const sub =
-    (await subcategories(d, userId)).find((s) => s.category_id === cat.id && s.name === subName) ??
-    (await subcategories(d, userId)).find((s) => s.category_id === cat.id);
-  const subId = sub ? sub.id : await addSubcategory(d, userId, cat.id, subName);
-  return addAccount(d, userId, subId, accountName);
 }
 
 export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
@@ -122,10 +103,12 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
       const [own] = await x.q("SELECT 1 FROM items WHERE id = $1 AND user_id = $2", [it.itemId, userId]);
       if (!own) throw new Error(`Item "${it.name}" not found`);
       await x.q(
-        "INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, reason, invoice_id) VALUES ($1, $2, $3, $4, NULL, 'sale', $5)",
-        [userId, it.itemId, i.date, -it.qty, row.id],
+        "INSERT INTO stock_moves (user_id, item_id, date, qty, reason, invoice_id, sale_amount) VALUES ($1, $2, $3, $4, 'sale', $5, $6)",
+        [userId, it.itemId, i.date, -it.qty, row.id, Math.round(it.qty * it.price)],
       );
     }
+    // What those goods cost leaves the Stock account.
+    await bookStock(x, userId);
     return row.id;
   });
 }
@@ -219,7 +202,8 @@ export async function cancelInvoice(d: Db, userId: number, id: number) {
       }
     }
     await x.q("UPDATE invoices SET cancelled = true WHERE id = $1", [id]);
-    // What it took out of stock goes back.
+    // What it took out of stock goes back (and its cost back into Stock).
+    for (const m of await x.q<{ id: number }>("SELECT id FROM stock_moves WHERE invoice_id = $1 AND user_id = $2", [id, userId])) await removeEntries(x, userId, m.id);
     await x.q("DELETE FROM stock_moves WHERE invoice_id = $1 AND user_id = $2", [id, userId]);
   });
 }

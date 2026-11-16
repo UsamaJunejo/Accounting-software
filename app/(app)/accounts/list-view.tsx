@@ -80,7 +80,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
                   <Money value={cAccs.reduce((s, a) => s + a.balance, 0)} className="font-semibold" />
                   <details className="relative">
                     <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted hover:text-ink"><Pencil className="h-3.5 w-3.5" />Edit</summary>
-                    <div className="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded-md border border-rule bg-sheet p-3 text-body shadow-md">
+                    <div data-popover className="absolute right-0 z-10 mt-2 w-64 space-y-2 rounded-md border border-rule bg-sheet p-3 text-body shadow-md">
                       <form action={A.renameCategory} className="flex gap-2">
                         <input type="hidden" name="id" value={c.id} />
                         <input name="name" defaultValue={c.name} className="input" />
@@ -104,7 +104,7 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
                         <Money value={sAccs.reduce((t, a) => t + a.balance, 0)} className="text-muted" />
                         <details className="relative">
                           <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-muted hover:text-ink"><Pencil className="h-3.5 w-3.5" />Edit</summary>
-                          <div className="absolute right-0 z-10 mt-2 w-72 space-y-2 rounded-lg bg-white p-3 shadow-lg">
+                          <div data-popover className="absolute right-0 z-10 mt-2 w-72 space-y-2 rounded-lg bg-white p-3 shadow-lg">
                             <form action={A.renameSubcategory} className="space-y-2">
                               <input type="hidden" name="id" value={s.id} />
                               <input name="name" defaultValue={s.name} className="input" />

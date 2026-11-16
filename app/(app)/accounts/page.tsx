@@ -3,6 +3,7 @@ import { Download } from "lucide-react";
 import { HowOrganised, OrganizeButtons } from "@/components/organize";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { bookStock } from "@/lib/items";
 import { accountsWithBalances, categories } from "@/lib/books";
 import { categoryColorMap } from "@/lib/palette";
 import { accountingTerm, colorAt, friendlyCategory } from "@/lib/look";
@@ -19,6 +20,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   if (sp.view === "list") return <AccountsList sp={sp} />;
   const user = await requireUser();
   const d = await db();
+  await bookStock(d, user.id); // stock from before it had a value
   const [cats, accs] = await Promise.all([categories(d, user.id), accountsWithBalances(d, user.id)]);
   const colors = categoryColorMap(cats);
   const cur = currencySymbol(user.currency);

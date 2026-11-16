@@ -157,7 +157,7 @@ export function AccountPicker({
         <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
       </button>
       {open && (
-        <div className="absolute inset-x-0 z-30 mt-1 overflow-hidden rounded-lg border border-rule bg-white shadow-xl">
+        <div data-popover className="absolute inset-x-0 z-30 mt-1 overflow-hidden rounded-lg border border-rule bg-white shadow-xl">
           <div className="flex items-center gap-2 border-b border-rule px-3">
             <Search className="h-4 w-4 text-muted" />
             <input

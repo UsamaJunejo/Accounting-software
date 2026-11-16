@@ -380,6 +380,17 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE items ENABLE ROW LEVEL SECURITY;
   ALTER TABLE stock_moves ENABLE ROW LEVEL SECURITY;
   `,
+  // 18: stock is worth money. Each move carries its value (+ bought, − sold at average cost), and
+  // "booked" says its entry is in the Stock account. Old moves start unbooked and are booked on next visit.
+  `
+  ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS value BIGINT;
+  ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS sale_amount BIGINT;
+  ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS cost_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;
+  ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS booked BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE stock_moves ALTER COLUMN unit_cost TYPE NUMERIC(20,4);
+  UPDATE stock_moves SET value = ROUND(qty * unit_cost) WHERE value IS NULL AND unit_cost IS NOT NULL AND reason IN ('opening', 'purchase');
+  CREATE INDEX IF NOT EXISTS idx_stock_moves_unbooked ON stock_moves(user_id) WHERE NOT booked;
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

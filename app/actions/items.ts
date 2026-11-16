@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireWriter } from "@/lib/auth";
 import { toPaisa, today } from "@/lib/format";
-import { addItem, addStock, countStock, deleteItem, updateItem, type ItemInput } from "@/lib/items";
+import { addItem, addStock, countStock, deleteItem, removeMove, sellStock, updateItem, type ItemInput } from "@/lib/items";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (f: FormData, k: string) => Number(str(f, k).replace(/,/g, ""));
@@ -63,7 +63,7 @@ export async function addStockAction(form: FormData) {
   await run(`/items/${id}`, "Stock added", async (uid) =>
     addStock(await db(), uid, id, {
       qty: num(form, "qty"),
-      unitCost: price(form, "unit_cost"),
+      total: price(form, "total"),
       date: str(form, "date") || today(),
       fromAccountId: Number(form.get("from")) || null,
       note: str(form, "note"),
@@ -77,4 +77,22 @@ export async function countStockAction(form: FormData) {
     if (!str(form, "counted")) throw new Error("Please type how many you counted");
     await countStock(await db(), uid, id, num(form, "counted"), str(form, "date") || today(), str(form, "note"));
   });
+}
+
+export async function sellStockAction(form: FormData) {
+  const id = Number(form.get("id"));
+  await run(`/items/${id}`, "Sale saved", async (uid) =>
+    sellStock(await db(), uid, id, {
+      qty: num(form, "qty"),
+      total: price(form, "total"),
+      date: str(form, "date") || today(),
+      intoAccountId: Number(form.get("into")) || null,
+      note: str(form, "note"),
+    }),
+  );
+}
+
+export async function removeMoveAction(form: FormData) {
+  const id = Number(form.get("id"));
+  await run(`/items/${id}`, "Removed", async (uid) => removeMove(await db(), uid, Number(form.get("move"))));
 }

@@ -1244,3 +1244,22 @@ export async function deleteAccountWithEntries(d: Db, userId: number, id: number
     });
   });
 }
+
+/** Find (or make) an account. The category is found by its role, then by name, then by kind,
+ *  so it still works after the user renames their categories. */
+export async function ensureAccount(d: Db, userId: number, want: { role?: Role; name: string; kind: Kind }, subName: string, accountName: string) {
+  const cats = await categories(d, userId);
+  const cat =
+    (want.role ? cats.find((c) => c.role === want.role) : undefined) ??
+    cats.find((c) => c.name === want.name && c.kind === want.kind) ??
+    cats.find((c) => c.kind === want.kind && !c.role);
+  if (!cat) throw new Error(`Category "${want.name}" is missing`);
+  const accs = await accountsWithBalances(d, userId);
+  const found = accs.find((a) => a.name.toLowerCase() === accountName.toLowerCase() && a.category_id === cat.id && !a.archived);
+  if (found) return found.id;
+  const sub =
+    (await subcategories(d, userId)).find((s) => s.category_id === cat.id && s.name === subName) ??
+    (await subcategories(d, userId)).find((s) => s.category_id === cat.id);
+  const subId = sub ? sub.id : await addSubcategory(d, userId, cat.id, subName);
+  return addAccount(d, userId, subId, accountName);
+}

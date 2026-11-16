@@ -14,6 +14,7 @@ export function ConfirmButton({
   children,
   name,
   value,
+  ariaLabel,
 }: {
   message: string;
   confirmLabel?: string;
@@ -22,12 +23,13 @@ export function ConfirmButton({
   children: React.ReactNode;
   name?: string;
   value?: string;
+  ariaLabel?: string;
 }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const real = useRef<HTMLButtonElement>(null);
   return (
     <>
-      <button type="button" className={className} onClick={() => dlg.current?.showModal()}>
+      <button type="button" className={className} aria-label={ariaLabel} onClick={() => dlg.current?.showModal()}>
         {children}
       </button>
       <button ref={real} type="submit" name={name} value={value} hidden tabIndex={-1} aria-hidden="true" />

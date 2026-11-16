@@ -400,7 +400,7 @@ test("an account with money can be merged or deleted, with the effect shown firs
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
 
-import { addItem, addStock, countStock, deleteItem, getItem, itemMoves, lowStock } from "../lib/items.ts";
+import { addItem, addStock, avgCost, bookStock, countStock, deleteItem, getItem, itemMoves, lowStock, removeMove, sellStock } from "../lib/items.ts";
 import { cancelInvoice, createInvoice } from "../lib/invoices.ts";
 import { userSnapshot } from "../lib/backup.ts";
 
@@ -408,19 +408,26 @@ test("items and stock: buy, sell on an invoice, cancel, count", async () => {
   const { d, uid, acc } = await setup();
   const cement = await addItem(d, uid, { name: "Cement bag", unit: "bag", group: "Cement", salePrice: 1500_00, costPrice: 1300_00, lowStock: 10, openingQty: 20 }, "2026-01-01");
   await assert.rejects(() => addItem(d, uid, { name: " cement BAG " }, "2026-01-01"), /already have an item/);
-  // buy 30 bags paid from cash: stock 50, Purchases +39,000, Cash −39,000
+  // buy 30 bags paid from cash: stock 50, Stock account 20×1,300 + 39,000, Cash −39,000
   await addStock(d, uid, cement, { qty: 30, unitCost: 1300_00, date: "2026-01-02", fromAccountId: acc("Cash") });
   assert.equal((await getItem(d, uid, cement))!.stock, 50);
   let bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
-  assert.equal(bal["Purchases"], 39000_00);
+  assert.equal(bal["Stock"], 65000_00);
+  assert.equal(bal["Purchases"], 0);
   assert.equal(bal["Cash"], -39000_00);
   // invoice for 45 bags: stock 5, which is "running low"
   const inv = await createInvoice(d, uid, { customerName: "Ahmed", date: "2026-01-03", items: [{ name: "Cement bag", qty: 45, price: 1500_00, itemId: cement }], record: true });
   assert.equal((await getItem(d, uid, cement))!.stock, 5);
   assert.deepEqual((await lowStock(d, uid)).map((i) => i.name), ["Cement bag"]);
+  bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Cost of goods sold"], 45 * 1300_00);
+  assert.equal(bal["Stock"], 5 * 1300_00);
   // cancelling the invoice puts the 45 back
   await cancelInvoice(d, uid, inv);
   assert.equal((await getItem(d, uid, cement))!.stock, 50);
+  bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Stock"], 65000_00);
+  assert.equal(bal["Cost of goods sold"], 0);
   // counted 48: two went missing
   assert.equal(await countStock(d, uid, cement, 48, "2026-01-04", "2 torn"), -2);
   const moves = await itemMoves(d, uid, cement);
@@ -432,6 +439,50 @@ test("items and stock: buy, sell on an invoice, cancel, count", async () => {
   // backups include items
   const snap = await userSnapshot(d, uid);
   assert.equal((snap.tables.items as unknown[]).length, 1);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+});
+
+test("bulk stock: 50 laptops for 50 lakh, each sold at its own price", async () => {
+  const { d, uid, acc } = await setup();
+  const lap = await addItem(d, uid, { name: "Laptop" }, "2026-02-01");
+  await addStock(d, uid, lap, { qty: 50, total: 50_00_000_00, date: "2026-02-01", fromAccountId: acc("Bank Account") });
+  let it = (await getItem(d, uid, lap))!;
+  assert.equal(it.value, 50_00_000_00);
+  assert.equal(avgCost(it), 1_00_000_00);
+  await sellStock(d, uid, lap, { qty: 1, total: 1_20_000_00, date: "2026-02-02", intoAccountId: acc("Cash") });
+  await sellStock(d, uid, lap, { qty: 1, each: 95_000_00, date: "2026-02-03", intoAccountId: acc("Cash") });
+  await assert.rejects(() => sellStock(d, uid, lap, { qty: 49, total: 1, date: "2026-02-03", intoAccountId: acc("Cash") }), /only have 48/);
+  it = (await getItem(d, uid, lap))!;
+  assert.equal(it.stock, 48);
+  assert.equal(it.value, 48_00_000_00);
+  const bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Stock"], 48_00_000_00);
+  assert.equal(bal["Sales"], 2_15_000_00);
+  assert.equal(bal["Cost of goods sold"], 2_00_000_00); // profit 15,000
+  const moves = await itemMoves(d, uid, lap);
+  assert.deepEqual(moves.filter((m) => m.reason === "sale").map((m) => [m.sale_amount, m.value]), [[1_20_000_00, -1_00_000_00], [95_000_00, -1_00_000_00]]);
+  // undo the second sale: money and cost both go back
+  await removeMove(d, uid, moves.at(-1)!.id);
+  assert.equal((await getItem(d, uid, lap))!.stock, 49);
+  assert.equal((await accountsWithBalances(d, uid)).find((a) => a.name === "Sales")!.balance, 1_20_000_00);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+});
+
+test("stock entered before it had a value is booked on the next visit", async () => {
+  const { d, uid, acc } = await setup();
+  const id = await addItem(d, uid, { name: "Rice", costPrice: 100_00 }, "2026-01-01");
+  // the old way: opening stock with no entry, a purchase paid into Purchases, an invoice sale with no cost
+  const pay = await addTransaction(d, uid, { type: "payment", date: "2026-01-02", amount: 1000_00, fromAccountId: acc("Cash"), toAccountId: acc("Purchases") });
+  await d.q("INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, value, reason) VALUES ($1, $2, '2026-01-01', 10, 10000, 100000, 'opening')", [uid, id]);
+  await d.q("INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, value, reason, transaction_id) VALUES ($1, $2, '2026-01-02', 10, 10000, 100000, 'purchase', $3)", [uid, id, pay]);
+  await d.q("INSERT INTO stock_moves (user_id, item_id, date, qty, reason) VALUES ($1, $2, '2026-01-03', -5, 'sale')", [uid, id]);
+  await bookStock(d, uid);
+  const bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Purchases"], 0);
+  assert.equal(bal["Stock"], 1500_00);
+  assert.equal(bal["Cost of goods sold"], 500_00);
+  await bookStock(d, uid); // nothing twice
+  assert.equal((await accountsWithBalances(d, uid)).find((a) => a.name === "Stock")!.balance, 1500_00);
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
 
