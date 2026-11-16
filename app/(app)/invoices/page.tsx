@@ -22,7 +22,7 @@ export default async function Invoices({ searchParams }: { searchParams: Promise
   const outstanding = all.filter((r) => r.status !== "cancelled").reduce((s, r) => s + Math.max(0, r.total - r.paid), 0);
   return (
     <>
-      <PageHeader title="Invoices" subtitle="Bills you've made for customers." actions={<LinkButton href="/invoices/new" variant="primary"><FilePlus2 className="h-4 w-4" />New invoice</LinkButton>} />
+      <PageHeader title="Invoices" actions={<LinkButton href="/invoices/new" variant="primary"><FilePlus2 className="h-4 w-4" />New invoice</LinkButton>} />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <nav className="flex overflow-hidden rounded-md border border-white/80 bg-white/60 backdrop-blur" aria-label="Filter invoices">
           {TABS.map(([k, label]) => (

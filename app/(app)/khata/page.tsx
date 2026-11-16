@@ -59,7 +59,6 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
         <h2 className="flex items-center gap-2 font-semibold"><Icon className="h-5 w-5 text-brand" />{t(title)}</h2>
         <Money value={rows.reduce((s, r) => s + r.balance, 0)} className="font-semibold" />
       </div>
-      <p className="px-4 pt-3 text-xs text-muted">{t(hint)}</p>
       {rows.length === 0 ? (
         <Empty>{t("Nobody added yet.")}</Empty>
       ) : (
@@ -114,7 +113,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const small = "inline-flex items-center gap-1 rounded-md border border-rule-strong bg-white px-2 py-1 text-xs font-semibold hover:border-brand";
   return (
     <>
-      <PageHeader title={t("Khata")} subtitle={t("Who owes you, and whom you owe.")} actions={<Link href="/reports/late-payers" className="btn-ghost">Who is late paying</Link>} />
+      <PageHeader title={t("Khata")} actions={<Link href="/reports/late-payers" className="btn-ghost">Who is late paying</Link>} />
       <Flash sp={sp} />
       {customers.some((c) => c.balance > 0) && (
         <div className="card mb-5 p-5">

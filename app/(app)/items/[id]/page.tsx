@@ -79,7 +79,6 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             </div>
           </div>
           <input id="sl-note" name="note" placeholder="Note (optional), e.g. serial no. or buyer" className="input" />
-          <p className="text-sm text-muted">Every sale can have its own price. Pick a customer instead of Cash if they will pay later.</p>
           <button className="btn w-full bg-ledger text-white hover:bg-ledger-dark" disabled={item.stock <= 0}>{item.stock <= 0 ? "Out of stock" : "Save sale"}</button>
         </form>
         <form action={addStockAction} className="card space-y-3 p-5">
@@ -93,13 +92,11 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
               <AccountSelect name="from" accounts={payFrom} noneLabel="I already entered this payment" addInto={["cash", "bank", "payable"]} suggest="money" />
             </div>
           </div>
-          <p className="text-sm text-muted">Bought many at one price? Type the <b>Total paid</b> and the price each works itself out. Choose the supplier if you bought on credit.</p>
           <button className="btn-primary w-full">Add stock</button>
         </form>
         <form action={countStockAction} className="card space-y-3 p-5">
           <input type="hidden" name="id" value={item.id} />
           <h2 className="flex items-center gap-2 text-lg font-bold"><ClipboardCheck className="h-5 w-5 text-brand" />Count correction</h2>
-          <p className="text-sm text-muted">Counted the shelf and the number is different? Type what is really there. The difference is noted in the history (for breakage, loss or a mistake).</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className="label" htmlFor="ct-qty">Counted ({item.unit})</label><input id="ct-qty" name="counted" inputMode="decimal" required className="input" /></div>
             <div><label className="label" htmlFor="ct-date">Date</label><input id="ct-date" type="date" name="date" defaultValue={today()} className="input" /></div>
@@ -163,7 +160,6 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
       <form action={deleteItemAction} className="max-w-xl">
         <input type="hidden" name="id" value={item.id} />
         <ConfirmButton className="btn-danger" message={`Delete ${item.name}? This can't be undone.`} confirmLabel="Delete"><Trash2 className="h-4 w-4" />Delete item</ConfirmButton>
-        <p className="mt-1 text-xs text-muted">Only possible if it was never bought or sold. Otherwise archive it from &ldquo;Edit item&rdquo;.</p>
       </form>
     </>
   );

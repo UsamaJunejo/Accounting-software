@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, Check, Eraser, FileText, HandCoins, PackagePlus, Save, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, Check, Eraser, FileText, PackagePlus, Save, Trash2, type LucideIcon } from "lucide-react";
 import { DateField } from "@/components/date-field";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -26,8 +26,8 @@ import { TxnTable } from "@/components/txn-table";
 export const metadata = { title: "New Entry" };
 
 const TABS: { type: TxnType; label: string; help: string; active: string; Icon: LucideIcon }[] = [
-  { type: "payment", label: "Money Out (Payment)", help: "You paid someone: expense, purchase, supplier, salary…", active: "bg-khata text-white border-khata", Icon: ArrowUpRight },
-  { type: "receipt", label: "Money In (Receipt)", help: "You received money: sale, customer payment, loan…", active: "bg-inflow text-white border-inflow", Icon: ArrowDownLeft },
+  { type: "payment", label: "Money Out", help: "You paid someone: expense, purchase, supplier, salary…", active: "bg-khata text-white border-khata", Icon: ArrowUpRight },
+  { type: "receipt", label: "Money In", help: "You received money: sale, customer payment, loan…", active: "bg-inflow text-white border-inflow", Icon: ArrowDownLeft },
   { type: "transfer", label: "Transfer", help: "Move money between your own accounts, e.g. Cash → Bank.", active: "bg-ink text-white border-ink", Icon: ArrowLeftRight },
 ];
 
@@ -74,7 +74,7 @@ export default async function Voucher({
 
   return (
     <>
-      <PageHeader title={editing ? `Edit entry #${editing.id}` : t("New entry")} subtitle={t(tab.help)} />
+      <PageHeader title={editing ? `Edit entry #${editing.id}` : t(tab.label)} />
       {!editing && (
         <div className="mb-4 flex flex-wrap gap-2">
           {TABS.map((t) => (
@@ -123,7 +123,7 @@ export default async function Voucher({
         {/* Extras most people don't need every time, kept out of the way. */}
         <details className="group sm:col-span-2" open={Boolean(editing && (editing.project_id || editing.highlight || existing.length))}>
           <summary className="cursor-pointer select-none py-1 text-[15px] font-semibold text-brand">
-            {t("More options")} <span className="font-normal text-muted">({t("project, colour, bill photo")})</span>
+            {t("More")} <span className="font-normal text-muted">· {t("photo, project, colour")}</span>
           </summary>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
@@ -188,9 +188,6 @@ export default async function Voucher({
             </>
           )}
         </div>
-        <p className="text-xs text-muted sm:col-span-2">
-          {t("Can't find the account?")} <Link href="/accounts" className="font-semibold text-brand">{t("Add it here")}</Link>.
-        </p>
       </form>
 
       {!editing && (
@@ -203,32 +200,28 @@ export default async function Voucher({
   );
 }
 
-const CHOICES: { href: string; title: string; help: string; Icon: LucideIcon; tone: string }[] = [
-  { href: "/voucher?type=receipt", title: "Money came in", help: "A sale, a customer paid you, a loan", Icon: ArrowDownLeft, tone: "bg-inflow text-white" },
-  { href: "/voucher?type=payment", title: "Money went out", help: "A bill, rent, salary, you paid a supplier", Icon: ArrowUpRight, tone: "bg-khata text-white" },
-  { href: "/voucher?type=transfer", title: "Moved my own money", help: "Cash to bank, bank to JazzCash…", Icon: ArrowLeftRight, tone: "bg-ink text-white" },
-  { href: "/invoices/new", title: "Make a bill (invoice)", help: "Write a bill for a customer, print or WhatsApp it", Icon: FileText, tone: "bg-brand text-white" },
-  { href: "/khata", title: "Udhaar (khata)", help: "A customer took goods on credit, or you owe a supplier", Icon: BookUser, tone: "bg-marigold text-white" },
-  { href: "/items", title: "Sell or buy stock", help: "Goods you keep: laptops, cement bags…", Icon: PackagePlus, tone: "bg-ledger text-white" },
+const CHOICES: { href: string; title: string; Icon: LucideIcon; tone: string }[] = [
+  { href: "/voucher?type=receipt", title: "Money In", Icon: ArrowDownLeft, tone: "bg-inflow" },
+  { href: "/voucher?type=payment", title: "Money Out", Icon: ArrowUpRight, tone: "bg-khata" },
+  { href: "/voucher?type=transfer", title: "Transfer", Icon: ArrowLeftRight, tone: "bg-ink" },
+  { href: "/invoices/new", title: "Invoice", Icon: FileText, tone: "bg-brand" },
+  { href: "/khata", title: "Khata", Icon: BookUser, tone: "bg-marigold" },
+  { href: "/items", title: "Stock", Icon: PackagePlus, tone: "bg-ledger" },
 ];
 
-/** The first screen of +: big buttons, one per thing that can happen in a shop. */
+/** The first screen of +: one big picture button for each thing that can happen in a shop. */
 function WhatHappened({ t }: { t: (s: string) => string }) {
   return (
     <>
-      <PageHeader title={t("What happened?")} subtitle={t("Tap one")} />
-      <div className="grid gap-3 sm:grid-cols-2">
+      <PageHeader title={t("What happened?")} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {CHOICES.map((c) => (
-          <Link key={c.href} href={c.href} className="card flex items-center gap-4 p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
-            <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${c.tone}`}><c.Icon className="h-7 w-7" /></span>
-            <span>
-              <span className="block text-lg font-bold text-ink">{t(c.title)}</span>
-              <span className="block text-sm text-muted">{t(c.help)}</span>
-            </span>
+          <Link key={c.href} href={c.href} className="card flex flex-col items-center gap-3 p-5 text-center transition hover:-translate-y-0.5 hover:shadow-lg">
+            <span className={`flex h-16 w-16 items-center justify-center rounded-2xl text-white ${c.tone}`}><c.Icon className="h-8 w-8" /></span>
+            <span className="text-lg font-bold text-ink">{t(c.title)}</span>
           </Link>
         ))}
       </div>
-      <p className="mt-4 flex items-center gap-2 text-sm text-muted"><HandCoins className="h-4 w-4" />{t("Not sure? Money came in or went out covers almost everything.")}</p>
     </>
   );
 }

@@ -27,11 +27,6 @@ const KIND_GROUP: Record<Kind, string> = {
   expense: "Money you spend",
 };
 
-/** Explains, at the top of every box, what this thing is. */
-export function Explain({ children }: { children: React.ReactNode }) {
-  return <p className="-mt-1 rounded-md bg-paper px-3 py-2 text-sm text-body">{children}</p>;
-}
-
 /** Category dropdown grouped by what the money is, each with a short hint. */
 function CategorySelect({ categories, value, onChange, id = "f-category" }: { categories: CatOpt[]; value: number | ""; onChange: (v: number) => void; id?: string }) {
   return (
@@ -86,7 +81,6 @@ export function AccountForm({ mode, categories, subs, level, primary, back, cate
 
   return (
     <form action={editing ? A.updateAccount : A.addAccount} className="space-y-4">
-      <Explain>An <b>account</b> is one real thing you keep track of: one bank account, one customer, one kind of expense.</Explain>
       {account && <input type="hidden" name="id" value={account.id} />}
       <input type="hidden" name="back" value={back} />
       <div>
@@ -140,7 +134,6 @@ export function AccountForm({ mode, categories, subs, level, primary, back, cate
         <div>
           <label className="label" htmlFor="f-opening">Balance it already has (optional)</label>
           <input id="f-opening" name="opening" inputMode="decimal" placeholder="0.00" className="input" />
-          <p className="mt-1 text-sm text-muted">Cash already in hand, what a customer already owes, what you already owe a supplier, as of today.</p>
         </div>
       )}
       {editing && (
@@ -188,11 +181,6 @@ export function GroupForm({ what, mode, primary, back, deleteBack, categories = 
   return (
     <div className="space-y-5">
       <form action={action} className="space-y-4">
-        {what === "category" ? (
-          <Explain>A <b>category</b> is a big group of accounts, like <i>Bank</i>, <i>Customers</i> or <i>Expenses</i>.</Explain>
-        ) : (
-          <Explain>A <b>sub-category</b> is a smaller group inside a category, like <i>Mobile wallets</i> inside <i>Bank</i>. It just keeps a long list tidy.</Explain>
-        )}
         {item && <input type="hidden" name="id" value={item.id} />}
         <input type="hidden" name="back" value={back} />
         <div>
@@ -205,7 +193,7 @@ export function GroupForm({ what, mode, primary, back, deleteBack, categories = 
             <select id="cat-kind" name="kind" required value={type} onChange={(e) => setType(e.target.value)} className="input">
               {CATEGORY_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
-            <p className="mt-1 text-sm text-muted">This decides how its balance is worked out, so pick the closest one. It can&apos;t be changed later.</p>
+            <p className="mt-1 text-sm text-muted">Can&apos;t be changed later.</p>
           </div>
         )}
         {what === "sub" && (

@@ -18,7 +18,7 @@ export default async function Deleted({ searchParams }: { searchParams: Promise<
   const log = await auditLog(d, user.id, 100);
   return (
     <>
-      <PageHeader title="Deleted entries & history" subtitle="Nothing is ever lost. Deleted entries can be restored." />
+      <PageHeader title="Deleted entries & history" />
       <Flash sp={sp} />
       <div className="card mb-6 overflow-x-auto">
         <h2 className="p-4 font-semibold text-ink">Deleted entries</h2>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
-import { HowOrganised, OrganizeButtons } from "@/components/organize";
+import { OrganizeButtons } from "@/components/organize";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { bookStock } from "@/lib/items";
@@ -42,9 +42,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     const chartItems = items.filter((i) => i.kind === "asset" || i.kind === "liability" || i.kind === "equity").sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 8);
     return (
       <>
-        <PageHeader title="Accounts" subtitle="Tap an account to see its statement." actions={actions} />
+        <PageHeader title="Accounts" actions={actions} />
         <Flash sp={sp} />
-        <HowOrganised level={1} />
         <DrillTiles items={items} />
         <DrillCharts items={chartItems} cur={cur} donutTitle="Biggest balances" barsTitle="Account balances" />
       </>
@@ -67,9 +66,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   const balanceSheet = items.filter((i) => i.kind !== "income" && i.kind !== "expense");
   return (
     <>
-      <PageHeader title="Accounts" subtitle="Tap a box to see the accounts inside." actions={actions} />
+      <PageHeader title="Accounts" actions={actions} />
       <Flash sp={sp} />
-      <HowOrganised level={user.level} />
       <DrillTiles items={items} />
       <DrillCharts items={balanceSheet} cur={cur} donutTitle="Share of each category" barsTitle="Category balances" />
     </>

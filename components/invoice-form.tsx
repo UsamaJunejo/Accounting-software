@@ -168,7 +168,7 @@ export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItem
         </div>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="record" defaultChecked className="mt-1" />
-          <span><b>Add to my books</b> as an udhaar sale: the customer&apos;s khata goes up by the total, Sales and Sales Tax are recorded. When they pay, use &ldquo;Payment received&rdquo; in Khata.</span>
+          <span className="font-semibold">Add to khata</span>
         </label>
         <button className="btn-primary" disabled={pending}><Save className="h-4 w-4" />{pending ? "Saving…" : "Create invoice"}</button>
       </div>

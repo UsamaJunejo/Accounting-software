@@ -1,4 +1,4 @@
-import { HowOrganised, OrganizeButtons } from "@/components/organize";
+import { OrganizeButtons } from "@/components/organize";
 import Link from "next/link";
 import { Archive, ChevronRight, Download, FolderPlus, Layers, Pencil, Plus } from "lucide-react";
 import { CategoryBadge } from "@/components/icons";
@@ -24,10 +24,6 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
     <>
       <PageHeader
         title="Accounts"
-        subtitle={
-          (user.level === 3 ? "Category → Sub-category → Account. " : user.level === 2 ? "Accounts grouped by category. " : "") +
-          "Click an account to see its full statement. Change how detailed this is in Settings."
-        }
         actions={
           <>
           <OrganizeButtons user={user} back="/accounts?view=list" />
@@ -42,7 +38,6 @@ export async function AccountsList({ sp }: { sp: { error?: string; ok?: string; 
       />
       <Flash sp={sp} />
 
-      <HowOrganised level={user.level} />
 
       {user.level === 1 && (
         <section className="card overflow-hidden">

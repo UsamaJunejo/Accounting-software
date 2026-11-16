@@ -91,7 +91,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
         )}
       </div>
       <div className="no-print mb-5 space-y-2">
-        <p className="text-sm text-muted">Customer link (anyone with it can view this invoice, nothing else):</p>
+        <p className="text-sm text-muted">Customer link</p>
         <CodeBox value={link} />
       </div>
       <InvoiceView inv={inv} />

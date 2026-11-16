@@ -14,7 +14,7 @@ export default async function NewInvoice() {
   const stock = (await listItems(await db(), user.id)).map((i) => ({ id: i.id, name: i.name, unit: i.unit, group: i.group_name, price: i.sale_price, stock: i.stock }));
   return (
     <>
-      <PageHeader title="New invoice" subtitle="Make a bill for a customer. You can print it or send it on WhatsApp." />
+      <PageHeader title="New invoice" />
       <InvoiceForm
         currency={user.currency}
         today={today()}

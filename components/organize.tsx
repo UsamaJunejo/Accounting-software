@@ -48,33 +48,3 @@ export async function OrganizeButtons({ user, back, categoryId, subId, only }: {
     </>
   );
 }
-
-/** A small reminder of how accounts are organised, matching the view chosen in Settings. */
-export function HowOrganised({ level }: { level: 1 | 2 | 3 }) {
-  const steps =
-    level === 3
-      ? [["Category", "a big group", "Bank"], ["Sub-category", "a smaller group (optional)", "Mobile wallets"], ["Account", "one real thing", "JazzCash"]]
-      : level === 2
-        ? [["Category", "a big group", "Bank"], ["Account", "one real thing", "JazzCash"]]
-        : [["Account", "one real thing", "JazzCash, Ahmed Traders, Rent"]];
-  return (
-    <details className="card mb-5 p-4 text-[15px]">
-      <summary className="cursor-pointer font-semibold text-ink">How your accounts are organised</summary>
-      <ol className="mt-3 flex flex-wrap items-stretch gap-2">
-        {steps.map(([t, what, eg], i) => (
-          <li key={t} className="flex items-center gap-2">
-            {i > 0 && <span aria-hidden="true" className="text-muted">→</span>}
-            <span className="rounded-lg border border-rule bg-white/70 px-3 py-2">
-              <b className="text-ink">{t}</b> <span className="text-muted">{what}</span>
-              <span className="block text-sm text-body">e.g. {eg}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-3 text-sm text-muted">
-        Entries always use <b>accounts</b>. Categories{level === 3 ? " and sub-categories" : ""} only group them for totals and charts.
-        Want {level === 1 ? "groups" : "fewer levels"}? Change &ldquo;How detailed should your accounts be?&rdquo; in Settings.
-      </p>
-    </details>
-  );
-}

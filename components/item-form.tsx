@@ -1,5 +1,4 @@
 import * as A from "@/app/actions/items";
-import { Explain } from "@/components/organize-forms";
 
 const UNITS = ["pcs", "bag", "kg", "g", "ton", "litre", "box", "carton", "dozen", "metre", "foot", "sq ft", "pair", "packet", "roll"];
 
@@ -12,7 +11,6 @@ export function ItemForm({ groups, item }: {
   const rs = (p?: number) => (p ? (p / 100).toFixed(2) : "");
   return (
     <form action={editing ? A.updateItemAction : A.addItemAction} className="space-y-4">
-      <Explain>An <b>item</b> is something you sell and keep in stock, like <i>Cement bag</i> or <i>Steel rod</i>. Pick it on an invoice and the stock goes down by itself.</Explain>
       {item && <input type="hidden" name="id" value={item.id} />}
       <div>
         <label className="label" htmlFor="it-name">Name</label>

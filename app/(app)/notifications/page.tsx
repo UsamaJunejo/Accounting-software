@@ -26,7 +26,7 @@ export default async function Notifications({ searchParams }: { searchParams: Pr
   const list = await getNotifications(await db(), user.id, today(), user.is_admin);
   return (
     <>
-      <PageHeader title="Notifications" subtitle="Things that need your attention. They disappear once they're dealt with." />
+      <PageHeader title="Notifications" />
       <Flash sp={sp} />
       {list.length === 0 ? (
         <div className="card flex flex-col items-center gap-2 p-10 text-center text-muted">

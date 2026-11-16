@@ -29,7 +29,6 @@ export default async function Items({ searchParams }: { searchParams: Promise<{ 
     <>
       <PageHeader
         title="Items & stock"
-        subtitle="What you sell and how many you have. Stock goes down when you make an invoice, and up when you add stock you bought."
         actions={
           <>
             <Dialog title="Add item" triggerClass="btn-primary" trigger={<><Plus className="h-4 w-4" />Add item</>}>

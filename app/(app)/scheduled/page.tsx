@@ -18,7 +18,7 @@ export default async function Scheduled({ searchParams }: { searchParams: Promis
   const cash = accounts.find((a) => a.role === "cash")?.id;
   return (
     <>
-      <PageHeader title="Scheduled entries" subtitle="Rent, salaries, bills: set them up once. They're added for you, or you get a reminder to add them." />
+      <PageHeader title="Scheduled entries" />
       <Flash sp={sp} />
       <form action={addSchedule} className="card mb-6 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
         <h2 className="flex items-center gap-2 text-lg font-bold sm:col-span-2 lg:col-span-3"><CalendarClock className="h-5 w-5 text-brand" />New scheduled entry</h2>

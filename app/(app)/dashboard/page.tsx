@@ -112,7 +112,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">Getting started</h2>
-              <p className="text-sm text-muted">{doneCount} of {steps.length} done. Four small steps and your books are set up.</p>
+              <p className="text-sm text-muted">{doneCount} / {steps.length}</p>
             </div>
             <form action={hideChecklist}><button className="text-sm font-semibold text-muted underline hover:text-ink">Hide this</button></form>
           </div>
@@ -124,7 +124,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   {s.done ? <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-ledger" /> : <Circle className="mt-0.5 h-5 w-5 shrink-0 text-muted" />}
                   <span>
                     <span className={`block font-semibold ${s.done ? "text-ledger line-through decoration-1" : "text-ink"}`}>{s.title}</span>
-                    {!s.done && <span className="block text-sm text-muted">{s.how}</span>}
                   </span>
                 </Link>
               </li>
@@ -151,7 +150,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <span className="me-2 text-2xl font-semibold text-white/80">{cur}</span>
                 <Secret>{money(net)}</Secret>
               </div>
-              <div className="mt-1 text-sm text-white/80">{t("Everything you own minus everything you owe")}</div>
             </div>
             <Link
               href={`/reports/income?from=${from}&to=${to}`}
@@ -249,30 +247,25 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <h2 className="mb-3 text-lg font-bold">{t("Charts")}</h2>
           <section className="mb-6 grid gap-5 lg:grid-cols-2">
           <div className="card p-5">
-            <h2 className="text-lg font-bold">{t("Cash & bank balance")}</h2>
-            <p className="mb-3 text-sm text-muted">{t("How much money you held each day")}</p>
+            <h2 className="mb-3 text-lg font-bold">{t("Cash & bank balance")}</h2>
             <BalanceLine data={flow.days} cur={cur} name={t("Cash & bank")} empty={t("No entries in this period.")} />
           </div>
             <div className="card p-5">
-              <h2 className="text-lg font-bold">{t("Income and expenses")}</h2>
-              <p className="mb-3 text-sm text-muted">{t("Last 6 months")}</p>
+              <h2 className="mb-3 text-lg font-bold">{t("Income and expenses (6 months)")}</h2>
               <InOutBars data={months} cur={cur} labels={{ in: t("Income"), out: t("Expense") }} />
             </div>
           </section>
           <section className="mb-6 grid gap-5 lg:grid-cols-2">
           <div className="card p-5">
-            <h2 className="text-lg font-bold">{t("Biggest expenses")}</h2>
-            <p className="mb-3 text-sm text-muted">{t("This period, largest first")}</p>
+            <h2 className="mb-3 text-lg font-bold">{t("Biggest expenses")}</h2>
             <RankedBars data={topExpenses} cur={cur} name={t("Expense")} empty={t("No expenses in this period.")} color="#c2263a" />
           </div>
           <div className="card p-5">
-            <h2 className="text-lg font-bold">{t("What you own")}</h2>
-            <p className="mb-3 text-sm text-muted">{t("Your assets, by category")}</p>
+            <h2 className="mb-3 text-lg font-bold">{t("What you own")}</h2>
             <CategoryDonut data={owned} cur={cur} empty={t("No entries yet.")} />
           </div>
           <div className="card p-5">
-            <h2 className="text-lg font-bold">{t("Category balances")}</h2>
-            <p className="mb-3 text-sm text-muted">{t("What you own, owe and put in, side by side")}</p>
+            <h2 className="mb-3 text-lg font-bold">{t("Category balances")}</h2>
             <CategoryBars data={balanceCats} cur={cur} />
           </div>
           </section>

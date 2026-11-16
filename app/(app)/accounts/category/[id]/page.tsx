@@ -62,7 +62,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       <Crumbs items={[{ href: "/accounts", label: "Accounts" }, { label: friendlyCategory(cat.name) }]} />
       <PageHeader
         title={friendlyCategory(cat.name)}
-        subtitle={`${mine.length} ${mine.length === 1 ? "account" : "accounts"} · tap one to see its entries${accountingTerm(cat.name) ? ` · ${cat.name} (${KIND_LABEL[cat.kind]})` : ""}`}
+        subtitle={`${mine.length} ${mine.length === 1 ? "account" : "accounts"}${accountingTerm(cat.name) ? ` · ${cat.name} (${KIND_LABEL[cat.kind]})` : ""}`}
         actions={
           <>
             <OrganizeButtons user={user} back={here} categoryId={cat.id} only={["account", "sub"]} />
@@ -90,7 +90,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
               <span className="text-sm text-muted" dir="ltr">{cur} <Money value={accounts.reduce((t, a) => t + a.balance, 0)} /></span>
             </div>
             {accounts.length ? <DrillTiles items={accounts.map(accountItem)} /> : (
-              <p className="card p-4 text-sm text-muted">No accounts here yet. Use <b>Add account</b> above.</p>
+              <p className="card p-4 text-sm text-muted">No accounts yet</p>
             )}
           </section>
         ))

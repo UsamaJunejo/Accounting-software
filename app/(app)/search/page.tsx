@@ -17,7 +17,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const total = r.accounts.length + r.entries.length + r.invoices.length;
   return (
     <>
-      <PageHeader title="Search" subtitle="Customers, accounts, entries and invoices. Type a name, a note, a mobile number or an amount." />
+      <PageHeader title="Search" />
       <form className="card mb-5 flex gap-2 p-3" role="search">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute start-3 top-2.5 h-5 w-5 text-muted" />
