@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check, Eraser, FileText, Save, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, Check, Eraser, FileText, HandCoins, PackagePlus, Save, Trash2, type LucideIcon } from "lucide-react";
 import { DateField } from "@/components/date-field";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -53,6 +53,8 @@ export default async function Voucher({
   // Where this edit was opened from: Save and Cancel both go back there.
   const returnTo = sp.back && sp.back.startsWith("/") && !sp.back.startsWith("//") ? sp.back : "/transactions";
   if (sp.edit && (!editing || editing.deleted_at)) notFound();
+  // Opened with + and nothing chosen yet: ask what happened, in pictures, before showing any form.
+  if (!editing && !TABS.some((x) => x.type === sp.type)) return <WhatHappened t={t} />;
   const type = (editing?.type ?? (TABS.some((t) => t.type === sp.type) ? sp.type : "payment")) as TxnType;
   const tab = TABS.find((t) => t.type === type)!;
 
@@ -175,14 +177,14 @@ export default async function Voucher({
           {editing ? (
             <Link href={returnTo} replace className="btn-ghost">{t("Cancel")}</Link>
           ) : (
-            <button type="reset" className="btn-ghost"><Eraser className="h-4 w-4" />{t("Clear")}</button>
+            <button type="reset" className="btn border-0 bg-transparent text-muted hover:text-ink"><Eraser className="h-4 w-4" />{t("Clear")}</button>
           )}
           {editing ? (
             <button className="btn-primary px-8"><Save className="h-4 w-4" />{t("Save changes")}</button>
           ) : (
             <>
-              <button name="next" value="close" className="btn-ghost"><Check className="h-4 w-4" />{t("Save & close")}</button>
-              <button name="next" value="again" className="btn-primary px-6"><Save className="h-4 w-4" />{t("Save & add another")}</button>
+              <button name="next" value="again" className="btn-ghost"><Save className="h-4 w-4" />{t("Save & add another")}</button>
+              <button name="next" value="close" className="btn-primary px-8 text-base"><Check className="h-5 w-5" />{t("Save")}</button>
             </>
           )}
         </div>
@@ -197,6 +199,36 @@ export default async function Voucher({
           <TxnTable rows={recent} back={`/voucher?type=${type}`} />
         </div>
       )}
+    </>
+  );
+}
+
+const CHOICES: { href: string; title: string; help: string; Icon: LucideIcon; tone: string }[] = [
+  { href: "/voucher?type=receipt", title: "Money came in", help: "A sale, a customer paid you, a loan", Icon: ArrowDownLeft, tone: "bg-inflow text-white" },
+  { href: "/voucher?type=payment", title: "Money went out", help: "A bill, rent, salary, you paid a supplier", Icon: ArrowUpRight, tone: "bg-khata text-white" },
+  { href: "/voucher?type=transfer", title: "Moved my own money", help: "Cash to bank, bank to JazzCash…", Icon: ArrowLeftRight, tone: "bg-ink text-white" },
+  { href: "/invoices/new", title: "Make a bill (invoice)", help: "Write a bill for a customer, print or WhatsApp it", Icon: FileText, tone: "bg-brand text-white" },
+  { href: "/khata", title: "Udhaar (khata)", help: "A customer took goods on credit, or you owe a supplier", Icon: BookUser, tone: "bg-marigold text-white" },
+  { href: "/items", title: "Sell or buy stock", help: "Goods you keep: laptops, cement bags…", Icon: PackagePlus, tone: "bg-ledger text-white" },
+];
+
+/** The first screen of +: big buttons, one per thing that can happen in a shop. */
+function WhatHappened({ t }: { t: (s: string) => string }) {
+  return (
+    <>
+      <PageHeader title={t("What happened?")} subtitle={t("Tap one")} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {CHOICES.map((c) => (
+          <Link key={c.href} href={c.href} className="card flex items-center gap-4 p-4 transition hover:-translate-y-0.5 hover:shadow-lg">
+            <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${c.tone}`}><c.Icon className="h-7 w-7" /></span>
+            <span>
+              <span className="block text-lg font-bold text-ink">{t(c.title)}</span>
+              <span className="block text-sm text-muted">{t(c.help)}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+      <p className="mt-4 flex items-center gap-2 text-sm text-muted"><HandCoins className="h-4 w-4" />{t("Not sure? Money came in or went out covers almost everything.")}</p>
     </>
   );
 }

@@ -81,12 +81,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           )}
           {!user.has_recovery && !user.must_change_password && !later && (
-            <div className="no-print mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-marigold/30 bg-marigold-soft px-4 py-2.5 text-sm text-marigold">
-              <Link href="/recovery-code" className="flex flex-1 items-center gap-2">
-                <KeyRound className="h-5 w-5 shrink-0" />
-                {t("Save a recovery code so you can get back in if you forget your password. Tap here.")}
+            <div className="no-print mb-4 flex items-center gap-2 rounded-lg border border-marigold/30 bg-marigold-soft px-3 py-1.5 text-sm text-marigold">
+              <Link href="/recovery-code" className="flex min-w-0 flex-1 items-center gap-2">
+                <KeyRound className="h-4 w-4 shrink-0" />
+                <span className="truncate"><b>{t("Save a recovery code")}</b> {t("in case you forget your password")}</span>
               </Link>
-              <form action={remindRecoveryLater}><button className="whitespace-nowrap rounded px-2 py-1 font-semibold hover:bg-white/50">{t("Remind me later")}</button></form>
+              <form action={remindRecoveryLater}><button className="whitespace-nowrap rounded px-2 py-1 font-semibold hover:bg-white/50">{t("Later")}</button></form>
             </div>
           )}
           {children}

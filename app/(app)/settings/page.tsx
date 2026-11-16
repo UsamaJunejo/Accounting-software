@@ -25,9 +25,14 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title="Settings" />
+      <nav aria-label="Jump to" className="no-print mb-5 flex flex-wrap gap-2">
+        {[["set-profile", "Profile & photo"], ["set-theme", "Colours"], ["set-currency", "Currency"], ["set-numbers", "Numbers"], ["set-detail", "Account levels"], ["set-password", "Password"], ["set-recovery", "Recovery code"], ["set-data", "Download data"], ["set-kin", "Next of kin"], ["set-invite", "Invite"], ["start-again", "Start again / delete"]].map(([id, label]) => (
+          <a key={id} href={`#${id}`} className="rounded-full border border-rule bg-white/70 px-3 py-1.5 text-sm font-semibold text-peacock hover:bg-white">{label}</a>
+        ))}
+      </nav>
       <Flash sp={sp} />
       <div className="grid gap-5 lg:grid-cols-2">
-        <form action={updateProfile} className="card space-y-4 p-5">
+        <form id="set-profile" action={updateProfile} className="card space-y-4 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><UserRound className="h-5 w-5 text-brand" />Profile</h2>
           <div id="photo" className="scroll-mt-20"><PhotoUpload name={user.name} v={user.photo_v} /></div>
           <div><label className="label">Your name</label><input name="name" defaultValue={user.name} required className="input" /></div>
@@ -38,7 +43,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <div><label className="label">Email</label><input value={user.email} disabled className="input bg-paper" /></div>
           <button className="btn-primary">Save profile</button>
         </form>
-        <form action={setScheme} className="card space-y-3 p-5">
+        <form id="set-theme" action={setScheme} className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Palette className="h-5 w-5 text-brand" />Colour theme</h2>
           <div className="grid gap-2 sm:grid-cols-2">
             {SCHEMES.map((sc) => (
@@ -53,11 +58,11 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           </div>
           <button className="btn-dark">Use this theme</button>
         </form>
-        <div className="card space-y-3 p-5">
+        <div id="set-currency" className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Coins className="h-5 w-5 text-brand" />Currency</h2>
           <CurrencySettings current={user.currency} hasEntries={hasEntries} />
         </div>
-        <form action={updateNumberStyle} className="card space-y-3 p-5">
+        <form id="set-numbers" action={updateNumberStyle} className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Hash className="h-5 w-5 text-brand" />How numbers look</h2>
           {[
             ["intl", "1,234,567.00", "International style, like most banks"],
@@ -70,7 +75,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           ))}
           <button className="btn-dark">Save number style</button>
         </form>
-        <form action={updateLevel} className="card space-y-3 p-5">
+        <form id="set-detail" action={updateLevel} className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><Layers className="h-5 w-5 text-brand" />How detailed should your accounts be?</h2>
           {[
             [1, "Simple (1 level)", "Just a list of accounts. Best for home use or a very small shop."],
@@ -85,7 +90,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <p className="text-xs text-muted">This only changes how things are shown. Your data stays the same, so you can switch any time.</p>
           <button className="btn-dark">Save view</button>
         </form>
-        <form action={updateNextOfKin} className="card space-y-3 p-5">
+        <form id="set-kin" action={updateNextOfKin} className="card space-y-3 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink"><HeartHandshake className="h-5 w-5 text-brand" />Next of kin</h2>
           <p className="text-sm text-muted">Someone we can contact about your account if something happens to you. Only FinanceChachu admins can see this.</p>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -97,14 +102,14 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <button className="btn-dark">Save next of kin</button>
         </form>
         <div className="space-y-5">
-          <form action={changePassword} className={`card space-y-4 p-5 ${sp.must ? "border-2 border-khata" : ""}`}>
+          <form id="set-password" action={changePassword} className={`card space-y-4 p-5 ${sp.must ? "border-2 border-khata" : ""}`}>
             {sp.must && <p className="text-sm font-semibold text-khata">Enter the temporary password you were given, then choose your own.</p>}
             <h2 className="flex items-center gap-2 font-semibold text-ink"><KeyRound className="h-5 w-5 text-brand" />Change password</h2>
             <div><label className="label">Current password</label><input type="password" name="current" required className="input" autoComplete="current-password" /></div>
             <div><label className="label">New password</label><input type="password" name="next" required minLength={8} className="input" autoComplete="new-password" /></div>
             <button className="btn-dark">Change password</button>
           </form>
-          <div className="card space-y-3 p-5">
+          <div id="set-invite" className="card space-y-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold text-ink"><Gift className="h-5 w-5 text-brand" />Invite a friend</h2>
             <p className="text-sm text-muted">Know a shopkeeper who still keeps a paper register? Send them FinanceChachu.</p>
             <a
@@ -116,7 +121,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
               <MessageCircle className="h-4 w-4" />Invite on WhatsApp
             </a>
           </div>
-          <div className="card space-y-3 p-5">
+          <div id="set-recovery" className="card space-y-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold text-ink"><LifeBuoy className="h-5 w-5 text-brand" />Recovery code</h2>
             <p className="text-sm text-muted">
               {user.has_recovery
@@ -125,7 +130,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             </p>
             <Link href="/recovery-code" className="btn-ghost"><KeyRound className="h-4 w-4" />{user.has_recovery ? "Make a new code" : "Create recovery code"}</Link>
           </div>
-          <div className="card space-y-3 p-5">
+          <div id="set-data" className="card space-y-3 p-5">
             <h2 className="flex items-center gap-2 font-semibold text-ink"><Database className="h-5 w-5 text-brand" />Your data</h2>
             <p className="text-sm text-muted">Download your data as files that open in Excel or Google Sheets. Keep a copy as a backup.</p>
             <div className="flex flex-wrap gap-2">

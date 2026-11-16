@@ -61,13 +61,13 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
       color: colors.get(c.id) ?? colorAt(i),
       icon: c.icon,
       kind: c.kind,
-      note: [accountingTerm(c.name), `${mine.length} ${mine.length === 1 ? "account" : "accounts"}`].filter(Boolean).join(" | "),
+      note: `${mine.length} ${mine.length === 1 ? "account" : "accounts"}${accountingTerm(c.name) ? ` · ${accountingTerm(c.name)}` : ""}`,
     };
   });
   const balanceSheet = items.filter((i) => i.kind !== "income" && i.kind !== "expense");
   return (
     <>
-      <PageHeader title="Accounts" subtitle="Tap a category to open it. Each one has its own colour, used in every chart." actions={actions} />
+      <PageHeader title="Accounts" subtitle="Tap a box to see the accounts inside." actions={actions} />
       <Flash sp={sp} />
       <HowOrganised level={user.level} />
       <DrillTiles items={items} />

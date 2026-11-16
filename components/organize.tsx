@@ -27,16 +27,24 @@ export async function OrganizeButtons({ user, back, categoryId, subId, only }: {
           <AccountForm mode="add" categories={cats} subs={subs} level={user.level} primary={user.currency} back={back} categoryId={categoryId} subId={subId} />
         </Dialog>
       )}
-      {user.level === 3 && show("sub") && (
-        <Dialog title="Add sub-category" triggerClass="btn-ghost" trigger={<><Layers className="h-4 w-4" />Add sub-category</>}>
-          <GroupForm what="sub" mode="add" categories={cats} parentId={categoryId} primary={user.currency} back={back} />
-        </Dialog>
-      )}
-      {user.level >= 2 && show("category") && (
-        <Dialog title="Add category" triggerClass="btn-ghost" trigger={<><FolderPlus className="h-4 w-4" />Add category</>}>
-          <GroupForm what="category" mode="add" primary={user.currency} back={back} />
-        </Dialog>
-      )}
+      {(user.level === 3 && show("sub")) || (user.level >= 2 && show("category")) ? (
+        // Making groups is rarer than adding an account, so those two wait behind one button.
+        <details className="relative">
+          <summary className="btn-ghost cursor-pointer list-none [&::-webkit-details-marker]:hidden"><FolderPlus className="h-4 w-4" />Add a group ▾</summary>
+          <div data-popover className="absolute start-0 z-30 mt-1 flex w-64 flex-col gap-1 rounded-lg border border-rule bg-white p-2 shadow-xl">
+            {user.level === 3 && show("sub") && (
+              <Dialog title="Add sub-category" triggerClass="btn w-full justify-start text-ink hover:bg-paper" trigger={<><Layers className="h-4 w-4" />Sub-category <span className="font-normal text-muted">(small group)</span></>}>
+                <GroupForm what="sub" mode="add" categories={cats} parentId={categoryId} primary={user.currency} back={back} />
+              </Dialog>
+            )}
+            {user.level >= 2 && show("category") && (
+              <Dialog title="Add category" triggerClass="btn w-full justify-start text-ink hover:bg-paper" trigger={<><FolderPlus className="h-4 w-4" />Category <span className="font-normal text-muted">(big group)</span></>}>
+                <GroupForm what="category" mode="add" primary={user.currency} back={back} />
+              </Dialog>
+            )}
+          </div>
+        </details>
+      ) : null}
     </>
   );
 }

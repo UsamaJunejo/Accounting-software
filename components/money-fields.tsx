@@ -68,7 +68,7 @@ export function MoneyFields({
 
   return (
     <div className="space-y-3 sm:col-span-2">
-      <div className="grid gap-3 sm:grid-cols-[1fr_280px]">
+      <div className="grid grid-cols-[1fr_6.5rem] gap-3">
         {cur === primary ? (
           <div>
             <label className="label" htmlFor="amount">Amount ({primary})</label>
@@ -82,6 +82,7 @@ export function MoneyFields({
         )}
         <div>
           <label className="label" htmlFor="currency">Currency</label>
+          {/* Short codes so it fits beside the amount; most people never touch it. */}
           <select
             id="currency"
             name="currency"
@@ -90,10 +91,11 @@ export function MoneyFields({
               setCur(e.target.value);
               auto.current = false;
             }}
-            className="input"
+            className="input text-lg font-semibold"
+            aria-label="Currency"
           >
             {CURRENCIES.map(([c, n]) => (
-              <option key={c} value={c}>{c} – {n}{c === primary ? " (main)" : ""}</option>
+              <option key={c} value={c} title={n}>{c}</option>
             ))}
           </select>
         </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -27,6 +28,14 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   const mine = accs.filter((a) => a.category_id === cat.id && !a.archived);
   const total = mine.reduce((s, a) => s + a.balance, 0);
 
+  const accountItem = (a: (typeof mine)[number], i: number): DrillItem => {
+    const s = subs.find((x) => x.id === a.subcategory_id);
+    return { key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, native: a.currency && a.native !== null ? { amount: a.native, currency: a.currency } : null, color: s?.color ?? colorAt(i), icon: s?.icon ?? cat.icon ?? defaultIconKey(cat.name, cat.kind), kind: cat.kind };
+  };
+  // Level 3: the accounts themselves, under a heading for each sub-category (one tap to an account).
+  const groups = user.level === 3
+    ? subs.filter((s) => s.category_id === cat.id).map((s) => ({ sub: s, accounts: mine.filter((a) => a.subcategory_id === s.id) }))
+    : [];
   let items: DrillItem[];
   if (user.level === 3) {
     items = subs
@@ -45,10 +54,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
         };
       });
   } else {
-    items = mine.map((a, i) => {
-      const s = subs.find((x) => x.id === a.subcategory_id);
-      return { key: String(a.id), href: `/accounts/${a.id}`, name: a.name, balance: a.balance, native: a.currency && a.native !== null ? { amount: a.native, currency: a.currency } : null, color: s?.color ?? colorAt(i), icon: s?.icon ?? cat.icon ?? defaultIconKey(cat.name, cat.kind), kind: cat.kind };
-    });
+    items = mine.map(accountItem);
   }
 
   return (
@@ -56,7 +62,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
       <Crumbs items={[{ href: "/accounts", label: "Accounts" }, { label: friendlyCategory(cat.name) }]} />
       <PageHeader
         title={friendlyCategory(cat.name)}
-        subtitle={`${accountingTerm(cat.name) ? `${cat.name}, ` : ""}${KIND_LABEL[cat.kind]} | ${mine.length} ${mine.length === 1 ? "account" : "accounts"}`}
+        subtitle={`${mine.length} ${mine.length === 1 ? "account" : "accounts"} · tap one to see its entries${accountingTerm(cat.name) ? ` · ${cat.name} (${KIND_LABEL[cat.kind]})` : ""}`}
         actions={
           <>
             <OrganizeButtons user={user} back={here} categoryId={cat.id} only={["account", "sub"]} />
@@ -74,7 +80,23 @@ export default async function CategoryPage({ params, searchParams }: { params: P
           <div className="text-2xl font-bold text-ink" dir="ltr"><span className="me-1 text-base text-muted">{cur}</span><Money value={total} /></div>
         </div>
       </div>
-      <DrillTiles items={items} />
+      {user.level === 3 ? (
+        groups.map(({ sub, accounts }) => (
+          <section key={sub.id} className="mb-6">
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <h2 className="text-lg font-bold text-ink">
+                <Link href={`/accounts/sub/${sub.id}`} className="hover:underline">{sub.name}</Link>
+              </h2>
+              <span className="text-sm text-muted" dir="ltr">{cur} <Money value={accounts.reduce((t, a) => t + a.balance, 0)} /></span>
+            </div>
+            {accounts.length ? <DrillTiles items={accounts.map(accountItem)} /> : (
+              <p className="card p-4 text-sm text-muted">No accounts here yet. Use <b>Add account</b> above.</p>
+            )}
+          </section>
+        ))
+      ) : (
+        <DrillTiles items={items} />
+      )}
       <DrillCharts items={items} cur={cur} donutTitle={`Share within ${cat.name}`} barsTitle="Balances" />
     </>
   );

@@ -13,7 +13,7 @@ export function Dialog({ trigger, title, children, triggerClass = "" }: { trigge
       </button>
       <dialog
         ref={ref}
-        className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-2xl border border-white/70 bg-white/95 p-0 text-body shadow-2xl backdrop:bg-ink/40 backdrop:backdrop-blur-sm"
+        className="m-auto max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-white/70 bg-white/95 p-0 text-body shadow-2xl backdrop:bg-ink/40 backdrop:backdrop-blur-sm"
         onClick={(e) => e.target === ref.current && ref.current?.close()}
       >
         <div className="flex items-center justify-between border-b border-rule px-5 py-3">

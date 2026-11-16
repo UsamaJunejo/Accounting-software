@@ -98,6 +98,7 @@ a { text-underline-offset: 3px; }
   font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Noto Nastaliq Urdu", ui-sans-serif, system-ui, sans-serif;
   line-height: 2;
 }
+html { scroll-padding-top: 5rem; }
 .tabular-nums, .num { unicode-bidi: isolate; }
 [dir="rtl"] .num { direction: ltr; text-align: left; }
 

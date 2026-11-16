@@ -106,6 +106,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         title={`${t("Assalam-o-Alaikum")}, ${user.name.split(" ")[0]}`}
         subtitle={`${prettyDate(from)} ${t("to")} ${prettyDate(to)}`}
       />
+      <DateRange from={from} to={to} />
       {showStart && (
         <section className="card mb-6 p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -140,7 +141,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           ))}
         </div>
       )}
-      <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <section className="mb-6">
         {/* The balance card, like the top of a banking app. */}
         <PrivateAmounts className="rounded-2xl bg-brand p-6 text-white shadow-[0_18px_40px_-20px_var(--color-brand)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -183,27 +184,19 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             ))}
           </nav>
         </PrivateAmounts>
-        <div className="card p-5">
-          <h2 className="text-lg font-bold">{t("Cash & bank balance")}</h2>
-          <p className="mb-3 text-sm text-muted">{t("How much money you held each day")}</p>
-          <BalanceLine data={flow.days} cur={cur} name={t("Cash & bank")} empty={t("No entries in this period.")} />
-        </div>
       </section>
 
-      <DateRange from={from} to={to} />
-
-      <section className="mb-6 grid gap-5 lg:grid-cols-2">
-        <div className="card p-5">
-          <h2 className="text-lg font-bold">{t("Income and expenses")}</h2>
-          <p className="mb-3 text-sm text-muted">{t("Last 6 months")}</p>
-          <InOutBars data={months} cur={cur} labels={{ in: t("Income"), out: t("Expense") }} />
+      <div className="card mb-6 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4">
+          <h2 className="text-lg font-bold">{t("Latest entries")}</h2>
+          <Link href="/transactions" className="text-sm font-semibold text-peacock underline">{t("See all")}</Link>
         </div>
-        <div className="card p-5">
-          <h2 className="text-lg font-bold">{t("Biggest expenses")}</h2>
-          <p className="mb-3 text-sm text-muted">{t("This period, largest first")}</p>
-          <RankedBars data={topExpenses} cur={cur} name={t("Expense")} empty={t("No expenses in this period.")} color="#c2263a" />
-        </div>
-      </section>
+        {recent.length === 0 ? (
+          <Empty>{t("No entries yet. Add your first one with “Money In” or “Money Out”.")}</Empty>
+        ) : (
+          <TxnTable rows={recent} back="/dashboard" />
+        )}
+      </div>
 
       {budgetRows.length > 0 && (
         <div className="card mb-6 p-5">
@@ -251,30 +244,42 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </ul>
       </section>
 
-      <section className="mb-6 grid gap-5 lg:grid-cols-2">
-        <div className="card p-5">
-          <h2 className="text-lg font-bold">{t("What you own")}</h2>
-          <p className="mb-3 text-sm text-muted">{t("Your assets, by category")}</p>
-          <CategoryDonut data={owned} cur={cur} empty={t("No entries yet.")} />
-        </div>
-        <div className="card p-5">
-          <h2 className="text-lg font-bold">{t("Category balances")}</h2>
-          <p className="mb-3 text-sm text-muted">{t("What you own, owe and put in, side by side")}</p>
-          <CategoryBars data={balanceCats} cur={cur} />
-        </div>
-      </section>
-
-      <div className="card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4">
-          <h2 className="text-lg font-bold">{t("Latest entries")}</h2>
-          <Link href="/transactions" className="text-sm font-semibold text-peacock underline">{t("See all")}</Link>
-        </div>
-        {recent.length === 0 ? (
-          <Empty>{t("No entries yet. Add your first one with “Money In” or “Money Out”.")}</Empty>
-        ) : (
-          <TxnTable rows={recent} back="/dashboard" />
-        )}
-      </div>
+      {anyEntry ? (
+        <>
+          <h2 className="mb-3 text-lg font-bold">{t("Charts")}</h2>
+          <section className="mb-6 grid gap-5 lg:grid-cols-2">
+          <div className="card p-5">
+            <h2 className="text-lg font-bold">{t("Cash & bank balance")}</h2>
+            <p className="mb-3 text-sm text-muted">{t("How much money you held each day")}</p>
+            <BalanceLine data={flow.days} cur={cur} name={t("Cash & bank")} empty={t("No entries in this period.")} />
+          </div>
+            <div className="card p-5">
+              <h2 className="text-lg font-bold">{t("Income and expenses")}</h2>
+              <p className="mb-3 text-sm text-muted">{t("Last 6 months")}</p>
+              <InOutBars data={months} cur={cur} labels={{ in: t("Income"), out: t("Expense") }} />
+            </div>
+          </section>
+          <section className="mb-6 grid gap-5 lg:grid-cols-2">
+          <div className="card p-5">
+            <h2 className="text-lg font-bold">{t("Biggest expenses")}</h2>
+            <p className="mb-3 text-sm text-muted">{t("This period, largest first")}</p>
+            <RankedBars data={topExpenses} cur={cur} name={t("Expense")} empty={t("No expenses in this period.")} color="#c2263a" />
+          </div>
+          <div className="card p-5">
+            <h2 className="text-lg font-bold">{t("What you own")}</h2>
+            <p className="mb-3 text-sm text-muted">{t("Your assets, by category")}</p>
+            <CategoryDonut data={owned} cur={cur} empty={t("No entries yet.")} />
+          </div>
+          <div className="card p-5">
+            <h2 className="text-lg font-bold">{t("Category balances")}</h2>
+            <p className="mb-3 text-sm text-muted">{t("What you own, owe and put in, side by side")}</p>
+            <CategoryBars data={balanceCats} cur={cur} />
+          </div>
+          </section>
+        </>
+      ) : (
+        <p className="card mb-6 p-5 text-center text-muted">{t("Charts of your money will appear here after your first entry.")}</p>
+      )}
     </>
   );
 }
