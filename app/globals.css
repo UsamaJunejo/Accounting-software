@@ -7,15 +7,15 @@
 */
 @theme {
   /* Page and surfaces: cool, clean paper so the colours can sing. */
-  --color-paper: #f1f4f6;
+  --color-paper: #eef2f8;
   --color-sheet: #ffffff;
-  --color-rule: #dce3e8;
-  --color-rule-strong: #b3c0c8;
+  --color-rule: #cfd7e4;
+  --color-rule-strong: #94a1b8;
 
   /* Text ink (headings, numbers). */
-  --color-ink: #12303a;
-  --color-ink-dark: #0a1f26;
-  --color-ink-soft: #e2f1f1;
+  --color-ink: #0b1730;
+  --color-ink-dark: #050d1e;
+  --color-ink-soft: #e3e9f4;
 
   /* Truck-art palette: peacock teal (main actions, side menu), mustard (highlights),
      crimson (money out), turquoise (light accents). */
@@ -51,17 +51,17 @@
   --color-ledger-soft: #def2e6;
 
   /* Money in is blue, money out is crimson: a pair colour-blind readers can tell apart. */
-  --color-inflow: #1f5fae;
-  --color-inflow-dark: #184b8a;
-  --color-inflow-soft: #e4eefb;
-  --color-chart-in: #2a78d6;
+  --color-inflow: #0b7a4b;
+  --color-inflow-dark: #075c38;
+  --color-inflow-soft: #dcf3e8;
+  --color-chart-in: #12965e;
   --color-chart-out: #c2263a;
 
   --color-marigold: #8a5b00;
   --color-marigold-soft: #fdf3d3;
 
-  --color-body: #24343b;
-  --color-muted: #5a6b73;
+  --color-body: #1b2740;
+  --color-muted: #475470;
 
   --color-brand: #0b6e75;
   --color-brand-dark: #0b4148;
@@ -104,8 +104,8 @@ html { scroll-padding-top: 5rem; }
 
 /* Panels: frosted glass. A bright top edge (like light on glass) and a soft, low shadow. */
 @utility card {
-  @apply rounded-xl border border-white/70 bg-white/65 backdrop-blur-xl;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 10px 30px -18px rgba(18, 48, 58, 0.35);
+  @apply rounded-xl border border-[#d5dcea] bg-white/90 backdrop-blur-xl;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(11, 23, 48, 0.06), 0 12px 28px -18px rgba(11, 23, 48, 0.32);
 }
 
 /* The glass blur makes each card its own layer, so an open dropdown would slide under the next card.
@@ -115,12 +115,12 @@ html { scroll-padding-top: 5rem; }
 @utility btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-50; }
 @utility btn-primary { @apply btn bg-peacock text-white hover:bg-peacock-dark; }
 @utility btn-dark { @apply btn bg-peacock text-white hover:bg-peacock-dark; }
-@utility btn-ghost { @apply btn border border-white/80 bg-white/60 text-peacock backdrop-blur hover:bg-white/90; }
-@utility btn-danger { @apply btn border border-khata/30 bg-white/60 text-khata backdrop-blur hover:bg-khata-soft; }
+@utility btn-ghost { @apply btn border border-[#c9d2e3] bg-white text-peacock hover:bg-peacock-soft; }
+@utility btn-danger { @apply btn border border-khata/40 bg-white text-khata hover:bg-khata-soft; }
 @utility btn-in { @apply btn bg-inflow text-white hover:bg-inflow-dark; }
 @utility btn-out { @apply btn bg-khata text-white hover:bg-khata-dark; }
 
-@utility input { @apply w-full rounded-md border border-rule-strong/80 bg-white/80 px-3 py-2 text-[15px] text-body outline-none focus:border-peacock focus:ring-2 focus:ring-peacock/20; }
+@utility input { @apply w-full rounded-md border border-rule-strong bg-white px-3 py-2 text-[15px] text-body outline-none focus:border-peacock focus:ring-2 focus:ring-peacock/20; }
 @utility label { @apply mb-1 block text-sm font-semibold text-body; }
 @utility num { @apply text-right tabular-nums whitespace-nowrap; }
 
@@ -150,6 +150,9 @@ html { scroll-padding-top: 5rem; }
   Colour themes, banking-app style: one bold brand colour on the side menu, the balance card and
   the main buttons. Money in (blue), money out (crimson) and category colours never change.
 */
+[data-scheme="navy"] {
+  --color-brandx: #142a52; --color-brandx-dark: #0b1a38; --color-brandx-soft: #e2e9f6; --color-brandx-accent: #f5a524;
+}
 [data-scheme="royal"] {
   --color-brandx: #1a35b8; --color-brandx-dark: #142a91; --color-brandx-soft: #e3e8fb; --color-brandx-accent: #ffc83d;
 }

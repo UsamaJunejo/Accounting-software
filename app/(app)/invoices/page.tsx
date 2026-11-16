@@ -6,6 +6,7 @@ import { invoiceStatus, listInvoices, type InvoiceStatus } from "@/lib/invoices"
 import { StatusPill } from "@/components/invoice-status";
 import { money, prettyDate, today } from "@/lib/format";
 import { Empty, LinkButton, PageHeader } from "@/components/ui";
+import { InvoiceTabs } from "@/components/invoice-tabs";
 
 export const metadata = { title: "Invoices" };
 
@@ -23,6 +24,7 @@ export default async function Invoices({ searchParams }: { searchParams: Promise
   return (
     <>
       <PageHeader title="Invoices" actions={<LinkButton href="/invoices/new" variant="primary"><FilePlus2 className="h-4 w-4" />New invoice</LinkButton>} />
+      <InvoiceTabs active="bills" />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <nav className="flex overflow-hidden rounded-md border border-white/80 bg-white/60 backdrop-blur" aria-label="Filter invoices">
           {TABS.map(([k, label]) => (

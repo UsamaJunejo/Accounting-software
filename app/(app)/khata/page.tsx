@@ -9,10 +9,12 @@ import { money } from "@/lib/format";
 import { getT } from "@/lib/lang";
 import { RankedBars } from "@/components/charts";
 import { currencySymbol } from "@/lib/currencies";
+import { InvoiceTabs } from "@/components/invoice-tabs";
+import { FilePlus2 } from "lucide-react";
 
 export const metadata = { title: "Khata" };
 
-export default async function Khata({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string }> }) {
+export default async function Khata({ searchParams }: { searchParams: Promise<{ error?: string; ok?: string; tab?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const d = await db();
@@ -31,9 +33,9 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const id = (name: string, kind: string) =>
     (accs.find((a) => a.name === name && a.kind === kind && !a.archived) ?? accs.find((a) => a.kind === kind && !a.archived))?.id ?? "";
   const cash = accs.find((a) => a.role === "cash")?.id ?? "";
-  const sales = id("Sales", "income");
   const purchases = id("Purchases", "expense");
 
+  const tab: "customers" | "suppliers" = sp.tab === "suppliers" ? "suppliers" : "customers";
   const customers = people.filter((p) => p.role === "receivable");
   const suppliers = people.filter((p) => p.role === "payable");
 
@@ -100,7 +102,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
       {sub && (
         <form action={addAccount} className="flex flex-wrap gap-2 bg-paper p-3">
           <input type="hidden" name="subcategory" value={sub.id} />
-          <input type="hidden" name="back" value="/khata" />
+          <input type="hidden" name="back" value={`/khata?tab=${tab}`} />
           <input name="name" required placeholder={t("Name")} className="input max-w-48" />
           <input name="phone" placeholder={t("Mobile")} className="input max-w-40" />
           <input name="opening" inputMode="decimal" placeholder={t(openingHint)} aria-label={t(openingHint)} className="input max-w-44" />
@@ -113,9 +115,10 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
   const small = "inline-flex items-center gap-1 rounded-md border border-rule-strong bg-white px-2 py-1 text-xs font-semibold hover:border-brand";
   return (
     <>
-      <PageHeader title={t("Khata")} actions={<Link href="/reports/late-payers" className="btn-ghost">Who is late paying</Link>} />
+      <PageHeader title={t("Invoices")} actions={tab === "customers" ? <><Link href="/reports/late-payers" className="btn-ghost">{t("Who is late paying")}</Link><Link href="/invoices/new" className="btn-primary"><FilePlus2 className="h-4 w-4" />{t("New invoice")}</Link></> : undefined} />
+      <InvoiceTabs active={tab} />
       <Flash sp={sp} />
-      {customers.some((c) => c.balance > 0) && (
+      {tab === "customers" && customers.some((c) => c.balance > 0) && (
         <div className="card mb-5 p-5">
           <h2 className="text-lg font-bold">{t("Who owes you the most")}</h2>
           <p className="mb-3 text-sm text-muted">{t("Customers with money still to pay, largest first")}</p>
@@ -123,12 +126,12 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
             data={customers.filter((c) => c.balance > 0).sort((x, y) => y.balance - x.balance).slice(0, 8).map((c) => ({ name: c.name, value: c.balance }))}
             cur={currencySymbol(user.currency)}
             name={t("Owes you")}
-            color="#2a78d6"
+            color="#12965e"
           />
         </div>
       )}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Section
+      <div className="max-w-3xl">
+        {tab === "customers" ? <Section
           title="Customers (they owe you)"
           Icon={Users}
           rows={customers}
@@ -137,12 +140,11 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
           hint="Udhaar sale: goods given on credit. Payment received: customer paid you."
           actions={(pid) => (
             <>
-              <Link className={small} href={`/voucher?type=transfer&from=${sales}&to=${pid}`}><ShoppingBag className="h-3.5 w-3.5" />{t("Udhaar sale")}</Link>
+              <Link className={small} href={`/invoices/new?customer=${pid}`}><ShoppingBag className="h-3.5 w-3.5" />{t("Invoice / udhaar")}</Link>
               <Link className={small} href={`/voucher?type=receipt&from=${pid}&to=${cash}`}><Banknote className="h-3.5 w-3.5" />{t("Payment received")}</Link>
             </>
           )}
-        />
-        <Section
+        /> : <Section
           title="Suppliers (you owe them)"
           Icon={Truck}
           rows={suppliers}
@@ -155,7 +157,7 @@ export default async function Khata({ searchParams }: { searchParams: Promise<{ 
               <Link className={small} href={`/voucher?type=payment&from=${cash}&to=${pid}`}><Banknote className="h-3.5 w-3.5" />{t("Paid")}</Link>
             </>
           )}
-        />
+        />}
       </div>
     </>
   );

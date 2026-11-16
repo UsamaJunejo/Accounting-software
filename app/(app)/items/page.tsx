@@ -9,7 +9,7 @@ import { Empty, Flash, PageHeader } from "@/components/ui";
 import { Dialog } from "@/components/dialog";
 import { ItemForm } from "@/components/item-form";
 
-export const metadata = { title: "Items & stock" };
+export const metadata = { title: "Stock" };
 
 const qty = (n: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigits: 3 }).format(n);
 
@@ -28,7 +28,7 @@ export default async function Items({ searchParams }: { searchParams: Promise<{ 
   return (
     <>
       <PageHeader
-        title="Items & stock"
+        title="Stock"
         actions={
           <>
             <Dialog title="Add item" triggerClass="btn-primary" trigger={<><Plus className="h-4 w-4" />Add item</>}>
@@ -61,7 +61,7 @@ export default async function Items({ searchParams }: { searchParams: Promise<{ 
                     <Link href={`/items/${i.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-ink-soft/40">
                       <span className="min-w-0">
                         <span className="block font-medium text-ink">{i.name}{i.archived && <span className="ms-2 text-xs text-muted">archived</span>}</span>
-                        <span className="block text-sm text-muted" dir="ltr">Sells at {cur} {money(i.sale_price)} / {i.unit}</span>
+                        <span className="block text-sm text-muted" dir="ltr">{i.pricing === "lot" ? "Lot · each sold at its own price" : `Sells at ${cur} ${money(i.sale_price)} / ${i.unit}`}</span>
                       </span>
                       <span className={`text-end font-bold tabular-nums ${i.stock <= 0 ? "text-khata" : isLow ? "text-marigold" : "text-ink"}`}>
                         {isLow && <TriangleAlert className="me-1 inline h-4 w-4 align-[-2px]" />}

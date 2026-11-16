@@ -391,6 +391,9 @@ export const MIGRATIONS: string[] = [
   UPDATE stock_moves SET value = ROUND(qty * unit_cost) WHERE value IS NULL AND unit_cost IS NOT NULL AND reason IN ('opening', 'purchase');
   CREATE INDEX IF NOT EXISTS idx_stock_moves_unbooked ON stock_moves(user_id) WHERE NOT booked;
   `,
+  // 19: how an item is priced. "each": one price per piece. "lot": bought together for one total,
+  // every piece sold at its own price (no price per piece is kept).
+  `ALTER TABLE items ADD COLUMN IF NOT EXISTS pricing TEXT NOT NULL DEFAULT 'each' CHECK (pricing IN ('each', 'lot'));`,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

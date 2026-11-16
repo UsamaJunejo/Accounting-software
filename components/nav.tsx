@@ -7,20 +7,21 @@ import { Logo } from "@/components/logo";
 import {
   CalendarClock,
   CreditCard,
-  BarChart3, BookUser, FileText, LayoutDashboard, ListOrdered, Menu, Package, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
+  BarChart3, FileText, LayoutDashboard, ListOrdered, Menu, Package, PlusCircle, Settings, Share2, ShieldCheck, Wallet, X,
 } from "lucide-react";
 
-const ITEMS = [
-  { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { href: "/voucher", label: "New Entry", Icon: PlusCircle },
-  { href: "/transactions", label: "Entries", Icon: ListOrdered },
-  { href: "/accounts", label: "Accounts", Icon: Wallet },
-  { href: "/khata", label: "Khata", Icon: BookUser },
-  { href: "/invoices", label: "Invoices", Icon: FileText },
-  { href: "/items", label: "Items & stock", Icon: Package },
+// One structure for web and phone: the four places people use every day, then "More".
+const MAIN = [
+  { href: "/dashboard", label: "Home", Icon: LayoutDashboard },
+  { href: "/invoices", label: "Invoices", Icon: FileText, also: ["/khata"] },
+  { href: "/items", label: "Stock", Icon: Package },
+  { href: "/reports", label: "Reports", Icon: BarChart3 },
+];
+const MORE = [
+  { href: "/accounts", label: "My money", Icon: Wallet },
+  { href: "/transactions", label: "All entries", Icon: ListOrdered },
   { href: "/scheduled", label: "Scheduled", Icon: CalendarClock },
   { href: "/shared", label: "Shared", Icon: Share2 },
-  { href: "/reports", label: "Reports", Icon: BarChart3 },
   { href: "/settings", label: "Settings", Icon: Settings },
   { href: "/billing", label: "Billing", Icon: CreditCard },
 ];
@@ -35,9 +36,9 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
     return () => window.removeEventListener("open-menu", show);
   }, []);
   useEffect(() => setOpen(false), [path]);
-  const items = isAdmin ? [...ITEMS, { href: "/admin", label: "Admin", Icon: ShieldCheck }] : ITEMS;
-  const links = items.map(({ href, label, Icon }) => {
-    const active = path === href || path.startsWith(href + "/");
+  const more = isAdmin ? [...MORE, { href: "/admin", label: "Admin", Icon: ShieldCheck }] : MORE;
+  const link = ({ href, label, Icon, also = [] }: { href: string; label: string; Icon: typeof Menu; also?: string[] }) => {
+    const active = [href, ...also].some((h) => path === h || path.startsWith(h + "/"));
     return (
       <Link
         key={href}
@@ -55,7 +56,17 @@ export function Nav({ isAdmin = false, badge = 0, labels = {} }: { isAdmin?: boo
         )}
       </Link>
     );
-  });
+  };
+  const links = (
+    <>
+      <Link href="/voucher" onClick={() => setOpen(false)} className="mb-3 flex items-center justify-center gap-2 rounded-lg bg-nav-marker px-3 py-2.5 text-[15px] font-bold text-ink-dark shadow-sm hover:brightness-105">
+        <PlusCircle className="h-5 w-5" strokeWidth={2} />{labels["New"] ?? "New"}
+      </Link>
+      {MAIN.map(link)}
+      <div className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-nav-muted">{labels["More"] ?? "More"}</div>
+      {more.map(link)}
+    </>
+  );
   return (
     <>
       <button onClick={() => setOpen(!open)} className="no-print relative rounded p-2 text-ink hover:bg-paper lg:hidden" aria-label="Menu" aria-expanded={open}>

@@ -15,7 +15,7 @@ import { BottomBar } from "@/components/bottom-bar";
 import { NumFormatProvider } from "@/components/num-format";
 import { SubmitGuard } from "@/components/submit-guard";
 
-const NAV_LABELS = ["Dashboard", "New Entry", "Entries", "Accounts", "Khata", "Invoices", "Items & stock", "Scheduled", "Shared", "Reports", "Settings", "Billing", "Admin"];
+const NAV_LABELS = ["Home", "New", "Invoices", "Stock", "Reports", "More", "My money", "All entries", "Scheduled", "Shared", "Settings", "Billing", "Admin"];
 import { logout } from "@/app/actions/auth";
 import { Nav } from "@/components/nav";
 import { Logo } from "@/components/logo";
@@ -93,7 +93,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         </NumFormatProvider>
       </main>
-      <BottomBar labels={Object.fromEntries(["Home", "Entries", "New Entry", "Khata", "More"].map((l) => [l, t(l)]))} />
+      <BottomBar labels={Object.fromEntries(["Home", "Invoices", "New Entry", "Stock", "More"].map((l) => [l, t(l)]))} />
       <Suspense>
         <Toaster />
         <SubmitGuard />

@@ -468,6 +468,21 @@ test("bulk stock: 50 laptops for 50 lakh, each sold at its own price", async () 
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
 
+test("a lot: 50 pieces for one total, no price per piece", async () => {
+  const { d, uid, acc } = await setup();
+  const lot = await addItem(d, uid, { name: "Laptop lot", pricing: "lot", salePrice: 999_00, openingQty: 50, openingTotal: 50_00_000_00 }, "2026-02-01");
+  let it = (await getItem(d, uid, lot))!;
+  assert.equal(it.pricing, "lot");
+  assert.equal(it.sale_price, 0); // nothing per piece is kept
+  assert.equal(it.value, 50_00_000_00);
+  await sellStock(d, uid, lot, { qty: 1, total: 1_30_000_00, date: "2026-02-02", intoAccountId: acc("Cash") });
+  it = (await getItem(d, uid, lot))!;
+  assert.equal(it.stock, 49);
+  assert.equal(it.value, 49_00_000_00);
+  await assert.rejects(() => addItem(d, uid, { name: "Empty lot", pricing: "lot", openingQty: 5 }, "2026-02-01"), /total you paid/);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+});
+
 test("stock entered before it had a value is booked on the next visit", async () => {
   const { d, uid, acc } = await setup();
   const id = await addItem(d, uid, { name: "Rice", costPrice: 100_00 }, "2026-01-01");

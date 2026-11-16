@@ -20,6 +20,8 @@ export type Item = {
   cost_price: number;
   low_stock: number | null;
   archived: boolean;
+  /** "each": same price for every piece. "lot": bought for one total, each piece sold at its own price. */
+  pricing: "each" | "lot";
   stock: number;
   /** What the stock you have cost (paisa). */
   value: number;
@@ -29,7 +31,7 @@ export type Item = {
 export const avgCost = (i: Pick<Item, "stock" | "value" | "cost_price">) => (i.stock > 0 ? i.value / i.stock : i.cost_price);
 
 const ITEM_SELECT = `SELECT i.id, i.name, i.unit, i.group_name, i.sale_price::float8 AS sale_price, i.cost_price::float8 AS cost_price,
-         i.low_stock::float8 AS low_stock, i.archived, COALESCE(SUM(m.qty), 0)::float8 AS stock, COALESCE(SUM(m.value), 0)::float8 AS value
+         i.low_stock::float8 AS low_stock, i.archived, i.pricing, COALESCE(SUM(m.qty), 0)::float8 AS stock, COALESCE(SUM(m.value), 0)::float8 AS value
   FROM items i LEFT JOIN stock_moves m ON m.item_id = i.id`;
 
 export function listItems(d: Db, userId: number, opts: { archived?: boolean } = {}) {
@@ -49,7 +51,7 @@ export async function lowStock(d: Db, userId: number) {
   return (await listItems(d, userId)).filter((i) => i.low_stock !== null && i.stock <= i.low_stock);
 }
 
-export type ItemInput = { name: string; unit?: string; group?: string | null; salePrice?: number; costPrice?: number; lowStock?: number | null };
+export type ItemInput = { name: string; unit?: string; group?: string | null; salePrice?: number; costPrice?: number; lowStock?: number | null; pricing?: "each" | "lot" };
 
 const qtyOk = (q: number) => Number.isFinite(q) && Math.abs(q) < 1e9 && Math.round(q * 1000) === q * 1000;
 
@@ -66,20 +68,27 @@ async function checkItem(d: Db, userId: number, i: ItemInput, exceptId = 0) {
   return { name, unit, group };
 }
 
-/** New item, optionally with the stock you already have (at its cost price). */
-export async function addItem(d: Db, userId: number, i: ItemInput & { openingQty?: number }, date: string) {
+/** New item, optionally with the stock you already have: at its cost price, or for a lot, at the total paid. */
+export async function addItem(d: Db, userId: number, i: ItemInput & { openingQty?: number; openingTotal?: number }, date: string) {
   const { name, unit, group } = await checkItem(d, userId, i);
   if (i.openingQty && !(qtyOk(i.openingQty) && i.openingQty > 0)) throw new Error("Please check how many you have now");
+  const lot = i.pricing === "lot";
+  if (lot) {
+    if (!i.openingQty) throw new Error("How many pieces are in the lot?");
+    if (!Number.isSafeInteger(i.openingTotal ?? -1) || (i.openingTotal ?? 0) <= 0 || (i.openingTotal ?? 0) > MAX_AMOUNT) throw new Error("Type the total you paid for the lot");
+    // No price per piece is kept for a lot; the average is only used inside, for profit.
+    i = { ...i, salePrice: 0, costPrice: Math.round(i.openingTotal! / i.openingQty) };
+  }
   return d.tx(async (x) => {
     const [row] = await x.q<{ id: number }>(
-      `INSERT INTO items (user_id, name, unit, group_name, sale_price, cost_price, low_stock) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [userId, name, unit, group, i.salePrice ?? 0, i.costPrice ?? 0, i.lowStock ?? null],
+      `INSERT INTO items (user_id, name, unit, group_name, sale_price, cost_price, low_stock, pricing) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [userId, name, unit, group, i.salePrice ?? 0, i.costPrice ?? 0, i.lowStock ?? null, lot ? "lot" : "each"],
     );
     if (i.openingQty) {
       checkDate(date);
       await x.q(
         "INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, value, reason) VALUES ($1, $2, $3, $4, $5, $6, 'opening')",
-        [userId, row.id, date, i.openingQty, i.costPrice ?? 0, Math.round(i.openingQty * (i.costPrice ?? 0))],
+        [userId, row.id, date, i.openingQty, lot ? i.openingTotal! / i.openingQty : i.costPrice ?? 0, lot ? i.openingTotal! : Math.round(i.openingQty * (i.costPrice ?? 0))],
       );
       await bookStock(x, userId);
     }
@@ -90,9 +99,11 @@ export async function addItem(d: Db, userId: number, i: ItemInput & { openingQty
 export async function updateItem(d: Db, userId: number, id: number, i: ItemInput & { archived?: boolean }) {
   if (!(await getItem(d, userId, id))) throw new Error("Item not found");
   const { name, unit, group } = await checkItem(d, userId, i, id);
+  const old = (await getItem(d, userId, id))!;
+  const lot = (i.pricing ?? old.pricing) === "lot";
   await d.q(
-    `UPDATE items SET name = $1, unit = $2, group_name = $3, sale_price = $4, cost_price = $5, low_stock = $6, archived = $7 WHERE id = $8 AND user_id = $9`,
-    [name, unit, group, i.salePrice ?? 0, i.costPrice ?? 0, i.lowStock ?? null, !!i.archived, id, userId],
+    `UPDATE items SET name = $1, unit = $2, group_name = $3, sale_price = $4, cost_price = $5, low_stock = $6, archived = $7, pricing = $8 WHERE id = $9 AND user_id = $10`,
+    [name, unit, group, lot ? 0 : i.salePrice ?? 0, lot ? old.cost_price : i.costPrice ?? 0, i.lowStock ?? null, !!i.archived, lot ? "lot" : "each", id, userId],
   );
 }
 

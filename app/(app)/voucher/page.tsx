@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, BookUser, Check, Eraser, FileText, PackagePlus, Save, Trash2, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check, Eraser, FileText, PackagePlus, Save, Trash2, type LucideIcon } from "lucide-react";
 import { DateField } from "@/components/date-field";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -205,7 +205,6 @@ const CHOICES: { href: string; title: string; Icon: LucideIcon; tone: string }[]
   { href: "/voucher?type=payment", title: "Money Out", Icon: ArrowUpRight, tone: "bg-khata" },
   { href: "/voucher?type=transfer", title: "Transfer", Icon: ArrowLeftRight, tone: "bg-ink" },
   { href: "/invoices/new", title: "Invoice", Icon: FileText, tone: "bg-brand" },
-  { href: "/khata", title: "Khata", Icon: BookUser, tone: "bg-marigold" },
   { href: "/items", title: "Stock", Icon: PackagePlus, tone: "bg-ledger" },
 ];
 

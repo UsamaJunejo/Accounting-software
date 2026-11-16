@@ -32,6 +32,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   const payFrom = accs.filter((a) => !a.archived && !a.currency && (isMoney(a) || a.role === "payable"));
   const into = accs.filter((a) => !a.archived && !a.currency && (isMoney(a) || a.role === "receivable"));
   const avg = avgCost(item);
+  const lot = item.pricing === "lot";
   const sales = moves.filter((m) => m.reason === "sale" && m.sale_amount !== null);
   const profit = sales.reduce((s, m) => s + (m.sale_amount ?? 0) + (m.value ?? 0), 0);
   const rs = (p: number) => (p ? (p / 100).toFixed(2) : "");
@@ -40,7 +41,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <Crumbs items={[{ href: "/items", label: "Items & stock" }, { label: item.name }]} />
+      <Crumbs items={[{ href: "/items", label: "Stock" }, { label: item.name }]} />
       <PageHeader
         title={item.name}
         subtitle={`${item.group_name ? `${item.group_name} · ` : ""}sold per ${item.unit}`}
@@ -57,8 +58,14 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
           <div className={`text-2xl font-bold ${item.stock <= 0 ? "text-khata" : isLow ? "text-marigold" : ""}`}>{qty(item.stock)} <span className="text-base font-normal text-muted">{item.unit}</span></div>
           {isLow && <div className="text-sm font-semibold text-marigold">{item.stock <= 0 ? "Out of stock" : "Running low"}</div>}
         </div>
-        <div className="card p-4"><div className="text-sm text-muted">Selling price</div><div className="text-xl font-bold" dir="ltr">{cur} {money(item.sale_price)}</div></div>
-        <div className="card p-4"><div className="text-sm text-muted">Cost (each, average)</div><div className="text-xl font-bold" dir="ltr">{cur} {money(Math.round(avg))}</div></div>
+        {lot ? (
+          <div className="card p-4 sm:col-span-2"><div className="text-sm text-muted">Bought as a lot</div><div className="text-xl font-bold">Each piece sold at its own price</div></div>
+        ) : (
+          <>
+            <div className="card p-4"><div className="text-sm text-muted">Selling price</div><div className="text-xl font-bold" dir="ltr">{cur} {money(item.sale_price)}</div></div>
+            <div className="card p-4"><div className="text-sm text-muted">Cost (each, average)</div><div className="text-xl font-bold" dir="ltr">{cur} {money(Math.round(avg))}</div></div>
+          </>
+        )}
         <div className="card p-4">
           <div className="text-sm text-muted">Stock value</div>
           <div className="text-xl font-bold" dir="ltr">{cur} {money(Math.max(0, item.value))}</div>
@@ -70,7 +77,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
         <form action={sellStockAction} className="card space-y-3 p-5">
           <input type="hidden" name="id" value={item.id} />
           <h2 className="flex items-center gap-2 text-lg font-bold"><HandCoins className="h-5 w-5 text-ledger" />Sell</h2>
-          <PriceBox idPrefix="sl" unit={item.unit} defaultQty="1" each={rs(item.sale_price)} qtyLabel="How many" eachLabel="Price (each)" totalLabel="Total received" />
+          <PriceBox idPrefix="sl" unit={item.unit} defaultQty="1" each={lot ? "" : rs(item.sale_price)} totalOnly={lot} qtyLabel="How many" eachLabel="Price (each)" totalLabel={lot ? "Sold for (total)" : "Total received"} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className="label" htmlFor="sl-date">Date</label><input id="sl-date" type="date" name="date" defaultValue={today()} className="input" /></div>
             <div>
@@ -84,7 +91,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
         <form action={addStockAction} className="card space-y-3 p-5">
           <input type="hidden" name="id" value={item.id} />
           <h2 className="flex items-center gap-2 text-lg font-bold"><PackagePlus className="h-5 w-5 text-brand" />Add stock you bought</h2>
-          <PriceBox idPrefix="st" unit={item.unit} each={rs(item.cost_price)} qtyLabel="How many" eachLabel="Price paid (each)" totalLabel="Total paid" />
+          <PriceBox idPrefix="st" unit={item.unit} each={lot ? "" : rs(item.cost_price)} totalOnly={lot} qtyLabel="How many" eachLabel="Price paid (each)" totalLabel="Total paid" />
           <div className="grid gap-3 sm:grid-cols-2">
             <div><label className="label" htmlFor="st-date">Date</label><input id="st-date" type="date" name="date" defaultValue={today()} className="input" /></div>
             <div>

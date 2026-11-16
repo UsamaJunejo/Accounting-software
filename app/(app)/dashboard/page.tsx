@@ -18,13 +18,6 @@ import { hideChecklist } from "@/app/actions/lang";
 import { PrivateAmounts, Secret, ShowHideButton } from "@/components/private-amounts";
 import { friendlyCategory } from "@/lib/look";
 
-const QUICK = [
-  { href: "/voucher?type=receipt", label: "Money In", Icon: ArrowDownLeft },
-  { href: "/voucher?type=payment", label: "Money Out", Icon: ArrowUpRight },
-  { href: "/voucher?type=transfer", label: "Transfer", Icon: ArrowLeftRight },
-  { href: "/invoices/new", label: "Invoice", Icon: FileText },
-  { href: "/khata", label: "Khata", Icon: BookUser },
-];
 
 export const metadata = { title: "Dashboard" };
 
@@ -171,16 +164,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               </Link>
             ))}
           </dl>
-          <nav className="mt-6 grid grid-cols-5 gap-2" aria-label={t("Quick actions")}>
-            {QUICK.map(({ href, label, Icon }) => (
-              <Link key={href} href={href} className="group flex flex-col items-center gap-1.5 text-center text-sm text-white">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-sm transition-transform group-hover:-translate-y-0.5">
-                  <Icon className="h-5 w-5" strokeWidth={2} />
-                </span>
-                <span className="leading-tight">{t(label)}</span>
-              </Link>
-            ))}
-          </nav>
+          {/* The two things that happen all day: big, side by side, same as the phone app. */}
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <Link href="/voucher?type=receipt" className="flex items-center gap-3 rounded-2xl bg-inflow px-4 py-4 text-lg font-bold text-white shadow-[0_10px_24px_-12px_rgba(11,122,75,.8)] hover:brightness-110"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20"><ArrowDownLeft className="h-5 w-5" /></span>{t("Money In")}</Link>
+            <Link href="/voucher?type=payment" className="flex items-center gap-3 rounded-2xl bg-khata px-4 py-4 text-lg font-bold text-white shadow-[0_10px_24px_-12px_rgba(194,38,58,.8)] hover:brightness-110"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20"><ArrowUpRight className="h-5 w-5" /></span>{t("Money Out")}</Link>
+          </div>
         </PrivateAmounts>
       </section>
 
@@ -221,26 +209,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </div>
       )}
 
-      <section className="mb-6">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-lg font-bold">{t("Categories")}</h2>
-          <Link href="/accounts" className="text-sm font-semibold text-peacock underline">{t("All accounts")}</Link>
-        </div>
-        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-          {cats.map((c) => (
-            <li key={c.id}>
-              <Link href={`/accounts/category/${c.id}`} className="card flex h-full items-center gap-3 p-3.5 transition-colors hover:border-peacock">
-                <CategoryBadge name={c.name} kind={c.kind} size="lg" color={c.color} />
-                <span className="min-w-0">
-                  <span className="block text-[15px] leading-snug text-body [overflow-wrap:anywhere]">{friendlyCategory(c.name)}</span>
-                  <span className="block text-lg font-bold text-ink"><Money value={c.balance} /></span>
-                  {c.note && <span className="block text-xs text-muted">{c.note}</span>}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
 
       {anyEntry ? (
         <>

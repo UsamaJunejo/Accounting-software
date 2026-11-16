@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookUser, Coins, Hourglass, Download, FolderKanban, History, LineChart, ListTree, Paperclip, Scale, type LucideIcon } from "lucide-react";
+import { Coins, FolderKanban, History, LineChart, ListTree, Paperclip, Scale, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Reports" };
@@ -8,12 +8,9 @@ const REPORTS: [string, string, string, LucideIcon][] = [
   ["/reports/income", "Profit & Loss", "Income minus expenses for any period. Are you making money?", LineChart],
   ["/reports/balance-sheet", "What I own & owe", "What you own, what you owe, and what the business is worth on a date.", Scale],
   ["/reports/ledger", "All account balances", "Every account with money in, money out and balance, grouped by category.", ListTree],
-  ["/reports/late-payers", "Who is late paying", "Customers who owe you, grouped by how long the money has been waiting. Remind them on WhatsApp.", Hourglass],
-  ["/khata", "Khata", "Balances of every customer and supplier, with WhatsApp reminders.", BookUser],
   ["/projects", "Projects", "Profit of each project or branch, from entries tagged with it.", FolderKanban],
   ["/reports/currency", "Other currencies", "Entries made in USD, AED, SAR and other currencies, with totals and rates.", Coins],
   ["/reports/attachments", "Bill photos", "Every bill and receipt photo, with the entry it belongs to.", Paperclip],
-  ["/transactions", "All Entries", "Search and filter all entries, and download them for Excel.", Download],
   ["/reports/deleted", "Deleted entries", "Every deleted entry (restorable) and a full log of changes.", History],
 ];
 

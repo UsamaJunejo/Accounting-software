@@ -27,6 +27,7 @@ function itemFrom(f: FormData): ItemInput {
     salePrice: price(f, "sale_price"),
     costPrice: price(f, "cost_price"),
     lowStock: str(f, "low_stock") ? num(f, "low_stock") : null,
+    pricing: str(f, "pricing") === "lot" ? "lot" : "each",
   };
 }
 
@@ -44,7 +45,7 @@ async function run(path: string, ok: string, fn: (uid: number) => Promise<unknow
 export async function addItemAction(form: FormData) {
   let id = 0;
   await run("/items", "Item added", async (uid) => {
-    id = await addItem(await db(), uid, { ...itemFrom(form), openingQty: str(form, "opening") ? num(form, "opening") : 0 }, today());
+    id = await addItem(await db(), uid, { ...itemFrom(form), openingQty: str(form, "opening") ? num(form, "opening") : 0, openingTotal: price(form, "opening_total") }, today());
   }, () => `/items/${id}`);
 }
 

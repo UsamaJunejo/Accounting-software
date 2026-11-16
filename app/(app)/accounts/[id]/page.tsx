@@ -1,6 +1,8 @@
 import { fixRange } from "@/lib/format";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, MessageCircle, Pencil, PlusCircle, Share2 } from "lucide-react";
+import { invoiceStatus, listInvoices } from "@/lib/invoices";
+import { StatusPill } from "@/components/invoice-status";
+import { ArrowDownLeft, ArrowUpRight, FileText, MessageCircle, Pencil, PlusCircle, Share2 } from "lucide-react";
 import { sharesOfAccount } from "@/lib/sharing";
 import { headers } from "next/headers";
 import { friendlyCategory } from "@/lib/look";
@@ -49,6 +51,7 @@ export default async function Statement({
   );
   // Khata wording: lena (you will receive) / dena (you will give).
   const isCustomer = a.role === "receivable";
+  const bills = isCustomer ? (await listInvoices(await db(), user.id)).filter((b) => b.customer_account_id === a.id && !b.cancelled).slice(0, 10) : [];
   const lena = isParty && s.closing !== 0 ? ((isCustomer ? s.closing > 0 : s.closing < 0) ? "receive" : "give") : null;
 
   return (
@@ -63,6 +66,15 @@ export default async function Statement({
                 <MessageCircle className="h-4 w-4" />
                 Send on WhatsApp
               </a>
+            )}
+            {isCustomer && (
+              <>
+                <Link href={`/invoices/new?customer=${a.id}`} className="btn-primary"><FileText className="h-4 w-4" />New invoice</Link>
+                <Link href={`/voucher?type=receipt&from=${a.id}`} className="btn bg-inflow text-white hover:opacity-90"><ArrowDownLeft className="h-4 w-4" />Payment received</Link>
+              </>
+            )}
+            {a.role === "payable" && (
+              <Link href={`/voucher?type=payment&to=${a.id}`} className="btn bg-khata text-white hover:opacity-90"><ArrowUpRight className="h-4 w-4" />Paid them</Link>
             )}
             {isMoney(a) && (
               <>
@@ -98,6 +110,21 @@ export default async function Statement({
               </>
             )}
           </form>
+        </section>
+      )}
+      {isCustomer && bills.length > 0 && (
+        <section className="card mb-5 overflow-hidden">
+          <h2 className="flex items-center justify-between border-b border-rule px-4 py-3 text-lg font-bold">Invoices<Link href={`/invoices/new?customer=${a.id}`} className="text-sm font-semibold text-peacock">+ New</Link></h2>
+          <ul>
+            {bills.map((b) => (
+              <li key={b.id} className="border-b border-rule last:border-0">
+                <Link href={`/invoices/${b.id}`} className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-paper">
+                  <span><b className="text-ink">#{b.number}</b> <span className="text-sm text-muted">{prettyDate(b.date)}</span></span>
+                  <span className="flex items-center gap-3"><span className="tabular-nums font-semibold" dir="ltr">{cur} {money(b.total)}</span><StatusPill status={invoiceStatus(b, today())} /></span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       {a.currency && a.native !== null && (

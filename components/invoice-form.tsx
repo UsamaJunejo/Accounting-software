@@ -10,10 +10,10 @@ export type InvoiceStockItem = { id: number; name: string; unit: string; group: 
 const n = (s: string) => Number(String(s).replace(/,/g, "")) || 0;
 const fmt = (v: number) => new Intl.NumberFormat("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [] }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[] }) {
+export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [], initialCustomer = "" }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[]; initialCustomer?: string }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(createInvoice, {});
   const [rows, setRows] = useState<Row[]>([{ name: "", qty: "1", price: "" }]);
-  const [customer, setCustomer] = useState("");
+  const [customer, setCustomer] = useState(initialCustomer);
   // The customer box is the same searchable account chooser as everywhere else; it tells us what was picked.
   useEffect(() => {
     const onPick = (e: Event) => {
@@ -40,7 +40,7 @@ export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItem
         if (j !== i) return r;
         const it = stockItems.find((x) => x.name.toLowerCase() === v.trim().toLowerCase());
         if (!it) return { ...r, name: v, itemId: null };
-        return { ...r, name: it.name, itemId: it.id, price: r.itemId === it.id && r.price ? r.price : (it.price / 100).toFixed(2) };
+        return { ...r, name: it.name, itemId: it.id, price: r.itemId === it.id && r.price ? r.price : it.price ? (it.price / 100).toFixed(2) : "" };
       }),
     );
 
