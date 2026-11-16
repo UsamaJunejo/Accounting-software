@@ -137,6 +137,10 @@ export type Invoice = {
   business_ntn: string | null;
   currency: string;
   paid: number;
+  /** Of `paid`, what the customer paid through khata (not recorded on this invoice). */
+  paidKhata?: number;
+  tax_transaction_id: number | null;
+  user_id: number;
 };
 
 export type InvoiceStatus = "paid" | "part" | "unpaid" | "overdue" | "cancelled";
@@ -159,7 +163,7 @@ export const STATUS_LABEL: Record<InvoiceStatus, string> = {
 const SELECT = `SELECT i.id, i.number, i.customer_account_id, i.customer_name, i.customer_phone,
   to_char(i.date, 'YYYY-MM-DD') AS date, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, i.items,
   i.tax_percent::float8 AS tax_percent, i.discount::float8 AS discount, i.subtotal::float8 AS subtotal,
-  i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.share_token, i.cancelled,
+  i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.tax_transaction_id, i.user_id, i.share_token, i.cancelled,
   COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn, u.currency,
   COALESCE((SELECT SUM(p.amount) FROM invoice_payments p LEFT JOIN transactions t ON t.id = p.transaction_id
             WHERE p.invoice_id = i.id AND (p.transaction_id IS NULL OR t.deleted_at IS NULL)), 0)::float8 AS paid
@@ -167,21 +171,83 @@ const SELECT = `SELECT i.id, i.number, i.customer_account_id, i.customer_name, i
 
 const parse = (r: Invoice & { items: unknown }): Invoice => ({ ...r, items: typeof r.items === "string" ? JSON.parse(r.items) : r.items } as Invoice);
 
+/**
+ * An invoice put in a customer's khata is paid by ANY money the customer pays, not only by payments
+ * recorded on the invoice: a payment recorded on an invoice goes to that invoice first; every other
+ * payment from the customer pays off the oldest amounts first (the way khata is settled).
+ * Sets `paid` (and `paidKhata`, the part that came through khata) on those invoices.
+ */
+async function withKhataPayments(d: Db, rows: Invoice[]) {
+  const inKhata = rows.filter((r) => r.customer_account_id && r.transaction_id && !r.cancelled);
+  if (!inKhata.length) return rows;
+  const userId = inKhata[0].user_id;
+  const custIds = [...new Set(inKhata.map((r) => r.customer_account_id!))];
+  const txns = await d.q<{ id: number; date: string; amount: number; from_account_id: number; to_account_id: number }>(
+    `SELECT id, to_char(date, 'YYYY-MM-DD') AS date, amount::float8 AS amount, from_account_id, to_account_id FROM transactions
+     WHERE user_id = $1 AND deleted_at IS NULL AND (to_account_id = ANY($2::int[]) OR from_account_id = ANY($2::int[])) ORDER BY date, id`,
+    [userId, custIds],
+  );
+  const all = await d.q<{ id: number; customer_account_id: number; transaction_id: number | null; tax_transaction_id: number | null }>(
+    "SELECT id, customer_account_id, transaction_id, tax_transaction_id FROM invoices WHERE user_id = $1 AND customer_account_id = ANY($2::int[]) AND NOT cancelled",
+    [userId, custIds],
+  );
+  const linked = await d.q<{ invoice_id: number; transaction_id: number; amount: number }>(
+    `SELECT p.invoice_id, p.transaction_id, p.amount::float8 AS amount FROM invoice_payments p JOIN transactions t ON t.id = p.transaction_id
+     JOIN invoices i ON i.id = p.invoice_id WHERE i.user_id = $1 AND t.deleted_at IS NULL AND i.customer_account_id = ANY($2::int[])`,
+    [userId, custIds],
+  );
+  const owe = new Map<number, number>(); // charge transaction id -> still unpaid
+  const chargeOf = new Map<number, number[]>(); // invoice id -> its charge transaction ids
+  for (const inv of all) chargeOf.set(inv.id, [inv.transaction_id, inv.tax_transaction_id].filter((x): x is number => !!x));
+  const unpaidOf = new Map<number, number>(); // invoice id -> unpaid
+  for (const cust of custIds) {
+    const mine = txns.filter((t) => t.to_account_id === cust || t.from_account_id === cust);
+    for (const t of mine) if (t.to_account_id === cust) owe.set(t.id, t.amount);
+    const usedCredit = new Set<number>();
+    // 1. payments recorded on an invoice go to that invoice
+    for (const p of linked) {
+      const charges = chargeOf.get(p.invoice_id);
+      if (!charges || all.find((x) => x.id === p.invoice_id)?.customer_account_id !== cust) continue;
+      usedCredit.add(p.transaction_id);
+      let left = p.amount;
+      for (const c of charges) {
+        const take = Math.min(left, owe.get(c) ?? 0);
+        owe.set(c, (owe.get(c) ?? 0) - take);
+        left -= take;
+      }
+    }
+    // 2. every other payment from the customer pays the oldest amounts first
+    let credit = mine.filter((t) => t.from_account_id === cust && !usedCredit.has(t.id)).reduce((s, t) => s + t.amount, 0);
+    for (const t of mine) {
+      if (t.to_account_id !== cust || credit <= 0) continue;
+      const take = Math.min(credit, owe.get(t.id) ?? 0);
+      owe.set(t.id, (owe.get(t.id) ?? 0) - take);
+      credit -= take;
+    }
+  }
+  for (const inv of all) unpaidOf.set(inv.id, (chargeOf.get(inv.id) ?? []).reduce((s, c) => s + (owe.get(c) ?? 0), 0));
+  return rows.map((r) => {
+    if (!unpaidOf.has(r.id)) return r;
+    const paid = Math.max(0, r.total - unpaidOf.get(r.id)!);
+    return { ...r, paidKhata: Math.max(0, paid - r.paid), paid };
+  });
+}
+
 export async function listInvoices(d: Db, userId: number) {
-  return (await d.q<Invoice>(`${SELECT} WHERE i.user_id = $1 ORDER BY i.number DESC LIMIT 500`, [userId])).map(parse);
+  return withKhataPayments(d, (await d.q<Invoice>(`${SELECT} WHERE i.user_id = $1 ORDER BY i.number DESC LIMIT 500`, [userId])).map(parse));
 }
 
 export async function getInvoice(d: Db, userId: number, id: number) {
   if (!Number.isInteger(id)) return undefined;
   const [r] = await d.q<Invoice>(`${SELECT} WHERE i.user_id = $1 AND i.id = $2`, [userId, id]);
-  return r && parse(r);
+  return r && (await withKhataPayments(d, [parse(r)]))[0];
 }
 
 /** For the public link sent to the customer. */
 export async function getInvoiceByToken(d: Db, token: string) {
   if (!/^[\w-]{20,40}$/.test(token)) return undefined;
   const [r] = await d.q<Invoice>(`${SELECT} WHERE i.share_token = $1`, [token]);
-  return r && parse(r);
+  return r && (await withKhataPayments(d, [parse(r)]))[0];
 }
 
 /** Cancel: the entries it added to the books are deleted (they stay in the deleted log). */

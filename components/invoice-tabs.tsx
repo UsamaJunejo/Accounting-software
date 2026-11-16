@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { getT } from "@/lib/lang";
 
 /** Invoices, customers and suppliers live together: one place for "who owes what". */
-export function InvoiceTabs({ active }: { active: "bills" | "customers" | "suppliers" }) {
+export async function InvoiceTabs({ active }: { active: "bills" | "customers" | "suppliers" }) {
+  const t = await getT();
   const tabs = [
     ["bills", "/invoices", "Invoices"],
     ["customers", "/khata?tab=customers", "Customers"],
@@ -12,7 +14,7 @@ export function InvoiceTabs({ active }: { active: "bills" | "customers" | "suppl
       {tabs.map(([id, href, label]) => (
         <Link key={id} href={href} aria-current={active === id ? "page" : undefined}
           className={`flex-1 rounded-lg px-3 py-2 text-center text-[15px] font-bold ${active === id ? "bg-peacock text-white" : "text-muted hover:text-ink"}`}>
-          {label}
+          {t(label)}
         </Link>
       ))}
     </nav>

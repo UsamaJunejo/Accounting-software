@@ -16,6 +16,8 @@ import { deleteAttachment, saveTransaction } from "@/app/actions/books";
 import { MoneyFields } from "@/components/money-fields";
 import { EntryPreview } from "@/components/entry-preview";
 import { EntryCheck } from "@/components/entry-check";
+import { StockLink } from "@/components/stock-link";
+import { listItems } from "@/lib/items";
 import { currencySymbol } from "@/lib/currencies";
 import { getT } from "@/lib/lang";
 import { AttachmentPicker } from "@/components/attachment-picker";
@@ -66,10 +68,11 @@ export default async function Voucher({
   const last = editing ? undefined : await lastAccounts(d, user.id, type);
   const defFrom = editing?.from_account_id ?? pre(sp.from) ?? pre(String(last?.from_account_id ?? "")) ?? (type === "payment" || type === "transfer" ? cash : undefined);
   const defTo = editing?.to_account_id ?? pre(sp.to) ?? (type === "receipt" ? pre(String(last?.to_account_id ?? "")) ?? cash : type === "transfer" ? pre(String(last?.to_account_id ?? "")) ?? bank : undefined);
-  const [recent, projectList, existing] = await Promise.all([
+  const [recent, projectList, existing, stockItems] = await Promise.all([
     listTransactions(d, user.id, { type, limit: 10 }),
     projects(d, user.id),
     editing ? listAttachments(d, user.id, editing.id) : Promise.resolve([]),
+    editing ? Promise.resolve([]) : listItems(d, user.id),
   ]);
 
   return (
@@ -111,6 +114,12 @@ export default async function Voucher({
           <label className="label">{t(LABELS[type][1])}</label>
           <AccountSelect name="to" accounts={accounts} value={defTo} suggest={type === "payment" ? "expense" : "money"} />
         </div>
+        {!editing && type !== "transfer" && (
+          <StockLink
+            items={stockItems.map((i) => ({ id: i.id, name: i.name, unit: i.unit }))}
+            purchaseIds={accounts.filter((a) => a.kind === "expense" && !a.archived && /purchas/i.test(`${a.name} ${a.subcategory}`) && !/cost of goods/i.test(a.name)).map((a) => a.id)}
+          />
+        )}
         <EntryPreview
           tab={type}
           cur={currencySymbol(user.currency)}

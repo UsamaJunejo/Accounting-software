@@ -206,6 +206,29 @@ export async function sellStock(
   });
 }
 
+/**
+ * A Money Out (or bought-on-credit) entry into Purchases that was really stock: the items go on the
+ * shelf and the entry is pointed at the Stock account, so the money and the stock agree.
+ */
+export async function stockFromPurchase(d: Db, userId: number, itemId: number, qty: number, txnId: number) {
+  const it = await getItem(d, userId, itemId);
+  if (!it) throw new Error("Item not found");
+  if (!(qtyOk(qty) && qty > 0)) throw new Error("How many did you buy? Use a number more than zero.");
+  const [t] = await d.q<{ amount: number; date: string }>(
+    "SELECT amount::float8 AS amount, to_char(date, 'YYYY-MM-DD') AS date FROM transactions WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL",
+    [txnId, userId],
+  );
+  if (!t) throw new Error("Entry not found");
+  await d.tx(async (x) => {
+    await x.q(
+      `INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, value, reason, transaction_id) VALUES ($1, $2, $3, $4, $5, $6, 'purchase', $7)`,
+      [userId, itemId, t.date, qty, t.amount / qty, t.amount, txnId],
+    );
+    await bookStock(x, userId); // moves the entry from Purchases into Stock
+    if (it.pricing === "each") await x.q("UPDATE items SET cost_price = $1 WHERE id = $2", [Math.round(t.amount / qty), itemId]);
+  });
+}
+
 /** Undo one line of an item's history (with its entries). Invoice lines go by cancelling the invoice. */
 export async function removeMove(d: Db, userId: number, moveId: number) {
   const [m] = await d.q<{ invoice_id: number | null }>("SELECT invoice_id FROM stock_moves WHERE id = $1 AND user_id = $2", [moveId, userId]);

@@ -1,6 +1,7 @@
 "use server";
 
 import { go as redirect } from "@/lib/go";
+import { stockFromPurchase } from "@/lib/items";
 import { revalidatePath } from "next/cache";
 import { db, type Db } from "@/lib/db";
 import { requireWriter as requireUser } from "@/lib/auth";
@@ -82,6 +83,9 @@ export async function saveTransaction(form: FormData) {
       const t = await txnFrom(form, primary, d);
       const txnId = id || (await B.addTransaction(d, uid, t));
       if (id) await B.updateTransaction(d, uid, id, t);
+      // "Is this stock?" on a purchase: put the items on the shelf too.
+      const stockItem = int(form, "stock_item");
+      if (!id && stockItem) await stockFromPurchase(d, uid, stockItem, Number(str(form, "stock_qty").replace(/,/g, "")), txnId);
       // Attachments are saved after the entry; a bad file doesn't lose the entry.
       const problems: string[] = [];
       for (const f of files) {

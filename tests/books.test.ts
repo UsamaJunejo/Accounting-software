@@ -400,7 +400,7 @@ test("an account with money can be merged or deleted, with the effect shown firs
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
 
-import { addItem, addStock, avgCost, bookStock, countStock, deleteItem, getItem, itemMoves, lowStock, removeMove, sellStock } from "../lib/items.ts";
+import { addItem, addStock, avgCost, bookStock, countStock, deleteItem, getItem, itemMoves, lowStock, removeMove, sellStock, stockFromPurchase } from "../lib/items.ts";
 import { cancelInvoice, createInvoice } from "../lib/invoices.ts";
 import { userSnapshot } from "../lib/backup.ts";
 
@@ -480,6 +480,21 @@ test("a lot: 50 pieces for one total, no price per piece", async () => {
   assert.equal(it.stock, 49);
   assert.equal(it.value, 49_00_000_00);
   await assert.rejects(() => addItem(d, uid, { name: "Empty lot", pricing: "lot", openingQty: 5 }, "2026-02-01"), /total you paid/);
+  assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
+});
+
+test("Money Out into Purchases can be stock: the items go on the shelf", async () => {
+  const { d, uid, acc } = await setup();
+  const rice = await addItem(d, uid, { name: "Rice bag", unit: "bag" }, "2026-03-01");
+  const t = await addTransaction(d, uid, { type: "payment", date: "2026-03-02", amount: 10000_00, fromAccountId: acc("Cash"), toAccountId: acc("Purchases") });
+  await stockFromPurchase(d, uid, rice, 20, t);
+  const it = (await getItem(d, uid, rice))!;
+  assert.equal(it.stock, 20);
+  assert.equal(it.value, 10000_00);
+  const bal = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
+  assert.equal(bal["Purchases"], 0);
+  assert.equal(bal["Stock"], 10000_00);
+  assert.equal(bal["Cash"], -10000_00);
   assert.ok((await balanceSheet(d, uid, "2026-12-31")).balanced);
 });
 

@@ -2,6 +2,25 @@
 export type Lang = "en" | "ur";
 
 const UR: Record<string, string> = {
+  // Added with the Invoices hub, Stock and the new menu
+  "All entries": "تمام اندراجات",
+  Charts: "چارٹ",
+  "Charts of your money will appear here after your first entry.": "پہلے اندراج کے بعد آپ کے پیسوں کے چارٹ یہاں نظر آئیں گے۔",
+  Customers: "گاہک",
+  Suppliers: "سپلائر",
+  "Income and expenses (6 months)": "آمدن اور خرچ (6 مہینے)",
+  "Invoice / udhaar": "بل / ادھار",
+  Later: "بعد میں",
+  "My money": "میرا پیسہ",
+  New: "نیا",
+  "New invoice": "نیا بل",
+  "No entries yet.": "ابھی کوئی اندراج نہیں۔",
+  "Save a recovery code": "ریکوری کوڈ محفوظ کریں",
+  "in case you forget your password": "اگر پاس ورڈ بھول جائیں",
+  Stock: "اسٹاک",
+  "What happened?": "کیا ہوا؟",
+  "Who is late paying": "کون دیر سے دے رہا ہے",
+  "photo, project, colour": "تصویر، پروجیکٹ، رنگ",
   // Menu & header
   Dashboard: "ڈیش بورڈ",
   "New Entry": "نیا اندراج",

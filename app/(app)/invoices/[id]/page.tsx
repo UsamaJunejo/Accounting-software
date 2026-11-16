@@ -60,6 +60,11 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             <div className="rounded-lg bg-paper p-2"><dt className="text-sm text-muted">Paid</dt><dd className="font-bold text-ledger">{money(inv.paid)}</dd></div>
             <div className="rounded-lg bg-paper p-2"><dt className="text-sm text-muted">Balance due</dt><dd className="font-bold text-khata">{money(due)}</dd></div>
           </dl>
+          {(inv.paidKhata ?? 0) > 0 && (
+            <p className="mt-3 rounded-lg bg-ledger-soft px-3 py-2 text-sm text-ledger">
+              {money(inv.paidKhata!)} paid through {inv.customer_name}&apos;s khata
+            </p>
+          )}
           {payments.length > 0 && (
             <ul className="mt-3 text-sm">
               {payments.map((p) => (
