@@ -9,7 +9,7 @@ import { InvoiceTabs } from "@/components/invoice-tabs";
 
 export const metadata = { title: "New invoice" };
 
-export default async function NewInvoice({ searchParams }: { searchParams: Promise<{ customer?: string }> }) {
+export default async function NewInvoice({ searchParams }: { searchParams: Promise<{ customer?: string; item?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const customers = (await khata(await db(), user.id)).filter((a) => a.role === "receivable");
@@ -24,6 +24,7 @@ export default async function NewInvoice({ searchParams }: { searchParams: Promi
         today={today()}
         stockItems={stock}
         initialCustomer={pre ? String(pre) : ""}
+        initialItem={stock.find((i) => i.id === Number(sp.item))?.id}
         customerPicker={<AccountSelect name="customer" accounts={customers} value={pre} suggest="customer" addInto={["receivable"]} noneLabel="New / walk-in customer" />}
       />
     </>

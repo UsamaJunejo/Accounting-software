@@ -10,9 +10,13 @@ export type InvoiceStockItem = { id: number; name: string; unit: string; group: 
 const n = (s: string) => Number(String(s).replace(/,/g, "")) || 0;
 const fmt = (v: number) => new Intl.NumberFormat("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [], initialCustomer = "" }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[]; initialCustomer?: string }) {
+export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [], initialCustomer = "", initialItem }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[]; initialCustomer?: string; initialItem?: number }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(createInvoice, {});
-  const [rows, setRows] = useState<Row[]>([{ name: "", qty: "1", price: "" }]);
+  const [rows, setRows] = useState<Row[]>(() => {
+    const it = stockItems.find((x) => x.id === initialItem);
+    return [it ? { name: it.name, qty: "1", price: it.price ? (it.price / 100).toFixed(2) : "", itemId: it.id } : { name: "", qty: "1", price: "" }];
+  });
+  const hasStock = rows.some((r) => r.itemId);
   const [customer, setCustomer] = useState(initialCustomer);
   // The customer box is the same searchable account chooser as everywhere else; it tells us what was picked.
   useEffect(() => {
@@ -167,8 +171,14 @@ export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItem
           <textarea name="notes" rows={2} {...field("notes")} className="input" placeholder="e.g. Bank: Meezan 0123… · Thank you for your business!" />
         </div>
         <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" name="record" defaultChecked className="mt-1" />
+          {/* Items from stock always go in the books, so the sale and its cost stay together. */}
+          {hasStock ? (
+            <><input type="checkbox" checked disabled className="mt-1" /><input type="hidden" name="record" value="on" /></>
+          ) : (
+            <input type="checkbox" name="record" defaultChecked className="mt-1" />
+          )}
           <span className="font-semibold">Add to khata</span>
+          {hasStock && <span className="text-muted">· needed for stock items</span>}
         </label>
         <button className="btn-primary" disabled={pending}><Save className="h-4 w-4" />{pending ? "Saving…" : "Create invoice"}</button>
       </div>

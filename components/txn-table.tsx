@@ -29,10 +29,27 @@ function Extras({ t, back = "/transactions" }: { t: TxnRow; back?: string }) {
   );
 }
 
+/** Where an entry made by an invoice or the Stock page is changed. */
+export const sourceHref = (t: Pick<TxnRow, "source_kind" | "source_id">) =>
+  t.source_kind === "item" ? `/items/${t.source_id}` : t.source_kind ? `/invoices/${t.source_id}` : null;
+
 function Actions({ t, back }: { t: TxnRow; back: string }) {
+  const src = sourceHref(t);
+  // Made by an invoice or the Stock page: changed there, so both sides stay matched.
+  if (src && t.source_kind !== "payment")
+    return (
+      <Link href={src} title={`Made by ${t.source_kind === "item" ? t.source_label : `invoice ${t.source_label}`}. Change it there.`}
+        className="no-print inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-brand hover:bg-ink-soft">
+        {t.source_kind === "item" ? t.source_label : `Invoice ${t.source_label}`}<ArrowRight className="h-3 w-3" />
+      </Link>
+    );
   return (
     <span className="no-print inline-flex">
-      <Link href={editHref(t.id, back)} title="Edit" aria-label="Edit entry" className="inline-flex rounded-md p-2 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
+      {src ? (
+        <Link href={src} title={`Payment on invoice ${t.source_label}`} className="inline-flex items-center rounded-md px-2 py-1.5 text-xs font-semibold text-brand hover:bg-ink-soft">{`Invoice ${t.source_label}`}</Link>
+      ) : (
+        <Link href={editHref(t.id, back)} title="Edit" aria-label="Edit entry" className="inline-flex rounded-md p-2 text-ink hover:bg-ink-soft"><Pencil className="h-4 w-4" /></Link>
+      )}
       <form action={deleteTransaction} className="inline">
         <input type="hidden" name="id" value={t.id} />
         <input type="hidden" name="back" value={back} />

@@ -42,7 +42,9 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             {!inv.cancelled && (
               <form action={cancelInvoice}>
                 <input type="hidden" name="id" value={inv.id} />
-                <ConfirmButton className="btn-danger" message={`Cancel invoice #${inv.number}? Its entries (and any payments on it) are removed from your books.`} confirmLabel="Cancel invoice"><Ban className="h-4 w-4" />Cancel invoice</ConfirmButton>
+                <ConfirmButton className="btn-danger" message={inv.customer_account_id && inv.transaction_id && inv.paid > 0
+                  ? `Cancel invoice #${inv.number}? The sale is removed and any items go back to stock. Money ${inv.customer_name} already paid stays as their credit.`
+                  : `Cancel invoice #${inv.number}? The sale is removed from your books and any items go back to stock.`} confirmLabel="Cancel invoice"><Ban className="h-4 w-4" />Cancel invoice</ConfirmButton>
               </form>
             )}
           </>

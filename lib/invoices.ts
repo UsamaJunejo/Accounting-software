@@ -65,7 +65,8 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
     let txnId: number | null = null;
     let taxTxnId: number | null = null;
     const [{ n }] = await x.q<{ n: number }>("SELECT COALESCE(MAX(number), 0) + 1 AS n FROM invoices WHERE user_id = $1", [userId]);
-    if (i.record) {
+    // An invoice that takes items out of stock is always put in the books, so the sale and its cost go in together.
+    if (i.record || items.some((x) => x.itemId)) {
       if (!customerId) customerId = await ensureAccount(x, userId, { role: "receivable", name: "Receivables", kind: "asset" }, "Customers (Khata)", customerName);
       const sales = await ensureAccount(x, userId, { name: "Income", kind: "income" }, "Sales", "Sales");
       // Customer now owes the total: the sale goes to Sales, the tax to Sales Tax Payable.
@@ -193,7 +194,7 @@ async function withKhataPayments(d: Db, rows: Invoice[]) {
   );
   const linked = await d.q<{ invoice_id: number; transaction_id: number; amount: number }>(
     `SELECT p.invoice_id, p.transaction_id, p.amount::float8 AS amount FROM invoice_payments p JOIN transactions t ON t.id = p.transaction_id
-     JOIN invoices i ON i.id = p.invoice_id WHERE i.user_id = $1 AND t.deleted_at IS NULL AND i.customer_account_id = ANY($2::int[])`,
+     JOIN invoices i ON i.id = p.invoice_id WHERE i.user_id = $1 AND t.deleted_at IS NULL AND NOT i.cancelled AND i.customer_account_id = ANY($2::int[])`,
     [userId, custIds],
   );
   const owe = new Map<number, number>(); // charge transaction id -> still unpaid
@@ -260,11 +261,14 @@ export async function cancelInvoice(d: Db, userId: number, id: number) {
       "SELECT transaction_id AS t1, tax_transaction_id AS t2 FROM invoices WHERE id = $1",
       [id],
     );
-    const pays = await x.q<{ t: number | null }>("SELECT transaction_id AS t FROM invoice_payments WHERE invoice_id = $1", [id]);
+    // Money the customer already paid stays theirs: in khata it becomes credit (an advance) for their next purchase.
+    // Without a khata the payment came straight from Sales, so it is taken back out with the sale.
+    const keepPaid = !!(inv.customer_account_id && r.t1);
+    const pays = keepPaid ? [] : await x.q<{ t: number | null }>("SELECT transaction_id AS t FROM invoice_payments WHERE invoice_id = $1", [id]);
     for (const t of [r.t1, r.t2, ...pays.map((p) => p.t)]) {
       if (t) {
         const [live] = await x.q("SELECT 1 FROM transactions WHERE id = $1 AND deleted_at IS NULL", [t]);
-        if (live) await deleteTransaction(x, userId, t);
+        if (live) await deleteTransaction(x, userId, t, { internal: true });
       }
     }
     await x.q("UPDATE invoices SET cancelled = true WHERE id = $1", [id]);

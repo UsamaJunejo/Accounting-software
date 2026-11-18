@@ -30,7 +30,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   const [moves, all, accs] = await Promise.all([itemMoves(d, user.id, item.id), listItems(d, user.id, { archived: true }), accountsWithBalances(d, user.id)]);
   const groups = [...new Set(all.map((i) => i.group_name).filter(Boolean) as string[])];
   const payFrom = accs.filter((a) => !a.archived && !a.currency && (isMoney(a) || a.role === "payable"));
-  const into = accs.filter((a) => !a.archived && !a.currency && (isMoney(a) || a.role === "receivable"));
+  const into = accs.filter((a) => !a.archived && !a.currency && isMoney(a));
   const avg = avgCost(item);
   const lot = item.pricing === "lot";
   const sales = moves.filter((m) => m.reason === "sale" && m.sale_amount !== null);
@@ -82,11 +82,16 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             <div><label className="label" htmlFor="sl-date">Date</label><input id="sl-date" type="date" name="date" defaultValue={today()} className="input" /></div>
             <div>
               <label className="label">Money went into</label>
-              <AccountSelect name="into" accounts={into} value={into.find((a) => a.role === "cash")?.id} addInto={["cash", "bank", "receivable"]} suggest="money" />
+              <AccountSelect name="into" accounts={into} value={into.find((a) => a.role === "cash")?.id} addInto={["cash", "bank"]} suggest="money" />
             </div>
           </div>
           <input id="sl-note" name="note" placeholder="Note (optional), e.g. serial no. or buyer" className="input" />
           <button className="btn w-full bg-ledger text-white hover:bg-ledger-dark" disabled={item.stock <= 0}>{item.stock <= 0 ? "Out of stock" : "Save sale"}</button>
+          {item.stock > 0 && (
+            <Link id="sl-udhaar" href={`/invoices/new?item=${item.id}`} className="block text-center text-sm font-semibold text-brand underline">
+              Selling on udhaar? Make an invoice
+            </Link>
+          )}
         </form>
         <form action={addStockAction} className="card space-y-3 p-5">
           <input type="hidden" name="id" value={item.id} />

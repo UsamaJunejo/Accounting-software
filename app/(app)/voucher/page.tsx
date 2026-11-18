@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check, Eraser, FileText, PackagePlus, Save, Trash2, type LucideIcon } from "lucide-react";
 import { DateField } from "@/components/date-field";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { accountsWithBalances, getTransaction, lastAccounts, listAttachments, listTransactions, MAX_ATTACHMENTS, projects, type TxnType } from "@/lib/books";
@@ -55,12 +55,15 @@ export default async function Voucher({
   // Where this edit was opened from: Save and Cancel both go back there.
   const returnTo = sp.back && sp.back.startsWith("/") && !sp.back.startsWith("//") ? sp.back : "/transactions";
   if (sp.edit && (!editing || editing.deleted_at)) notFound();
+  // Made by an invoice or the Stock page: it is changed there.
+  if (editing?.source_kind) redirect(editing.source_kind === "item" ? `/items/${editing.source_id}` : `/invoices/${editing.source_id}`);
   // Opened with + and nothing chosen yet: ask what happened, in pictures, before showing any form.
   if (!editing && !TABS.some((x) => x.type === sp.type)) return <WhatHappened t={t} />;
   const type = (editing?.type ?? (TABS.some((t) => t.type === sp.type) ? sp.type : "payment")) as TxnType;
   const tab = TABS.find((t) => t.type === type)!;
 
-  const accounts = await accountsWithBalances(d, user.id);
+  // The Stock account only changes through the Stock page.
+  const accounts = (await accountsWithBalances(d, user.id)).filter((a) => a.system !== "stock");
   const cash = accounts.find((a) => a.role === "cash")?.id;
   const bank = accounts.find((a) => a.role === "bank")?.id;
   const pre = (v?: string) => (v && accounts.some((a) => a.id === Number(v)) ? Number(v) : undefined);

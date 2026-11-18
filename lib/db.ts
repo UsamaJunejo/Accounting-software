@@ -394,6 +394,21 @@ export const MIGRATIONS: string[] = [
   // 19: how an item is priced. "each": one price per piece. "lot": bought together for one total,
   // every piece sold at its own price (no price per piece is kept).
   `ALTER TABLE items ADD COLUMN IF NOT EXISTS pricing TEXT NOT NULL DEFAULT 'each' CHECK (pricing IN ('each', 'lot'));`,
+  // 20: accounts the app runs itself ("stock", "cogs"), found by this mark so renaming them is safe.
+  // Plus indexes to find which invoice or stock move made an entry.
+  `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS system TEXT;
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_system ON accounts(user_id, system) WHERE system IS NOT NULL;
+  UPDATE accounts SET system = 'stock' WHERE id IN (
+    SELECT DISTINCT ON (a.user_id) a.id FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
+    WHERE a.currency IS NULL AND c.kind = 'asset' AND c.role IS NULL AND lower(a.name) IN ('stock', 'inventory') ORDER BY a.user_id, a.archived, a.id);
+  UPDATE accounts SET system = 'cogs' WHERE id IN (
+    SELECT DISTINCT ON (a.user_id) a.id FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
+    WHERE a.currency IS NULL AND c.kind = 'expense' AND lower(a.name) = 'cost of goods sold' ORDER BY a.user_id, a.archived, a.id);
+  CREATE INDEX IF NOT EXISTS idx_invoices_txn ON invoices(transaction_id);
+  CREATE INDEX IF NOT EXISTS idx_invoices_tax_txn ON invoices(tax_transaction_id);
+  CREATE INDEX IF NOT EXISTS idx_invoice_payments_txn ON invoice_payments(transaction_id);
+  CREATE INDEX IF NOT EXISTS idx_stock_moves_txn ON stock_moves(transaction_id);
+  CREATE INDEX IF NOT EXISTS idx_stock_moves_cost_txn ON stock_moves(cost_transaction_id);`,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

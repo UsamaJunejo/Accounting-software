@@ -164,7 +164,7 @@ export async function seedDefaults(d: Db, userId: number) {
         [userId, cat.id, sub],
       );
       for (const a of accs) {
-        await d.q("INSERT INTO accounts (user_id, subcategory_id, name) VALUES ($1, $2, $3)", [userId, s.id, a]);
+        await d.q("INSERT INTO accounts (user_id, subcategory_id, name, system) VALUES ($1, $2, $3, $4)", [userId, s.id, a, a === "Stock" ? "stock" : null]);
       }
     }
   }
@@ -210,6 +210,8 @@ export type AccountRow = {
   native_in: number;
   native_out: number;
   native: number | null;
+  /** "stock" or "cogs" for the accounts the app keeps itself. */
+  system: string | null;
 };
 
 /** Every account with its totals. Optional date window (inclusive, YYYY-MM-DD). */
@@ -228,7 +230,7 @@ export async function accountsWithBalances(
      -- The same totals in each entry's own currency, for accounts kept in another currency.
      fins AS (SELECT to_account_id AS id, currency, SUM(foreign_amount) AS s FROM t WHERE currency IS NOT NULL GROUP BY 1, 2),
      fouts AS (SELECT from_account_id AS id, currency, SUM(foreign_amount) AS s FROM t WHERE currency IS NOT NULL GROUP BY 1, 2)
-     SELECT a.id, a.name, a.phone, a.budget_monthly::float8 AS budget_monthly, a.archived, a.currency,
+     SELECT a.id, a.name, a.phone, a.budget_monthly::float8 AS budget_monthly, a.archived, a.currency, a.system,
             COALESCE(fins.s, 0)::float8 AS native_in, COALESCE(fouts.s, 0)::float8 AS native_out,
             s.id AS subcategory_id, s.name AS subcategory,
             c.id AS category_id, c.name AS category, c.kind, c.role,
@@ -408,6 +410,8 @@ export async function updateAccount(
   await own(d, "subcategories", f.subcategoryId, userId);
   const name = await checkAccountName(d, userId, f.name, id);
   if (f.archived) {
+    const [sys] = await d.q<{ system: string | null; name: string }>("SELECT system, name FROM accounts WHERE id = $1", [id]);
+    if (sys?.system) throw new Error(`${sys.name} is used by your Stock page, so it can't be archived. You can rename it.`);
     // Hiding an account that still holds money makes that money disappear from the lists.
     const acc = (await accountsWithBalances(d, userId)).find((a) => a.id === id);
     if (acc && !acc.archived && acc.balance !== 0)
@@ -440,8 +444,23 @@ export async function renameSubcategory(d: Db, userId: number, id: number, name:
 }
 
 /** Only accounts that were never used can be deleted; otherwise archive them. */
+/** Accounts the app needs, and accounts whose entries were made by invoices or stock, can't be deleted here. */
+async function guardAccountDelete(d: Db, userId: number, id: number) {
+  const [a] = await d.q<{ system: string | null; name: string }>("SELECT system, name FROM accounts WHERE id = $1 AND user_id = $2", [id, userId]);
+  if (a?.system) throw new Error(`${a.name} is used by your Stock page, so it can't be deleted. You can rename it.`);
+  const [inv] = await d.q<{ n: number }>("SELECT COUNT(*)::int AS n FROM invoices WHERE user_id = $1 AND customer_account_id = $2 AND NOT cancelled", [userId, id]);
+  if (inv.n > 0) throw new Error(`${a?.name} has ${inv.n} invoice${inv.n > 1 ? "s" : ""}. Cancel ${inv.n > 1 ? "them" : "it"} first, or archive the account instead.`);
+  const [made] = await d.q<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM transactions t ${SOURCE_JOIN}
+     WHERE t.user_id = $1 AND t.deleted_at IS NULL AND (t.from_account_id = $2 OR t.to_account_id = $2) AND src.kind IN ('invoice', 'item')`,
+    [userId, id],
+  );
+  if (made.n > 0) throw new Error(`${a?.name} has entries made by invoices or the Stock page. Archive it instead, or undo those first.`);
+}
+
 export async function deleteAccount(d: Db, userId: number, id: number) {
   await own(d, "accounts", id, userId);
+  await guardAccountDelete(d, userId, id);
   const [used] = await d.q<{ n: number }>(
     "SELECT COUNT(*)::int AS n FROM transactions WHERE from_account_id = $1 OR to_account_id = $1",
     [id],
@@ -483,6 +502,8 @@ export type TxnInput = {
   /** The user's main currency (default PKR). */
   primary?: string;
   projectId?: number | null;
+  /** Set only by the app's own stock and invoice code: allows entries on the Stock account. */
+  internal?: boolean;
 };
 
 /** Checks the entry and returns its type, worked out from the two accounts. */
@@ -503,11 +524,14 @@ async function validate(d: Db, userId: number, t: TxnInput): Promise<TxnType> {
     if (!t.foreignAmount || t.foreignAmount <= 0 || !Number.isSafeInteger(t.foreignAmount)) throw new Error("Enter the amount in " + t.currency);
     if (!t.rate || !(t.rate > 0)) throw new Error("Enter the exchange rate");
   }
-  const roles = await d.q<{ id: number; role: Role; name: string; currency: string | null }>(
-    `SELECT a.id, c.role, a.name, a.currency FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
+  const roles = await d.q<{ id: number; role: Role; name: string; currency: string | null; system: string | null }>(
+    `SELECT a.id, c.role, a.name, a.currency, a.system FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
      WHERE a.id = ANY($1::int[])`,
     [[t.fromAccountId, t.toAccountId]],
   );
+  const stock = roles.find((r) => r.system === "stock");
+  if (stock && !t.internal)
+    throw new Error(`${stock.name} changes by itself when you buy or sell stock. Use the Stock page (Add stock / Sell) instead.`);
   // Accounts kept in another currency only take entries in that currency, so their own balance stays right.
   const [{ currency: main }] = await d.q<{ currency: string }>("SELECT currency FROM users WHERE id = $1", [userId]);
   const entryCur = t.currency || main;
@@ -550,7 +574,39 @@ export async function addTransaction(d: Db, userId: number, input: TxnInput): Pr
   });
 }
 
+export type EntrySource = { kind: "invoice" | "payment" | "item"; id: number; label: string; cancelled: boolean };
+
+/** Which invoice, invoice payment or stock item made this entry (if any). */
+const SOURCE_JOIN = `LEFT JOIN LATERAL (
+    SELECT 'invoice' AS kind, i.id, '#' || i.number AS label, i.cancelled FROM invoices i
+      WHERE i.user_id = t.user_id AND (i.transaction_id = t.id OR i.tax_transaction_id = t.id)
+    UNION ALL SELECT 'payment', i.id, '#' || i.number, i.cancelled FROM invoice_payments p JOIN invoices i ON i.id = p.invoice_id
+      WHERE p.transaction_id = t.id
+    UNION ALL SELECT 'item', it.id, it.name, false FROM stock_moves m JOIN items it ON it.id = m.item_id
+      WHERE m.user_id = t.user_id AND (m.transaction_id = t.id OR m.cost_transaction_id = t.id)
+    LIMIT 1) src ON true`;
+
+export async function entrySource(d: Db, userId: number, id: number): Promise<EntrySource | null> {
+  const [r] = await d.q<EntrySource>(
+    `SELECT src.kind, src.id, src.label, src.cancelled FROM transactions t ${SOURCE_JOIN} WHERE t.id = $1 AND t.user_id = $2 AND src.kind IS NOT NULL`,
+    [id, userId],
+  );
+  return r ?? null;
+}
+
+/** Entries made by an invoice or the Stock page are changed there, so both sides stay matched. */
+async function guardSource(d: Db, userId: number, id: number, action: "edit" | "delete" | "restore") {
+  const s = await entrySource(d, userId, id);
+  if (!s) return;
+  // A payment on an invoice can be deleted or brought back here (the invoice counts only live payments).
+  if (s.kind === "payment" && action !== "edit") return;
+  if (s.kind === "item") throw new Error(`This entry was made on the Stock page for ${s.label}. Open ${s.label} there to change or undo it.`);
+  if (s.kind === "payment") throw new Error(`This is a payment on invoice ${s.label}. Delete it and record it again on the invoice.`);
+  throw new Error(`This entry was made by invoice ${s.label}. Open the invoice to ${action === "edit" ? "change it" : "cancel it"}.`);
+}
+
 export async function updateTransaction(d: Db, userId: number, id: number, input: TxnInput) {
+  if (!input.internal) await guardSource(d, userId, id, "edit");
   const t = { ...input, type: await validate(d, userId, input) };
   const before = await getTransaction(d, userId, id);
   if (!before || before.deleted_at) throw new Error("Entry not found");
@@ -565,9 +621,10 @@ export async function updateTransaction(d: Db, userId: number, id: number, input
   });
 }
 
-export async function deleteTransaction(d: Db, userId: number, id: number) {
+export async function deleteTransaction(d: Db, userId: number, id: number, opts: { internal?: boolean } = {}) {
   const before = await getTransaction(d, userId, id);
   if (!before || before.deleted_at) throw new Error("Entry not found");
+  if (!opts.internal) await guardSource(d, userId, id, "delete");
   await d.tx(async (x) => {
     await x.q("UPDATE transactions SET deleted_at = now() WHERE id = $1 AND user_id = $2", [id, userId]);
     await audit(x, userId, "delete", id, before);
@@ -575,6 +632,7 @@ export async function deleteTransaction(d: Db, userId: number, id: number) {
 }
 
 export async function restoreTransaction(d: Db, userId: number, id: number) {
+  await guardSource(d, userId, id, "restore");
   await d.tx(async (x) => {
     const r = await x.q("UPDATE transactions SET deleted_at = NULL WHERE id = $1 AND user_id = $2 RETURNING id", [id, userId]);
     if (!r.length) throw new Error("Entry not found");
@@ -601,6 +659,9 @@ export type TxnRow = {
   project_id: number | null;
   project: string | null;
   attachments: number;
+  source_kind: EntrySource["kind"] | null;
+  source_id: number | null;
+  source_label: string | null;
 };
 
 const TXN_SELECT = `SELECT t.id, t.type, to_char(t.date, 'YYYY-MM-DD') AS date, t.amount::float8 AS amount,
@@ -608,11 +669,13 @@ const TXN_SELECT = `SELECT t.id, t.type, to_char(t.date, 'YYYY-MM-DD') AS date, 
   to_char(t.created_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS created_at,
   to_char(t.deleted_at AT TIME ZONE 'Asia/Karachi', 'YYYY-MM-DD HH24:MI') AS deleted_at,
   t.currency, t.foreign_amount::float8 AS foreign_amount, t.rate::float8 AS rate, t.project_id, pr.name AS project,
-  (SELECT COUNT(*)::int FROM attachments at WHERE at.transaction_id = t.id) AS attachments
+  (SELECT COUNT(*)::int FROM attachments at WHERE at.transaction_id = t.id) AS attachments,
+  src.kind AS source_kind, src.id AS source_id, src.label AS source_label
   FROM transactions t
   JOIN accounts fa ON fa.id = t.from_account_id
   JOIN accounts ta ON ta.id = t.to_account_id
-  LEFT JOIN projects pr ON pr.id = t.project_id`;
+  LEFT JOIN projects pr ON pr.id = t.project_id
+  ${SOURCE_JOIN}`;
 
 export async function getTransaction(d: Db, userId: number, id: number): Promise<TxnRow | undefined> {
   if (!Number.isInteger(id)) return undefined;
@@ -1231,6 +1294,7 @@ export async function mergeAccount(d: Db, userId: number, id: number, intoId: nu
  * (see accountImpact). Invoices keep the customer's name but are no longer linked.
  */
 export async function deleteAccountWithEntries(d: Db, userId: number, id: number) {
+  await guardAccountDelete(d, userId, id);
   const impact = await accountImpact(d, userId, id);
   await d.tx(async (x) => {
     await x.q("UPDATE invoices SET customer_account_id = NULL WHERE user_id = $1 AND customer_account_id = $2", [userId, id]);

@@ -45,5 +45,6 @@ test("invoice payments update status, khata and cash; can't overpay", async () =
   assert.deepEqual([bal["Bilal"], bal["Cash"], bal["Bank Account"]], [0, 4000, 6000]);
   await cancelInvoice(d, uid, id);
   const after = Object.fromEntries((await accountsWithBalances(d, uid)).map((a) => [a.name, a.balance]));
-  assert.deepEqual([after["Bilal"], after["Cash"], after["Sales"]], [0, 0, 0]);
+  // The sale is gone; the 10,000 Bilal paid stays in Cash/Bank as his credit (he is owed it).
+  assert.deepEqual([after["Bilal"], after["Cash"], after["Bank Account"], after["Sales"]], [-10000, 4000, 6000, 0]);
 });

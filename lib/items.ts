@@ -154,6 +154,7 @@ export async function addStock(
         amount: total,
         fromAccountId: from.id,
         toAccountId: await stockAccount(x, userId),
+        internal: true,
         note: `${it.name}: bought ${fmtQty(p.qty)} ${it.unit}${p.note ? ` · ${p.note}` : ""}`,
       });
     }
@@ -187,7 +188,8 @@ export async function sellStock(
   checkDate(p.date);
   return d.tx(async (x) => {
     const into = (await accountsWithBalances(x, userId)).find((a) => a.id === p.intoAccountId);
-    if (!into || !(isMoney(into) || into.role === "receivable")) throw new Error("Choose where the money went: cash, bank, or the customer's khata");
+    if (into?.role === "receivable") throw new Error("Selling on udhaar? Make an invoice for it, so it shows in the customer's invoices.");
+    if (!into || !isMoney(into)) throw new Error("Choose where the money went: cash or bank");
     const txnId = await addTransaction(x, userId, {
       type: "receipt",
       date: p.date,
@@ -249,7 +251,7 @@ export async function removeEntries(d: Db, userId: number, moveId: number) {
   for (const t of [m?.t1, m?.t2]) {
     if (!t) continue;
     const [live] = await d.q("SELECT 1 FROM transactions WHERE id = $1 AND deleted_at IS NULL", [t]);
-    if (live) await deleteTransaction(d, userId, t);
+    if (live) await deleteTransaction(d, userId, t, { internal: true });
   }
 }
 
@@ -293,15 +295,29 @@ export function stockValue(items: Item[]) {
 
 const fmtQty = (n: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigits: 3 }).format(n);
 
+/** An account the app keeps itself, found by its mark (so renaming it is safe), else by name, else made. */
+async function systemAccount(d: Db, userId: number, system: "stock" | "cogs", find: () => Promise<number | undefined>, make: () => Promise<number>) {
+  const [a] = await d.q<{ id: number; archived: boolean }>("SELECT id, archived FROM accounts WHERE user_id = $1 AND system = $2", [userId, system]);
+  if (a) {
+    if (a.archived) await d.q("UPDATE accounts SET archived = false WHERE id = $1", [a.id]);
+    return a.id;
+  }
+  const id = (await find()) ?? (await make());
+  await d.q("UPDATE accounts SET system = $1 WHERE id = $2 AND user_id = $3", [system, id, userId]);
+  return id;
+}
+
 /** The asset account stock sits in ("Stock", made in Assets if it is missing). */
-async function stockAccount(d: Db, userId: number) {
-  const [a] = await d.q<{ id: number }>(
-    `SELECT a.id FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
-     WHERE a.user_id = $1 AND NOT a.archived AND a.currency IS NULL AND c.kind = 'asset' AND c.role IS NULL AND lower(a.name) IN ('stock', 'inventory')
-     ORDER BY a.id LIMIT 1`,
-    [userId],
-  );
-  return a?.id ?? ensureAccount(d, userId, { name: "Assets", kind: "asset" }, "Stock / Inventory", "Stock");
+export async function stockAccount(d: Db, userId: number) {
+  return systemAccount(d, userId, "stock", async () => {
+    const [a] = await d.q<{ id: number }>(
+      `SELECT a.id FROM accounts a JOIN subcategories s ON s.id = a.subcategory_id JOIN categories c ON c.id = s.category_id
+       WHERE a.user_id = $1 AND NOT a.archived AND a.currency IS NULL AND c.kind = 'asset' AND c.role IS NULL AND lower(a.name) IN ('stock', 'inventory')
+       ORDER BY a.id LIMIT 1`,
+      [userId],
+    );
+    return a?.id;
+  }, () => ensureAccount(d, userId, { name: "Assets", kind: "asset" }, "Stock / Inventory", "Stock"));
 }
 
 async function namedAccount(d: Db, userId: number, kind: string, names: string[]) {
@@ -313,9 +329,9 @@ async function namedAccount(d: Db, userId: number, kind: string, names: string[]
   return a?.id;
 }
 
-const costAccount = async (d: Db, userId: number) =>
-  (await namedAccount(d, userId, "expense", ["Cost of goods sold"])) ??
-  ensureAccount(d, userId, { name: "Expense", kind: "expense" }, "Purchases", "Cost of goods sold");
+const costAccount = (d: Db, userId: number) =>
+  systemAccount(d, userId, "cogs", () => namedAccount(d, userId, "expense", ["Cost of goods sold"]),
+    () => ensureAccount(d, userId, { name: "Expense", kind: "expense" }, "Purchases", "Cost of goods sold"));
 
 /**
  * Puts every stock move that isn't in the books yet into the books, oldest first:
@@ -345,7 +361,7 @@ export async function bookStock(d: Db, userId: number) {
         continue;
       }
       const entry = (amount: number, from: number, to: number, note: string) =>
-        addTransaction(x, userId, { type: "transfer", date: m.date, amount, fromAccountId: from, toAccountId: to, note });
+        addTransaction(x, userId, { type: "transfer", date: m.date, amount, fromAccountId: from, toAccountId: to, note, internal: true });
       let v: number;
       let t1 = m.transaction_id, t2: number | null = null;
       if ((m.reason === "opening" || m.reason === "purchase") && m.qty > 0 && m.value !== null) {

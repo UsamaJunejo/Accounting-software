@@ -55,7 +55,12 @@ export default async function EditAccount({
         />
         <Link href={`/accounts/${a.id}`} className="btn-ghost mt-3 w-full justify-center"><FileText className="h-4 w-4" />View statement</Link>
       </div>
-      {(a.kind === "asset" || a.kind === "liability") && (
+      {a.system === "stock" && (
+        <p className="card mb-4 max-w-2xl p-5 text-sm">
+          This is the value of your items. It changes by itself when you add or sell stock on the <Link href="/items" className="font-semibold text-brand underline">Stock page</Link>.
+        </p>
+      )}
+      {(a.kind === "asset" || a.kind === "liability") && a.system !== "stock" && (
       <form id="opening" action={addStartingBalance} className="card mb-4 grid max-w-2xl gap-4 p-5 sm:grid-cols-[1fr_200px_auto] sm:items-end">
         <input type="hidden" name="id" value={a.id} />
         <h2 className="text-lg font-bold sm:col-span-3">{start ? "Change starting balance" : "Set starting balance"}</h2>

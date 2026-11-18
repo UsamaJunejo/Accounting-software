@@ -14,7 +14,7 @@ export default async function Scheduled({ searchParams }: { searchParams: Promis
   const user = await requireUser();
   const sp = await searchParams;
   const d = await db();
-  const [rows, accounts] = await Promise.all([listSchedules(d, user.id), accountsWithBalances(d, user.id)]);
+  const [rows, accounts] = await Promise.all([listSchedules(d, user.id), accountsWithBalances(d, user.id).then((r) => r.filter((a) => a.system !== "stock"))]);
   const cash = accounts.find((a) => a.role === "cash")?.id;
   return (
     <>
