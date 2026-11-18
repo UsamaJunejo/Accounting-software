@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClipboardCheck, HandCoins, PackagePlus, Pencil, Trash2, Undo2 } from "lucide-react";
+import { ClipboardCheck, FolderKanban, HandCoins, PackagePlus, Pencil, Trash2, Undo2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { avgCost, bookStock, getItem, itemMoves, listItems } from "@/lib/items";
-import { accountsWithBalances, isMoney } from "@/lib/books";
+import { accountsWithBalances, isMoney, projects } from "@/lib/books";
 import { money, prettyDate, today } from "@/lib/format";
 import { currencySymbol } from "@/lib/currencies";
 import { AccountSelect, Flash, PageHeader } from "@/components/ui";
@@ -12,13 +12,13 @@ import { Crumbs } from "@/components/drill";
 import { Dialog } from "@/components/dialog";
 import { ItemForm } from "@/components/item-form";
 import { ConfirmButton } from "@/components/confirm-button";
-import { addStockAction, countStockAction, deleteItemAction, removeMoveAction, sellStockAction } from "@/app/actions/items";
+import { addStockAction, countStockAction, deleteItemAction, removeMoveAction, sellStockAction, useStockAction } from "@/app/actions/items";
 import { PriceBox } from "@/components/price-box";
 
 export const metadata = { title: "Item" };
 
 const qty = (n: number) => new Intl.NumberFormat("en-PK", { maximumFractionDigits: 3 }).format(n);
-const REASON: Record<string, string> = { opening: "Had at the start", purchase: "Bought", sale: "Sold", count: "Count correction", return: "Returned" };
+const REASON: Record<string, string> = { opening: "Had at the start", purchase: "Bought", sale: "Sold", count: "Count correction", return: "Returned", use: "Used" };
 
 export default async function ItemPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; ok?: string }> }) {
   const user = await requireUser();
@@ -27,7 +27,18 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   await bookStock(d, user.id);
   const item = await getItem(d, user.id, Number((await params).id));
   if (!item) notFound();
-  const [moves, all, accs] = await Promise.all([itemMoves(d, user.id, item.id), listItems(d, user.id, { archived: true }), accountsWithBalances(d, user.id)]);
+  const [moves, all, accs, projs] = await Promise.all([itemMoves(d, user.id, item.id), listItems(d, user.id, { archived: true }), accountsWithBalances(d, user.id), projects(d, user.id)]);
+  const openProjects = projs.filter((p) => !p.archived);
+  // Optional on buying and selling: which project it was for (shows in that project's entries).
+  const projectPick = (id: string) => openProjects.length > 0 && (
+    <div>
+      <label className="label" htmlFor={id}>Project (optional)</label>
+      <select id={id} name="project" className="input" defaultValue="">
+        <option value="">None</option>
+        {openProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+    </div>
+  );
   const groups = [...new Set(all.map((i) => i.group_name).filter(Boolean) as string[])];
   const payFrom = accs.filter((a) => !a.archived && !a.currency && (isMoney(a) || a.role === "payable"));
   const into = accs.filter((a) => !a.archived && !a.currency && isMoney(a));
@@ -86,6 +97,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             </div>
           </div>
           <input id="sl-note" name="note" placeholder="Note (optional), e.g. serial no. or buyer" className="input" />
+          {projectPick("sl-project")}
           <button className="btn w-full bg-ledger text-white hover:bg-ledger-dark" disabled={item.stock <= 0}>{item.stock <= 0 ? "Out of stock" : "Save sale"}</button>
           {item.stock > 0 && (
             <Link id="sl-udhaar" href={`/invoices/new?item=${item.id}`} className="block text-center text-sm font-semibold text-brand underline">
@@ -104,7 +116,34 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
               <AccountSelect name="from" accounts={payFrom} noneLabel="I already entered this payment" addInto={["cash", "bank", "payable"]} suggest="money" />
             </div>
           </div>
+          {projectPick("st-project")}
           <button className="btn-primary w-full">Add stock</button>
+        </form>
+        <form action={useStockAction} className="card space-y-3 p-5">
+          <input type="hidden" name="id" value={item.id} />
+          <h2 className="flex items-center gap-2 text-lg font-bold"><FolderKanban className="h-5 w-5 text-brand" />Use for a project</h2>
+          {openProjects.length === 0 ? (
+            <p className="text-sm text-muted">
+              Taking items for a job or site? <Link href="/projects" className="font-semibold text-brand underline">Make a project</Link> first.
+            </p>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="us-project">Project</label>
+                  <select id="us-project" name="project" required className="input">
+                    {openProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div><label className="label" htmlFor="us-qty">How many ({item.unit})</label><input id="us-qty" name="qty" inputMode="decimal" required className="input" /></div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div><label className="label" htmlFor="us-date">Date</label><input id="us-date" type="date" name="date" defaultValue={today()} className="input" /></div>
+                <div><label className="label" htmlFor="us-note">Note (optional)</label><input id="us-note" name="note" placeholder="e.g. to the site" className="input" /></div>
+              </div>
+              <button className="btn-dark w-full" disabled={item.stock <= 0}>{item.stock <= 0 ? "Out of stock" : "Take for project"}</button>
+            </>
+          )}
         </form>
         <form action={countStockAction} className="card space-y-3 p-5">
           <input type="hidden" name="id" value={item.id} />
@@ -133,6 +172,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
                     <td>
                       {REASON[m.reason] ?? m.reason}
                       {m.invoice_id && <> · <Link href={`/invoices/${m.invoice_id}`} className="font-semibold text-brand">Invoice #{m.invoice_number}</Link></>}
+                      {m.project && <> · <Link href={`/transactions?project=${m.project_id}`} className="font-semibold text-brand">{m.project}</Link></>}
                       {m.note && <span className="block text-sm text-muted">{m.note}</span>}
                     </td>
                     <td className="num text-inflow">{m.qty > 0 ? qty(m.qty) : ""}</td>

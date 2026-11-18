@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireWriter } from "@/lib/auth";
 import { toPaisa, today } from "@/lib/format";
-import { addItem, addStock, countStock, deleteItem, removeMove, sellStock, updateItem, type ItemInput } from "@/lib/items";
+import { addItem, addStock, countStock, deleteItem, removeMove, sellStock, useStock, updateItem, type ItemInput } from "@/lib/items";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const num = (f: FormData, k: string) => Number(str(f, k).replace(/,/g, ""));
@@ -68,6 +68,7 @@ export async function addStockAction(form: FormData) {
       date: str(form, "date") || today(),
       fromAccountId: Number(form.get("from")) || null,
       note: str(form, "note"),
+      projectId: Number(form.get("project")) || null,
     }),
   );
 }
@@ -88,6 +89,19 @@ export async function sellStockAction(form: FormData) {
       total: price(form, "total"),
       date: str(form, "date") || today(),
       intoAccountId: Number(form.get("into")) || null,
+      note: str(form, "note"),
+      projectId: Number(form.get("project")) || null,
+    }),
+  );
+}
+
+export async function useStockAction(form: FormData) {
+  const id = Number(form.get("id"));
+  await run(`/items/${id}`, "Taken for the project", async (uid) =>
+    useStock(await db(), uid, id, {
+      qty: num(form, "qty"),
+      date: str(form, "date") || today(),
+      projectId: Number(form.get("project")) || 0,
       note: str(form, "note"),
     }),
   );

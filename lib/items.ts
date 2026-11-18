@@ -136,7 +136,7 @@ export async function addStock(
   d: Db,
   userId: number,
   itemId: number,
-  p: { qty: number; total?: number | null; unitCost?: number | null; date: string; fromAccountId?: number | null; note?: string | null },
+  p: { qty: number; total?: number | null; unitCost?: number | null; date: string; fromAccountId?: number | null; note?: string | null; projectId?: number | null },
 ) {
   const it = await getItem(d, userId, itemId);
   if (!it) throw new Error("Item not found");
@@ -155,13 +155,14 @@ export async function addStock(
         fromAccountId: from.id,
         toAccountId: await stockAccount(x, userId),
         internal: true,
+        projectId: p.projectId || null,
         note: `${it.name}: bought ${fmtQty(p.qty)} ${it.unit}${p.note ? ` · ${p.note}` : ""}`,
       });
     }
     await x.q(
-      `INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, value, reason, transaction_id, note, booked)
-       VALUES ($1, $2, $3, $4, $5, $6, 'purchase', $7, $8, $9)`,
-      [userId, itemId, p.date, p.qty, total / p.qty, total, txnId, p.note || null, !!txnId || total === 0],
+      `INSERT INTO stock_moves (user_id, item_id, date, qty, unit_cost, value, reason, transaction_id, note, booked, project_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'purchase', $7, $8, $9, $10)`,
+      [userId, itemId, p.date, p.qty, total / p.qty, total, txnId, p.note || null, !!txnId || total === 0, p.projectId || null],
     );
     await bookStock(x, userId);
     // Remember the latest cost, so the next purchase starts from it.
@@ -177,7 +178,7 @@ export async function sellStock(
   d: Db,
   userId: number,
   itemId: number,
-  p: { qty: number; total?: number | null; each?: number | null; date: string; intoAccountId?: number | null; note?: string | null },
+  p: { qty: number; total?: number | null; each?: number | null; date: string; intoAccountId?: number | null; note?: string | null; projectId?: number | null },
 ) {
   const it = await getItem(d, userId, itemId);
   if (!it) throw new Error("Item not found");
@@ -196,12 +197,41 @@ export async function sellStock(
       amount: total,
       fromAccountId: await ensureAccount(x, userId, { name: "Income", kind: "income" }, "Sales", "Sales"),
       toAccountId: into.id,
+      projectId: p.projectId || null,
       note: `${it.name}: sold ${fmtQty(p.qty)} ${it.unit}${p.note ? ` · ${p.note}` : ""}`,
     });
     const [m] = await x.q<{ id: number }>(
-      `INSERT INTO stock_moves (user_id, item_id, date, qty, reason, transaction_id, sale_amount, note)
-       VALUES ($1, $2, $3, $4, 'sale', $5, $6, $7) RETURNING id`,
-      [userId, itemId, p.date, -p.qty, txnId, total, p.note || null],
+      `INSERT INTO stock_moves (user_id, item_id, date, qty, reason, transaction_id, sale_amount, note, project_id)
+       VALUES ($1, $2, $3, $4, 'sale', $5, $6, $7, $8) RETURNING id`,
+      [userId, itemId, p.date, -p.qty, txnId, total, p.note || null, p.projectId || null],
+    );
+    await bookStock(x, userId);
+    return m.id;
+  });
+}
+
+/**
+ * Taken off the shelf to be used in a project (e.g. 20 cement bags to a site). Nothing is sold:
+ * stock goes down and what those items cost becomes that project's expense ("Materials used").
+ */
+export async function useStock(
+  d: Db,
+  userId: number,
+  itemId: number,
+  p: { qty: number; date: string; projectId: number; note?: string | null },
+) {
+  const it = await getItem(d, userId, itemId);
+  if (!it) throw new Error("Item not found");
+  if (!(qtyOk(p.qty) && p.qty > 0)) throw new Error("How many did you use? Use a number more than zero.");
+  if (p.qty > it.stock) throw new Error(it.stock > 0 ? `You only have ${fmtQty(it.stock)} ${it.unit} in stock` : `${it.name} is out of stock.`);
+  if (!p.projectId) throw new Error("Choose the project");
+  const [pr] = await d.q("SELECT 1 FROM projects WHERE id = $1 AND user_id = $2", [p.projectId, userId]);
+  if (!pr) throw new Error("Project not found");
+  checkDate(p.date);
+  return d.tx(async (x) => {
+    const [m] = await x.q<{ id: number }>(
+      "INSERT INTO stock_moves (user_id, item_id, date, qty, reason, note, project_id) VALUES ($1, $2, $3, $4, 'use', $5, $6) RETURNING id",
+      [userId, itemId, p.date, -p.qty, p.note || null, p.projectId],
     );
     await bookStock(x, userId);
     return m.id;
@@ -273,14 +303,16 @@ export async function countStock(d: Db, userId: number, itemId: number, counted:
 export type StockMove = {
   id: number; date: string; qty: number; unit_cost: number | null; reason: string; note: string | null;
   invoice_id: number | null; invoice_number: number | null; value: number | null; sale_amount: number | null; balance: number;
+  project_id: number | null; project: string | null;
 };
 
 /** An item's history, oldest first, with the running stock after each move. */
 export async function itemMoves(d: Db, userId: number, itemId: number) {
   const rows = await d.q<Omit<StockMove, "balance">>(
     `SELECT m.id, to_char(m.date, 'YYYY-MM-DD') AS date, m.qty::float8 AS qty, m.unit_cost::float8 AS unit_cost, m.reason, m.note,
-            m.invoice_id, i.number AS invoice_number, m.value::float8 AS value, m.sale_amount::float8 AS sale_amount
-     FROM stock_moves m LEFT JOIN invoices i ON i.id = m.invoice_id
+            m.invoice_id, i.number AS invoice_number, m.value::float8 AS value, m.sale_amount::float8 AS sale_amount,
+            m.project_id, pr.name AS project
+     FROM stock_moves m LEFT JOIN invoices i ON i.id = m.invoice_id LEFT JOIN projects pr ON pr.id = m.project_id
      WHERE m.user_id = $1 AND m.item_id = $2 ORDER BY m.date, m.id`,
     [userId, itemId],
   );
@@ -343,8 +375,9 @@ export async function bookStock(d: Db, userId: number) {
   const [any] = await d.q("SELECT 1 FROM stock_moves WHERE user_id = $1 AND NOT booked LIMIT 1", [userId]);
   if (!any) return;
   await d.tx(async (x) => {
-    const moves = await x.q<{ id: number; item_id: number; date: string; qty: number; value: number | null; reason: string; booked: boolean; transaction_id: number | null; name: string; unit: string; cost_price: number }>(
+    const moves = await x.q<{ id: number; item_id: number; date: string; qty: number; value: number | null; reason: string; booked: boolean; transaction_id: number | null; name: string; unit: string; cost_price: number; project_id: number | null; project: string | null }>(
       `SELECT m.id, m.item_id, to_char(m.date, 'YYYY-MM-DD') AS date, m.qty::float8 AS qty, m.value::float8 AS value, m.reason, m.booked,
+              m.project_id, (SELECT name FROM projects WHERE id = m.project_id) AS project,
               m.transaction_id, i.name, i.unit, i.cost_price::float8 AS cost_price
        FROM stock_moves m JOIN items i ON i.id = m.item_id
        WHERE m.user_id = $1 AND m.item_id IN (SELECT item_id FROM stock_moves WHERE user_id = $1 AND NOT booked)
@@ -361,7 +394,7 @@ export async function bookStock(d: Db, userId: number) {
         continue;
       }
       const entry = (amount: number, from: number, to: number, note: string) =>
-        addTransaction(x, userId, { type: "transfer", date: m.date, amount, fromAccountId: from, toAccountId: to, note, internal: true });
+        addTransaction(x, userId, { type: "transfer", date: m.date, amount, fromAccountId: from, toAccountId: to, note, internal: true, projectId: m.project_id });
       let v: number;
       let t1 = m.transaction_id, t2: number | null = null;
       if ((m.reason === "opening" || m.reason === "purchase") && m.qty > 0 && m.value !== null) {
@@ -391,8 +424,13 @@ export async function bookStock(d: Db, userId: number) {
         const avg = qty > 0 ? val / qty : m.cost_price;
         v = m.qty < 0 && -m.qty >= qty && qty > 0 ? -val : Math.round(m.qty * avg);
         if (v !== 0) {
-          const cost = await costAccount(x, userId);
-          const what = m.reason === "sale" ? `cost of ${fmtQty(-m.qty)} ${m.unit} sold` : `count correction (${m.qty > 0 ? "+" : ""}${fmtQty(m.qty)} ${m.unit})`;
+          // Used in a project: its cost is that project's expense. Sold or miscounted: cost of goods sold.
+          const cost = m.reason === "use"
+            ? (await namedAccount(x, userId, "expense", ["Materials used"])) ?? (await ensureAccount(x, userId, { name: "Expense", kind: "expense" }, "Purchases", "Materials used"))
+            : await costAccount(x, userId);
+          const what = m.reason === "sale" ? `cost of ${fmtQty(-m.qty)} ${m.unit} sold`
+            : m.reason === "use" ? `${fmtQty(-m.qty)} ${m.unit} used${m.project ? ` for ${m.project}` : ""}`
+            : `count correction (${m.qty > 0 ? "+" : ""}${fmtQty(m.qty)} ${m.unit})`;
           t2 = v < 0 ? await entry(-v, stock, cost, `${m.name}: ${what}`) : await entry(v, cost, stock, `${m.name}: ${what}`);
         }
       }

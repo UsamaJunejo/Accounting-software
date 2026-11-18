@@ -409,6 +409,10 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX IF NOT EXISTS idx_invoice_payments_txn ON invoice_payments(transaction_id);
   CREATE INDEX IF NOT EXISTS idx_stock_moves_txn ON stock_moves(transaction_id);
   CREATE INDEX IF NOT EXISTS idx_stock_moves_cost_txn ON stock_moves(cost_transaction_id);`,
+  // 21: stock linked to a project: bought/sold for it, or taken off the shelf to be used in it ("use").
+  `ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+  ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_moves_reason_check;
+  ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_reason_check CHECK (reason IN ('opening', 'purchase', 'sale', 'count', 'return', 'use'));`,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

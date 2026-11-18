@@ -136,3 +136,22 @@ test("books still balance with stock and invoices", async () => {
   await stockMatches();
   assert.ok((await B.balanceSheet(d, uid, "2026-12-31")).balanced);
 });
+
+test("stock and projects: buy and sell for a project, or use stock in one", async () => {
+  const { d, uid, acc, stockMatches } = await fresh();
+  const site = await B.addProject(d, uid, "House on Main Road");
+  const cement = await I.addItem(d, uid, { name: "Cement" }, "2026-05-01");
+  await I.addStock(d, uid, cement, { qty: 100, total: 100_000_00, date: "2026-05-02", fromAccountId: acc("Cash"), projectId: site });
+  await I.sellStock(d, uid, cement, { qty: 10, total: 13_000_00, date: "2026-05-03", intoAccountId: acc("Cash"), projectId: site });
+  await I.useStock(d, uid, cement, { qty: 20, date: "2026-05-04", projectId: site, note: "to the site" });
+  assert.equal((await I.getItem(d, uid, cement))!.stock, 70);
+  // Every entry these made is tagged with the project: purchase, sale, its cost, and the materials used.
+  const rows = await B.listTransactions(d, uid, { projectId: site });
+  assert.equal(rows.length, 4);
+  const used = rows.find((r) => r.to_name === "Materials used")!;
+  assert.equal(used.amount, 20_000_00); // 20 bags at 1,000 each
+  assert.equal(used.source_kind, "item");
+  await assert.rejects(() => I.useStock(d, uid, cement, { qty: 500, date: "2026-05-04", projectId: site }), /only have 70/);
+  await stockMatches();
+  assert.ok((await B.balanceSheet(d, uid, "2026-12-31")).balanced);
+});
