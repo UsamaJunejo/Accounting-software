@@ -57,6 +57,11 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             <h2 className="text-lg font-bold">Payment</h2>
             <StatusPill status={status} />
           </div>
+          {inv.project && (
+            <p className="mb-3 text-sm">
+              Project: <a href={`/transactions?project=${inv.project_id}`} className="font-semibold text-brand underline">{inv.project}</a>
+            </p>
+          )}
           <dl className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-lg bg-paper p-2"><dt className="text-sm text-muted">Total</dt><dd className="font-bold text-ink">{money(inv.total)}</dd></div>
             <div className="rounded-lg bg-paper p-2"><dt className="text-sm text-muted">Paid</dt><dd className="font-bold text-ledger">{money(inv.paid)}</dd></div>

@@ -37,6 +37,7 @@ export async function createInvoice(_prev: InvoiceFormState, form: FormData): Pr
       discount,
       notes: str(form, "notes") || null,
       record: form.get("record") === "on",
+      projectId: Number(form.get("project")) || null,
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save the invoice" };

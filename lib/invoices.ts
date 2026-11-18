@@ -18,6 +18,8 @@ export type InvoiceInput = {
   notes?: string | null;
   /** Add it to the books as a credit (udhaar) sale to the customer's khata. */
   record: boolean;
+  /** The project this sale was for (optional). */
+  projectId?: number | null;
 };
 
 /** Subtotal, tax and total, all in whole paisa. */
@@ -60,6 +62,11 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
     phone = phone || acc.phone;
   }
   if (!customerName) throw new Error("Enter the customer's name");
+  const projectId = i.projectId || null;
+  if (projectId) {
+    const [pr] = await d.q("SELECT 1 FROM projects WHERE id = $1 AND user_id = $2", [projectId, userId]);
+    if (!pr) throw new Error("Project not found");
+  }
 
   return d.tx(async (x) => {
     let txnId: number | null = null;
@@ -77,6 +84,7 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
         fromAccountId: sales,
         toAccountId: customerId,
         note: `Invoice #${n}`,
+        projectId,
       });
       if (t.tax > 0) {
         const taxAcc = await ensureAccount(x, userId, { name: "Liabilities", kind: "liability" }, "Taxes Payable", "Sales Tax Payable");
@@ -87,16 +95,17 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
           fromAccountId: taxAcc,
           toAccountId: customerId,
           note: `Sales tax on invoice #${n}`,
+          projectId,
         });
       }
     }
     const [row] = await x.q<{ id: number }>(
       `INSERT INTO invoices (user_id, number, customer_account_id, customer_name, customer_phone, date, due_date, items,
-         tax_percent, discount, subtotal, tax, total, notes, transaction_id, tax_transaction_id, share_token)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
+         tax_percent, discount, subtotal, tax, total, notes, transaction_id, tax_transaction_id, share_token, project_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id`,
       [
         userId, n, customerId, customerName, phone, i.date, i.dueDate || null, JSON.stringify(items), i.taxPercent ?? 0,
-        i.discount ?? 0, t.subtotal, t.tax, t.total, i.notes || null, txnId, taxTxnId, randomBytes(18).toString("base64url"),
+        i.discount ?? 0, t.subtotal, t.tax, t.total, i.notes || null, txnId, taxTxnId, randomBytes(18).toString("base64url"), projectId,
       ],
     );
     // Lines picked from Items take that many out of stock.
@@ -104,8 +113,8 @@ export async function createInvoice(d: Db, userId: number, i: InvoiceInput) {
       const [own] = await x.q("SELECT 1 FROM items WHERE id = $1 AND user_id = $2", [it.itemId, userId]);
       if (!own) throw new Error(`Item "${it.name}" not found`);
       await x.q(
-        "INSERT INTO stock_moves (user_id, item_id, date, qty, reason, invoice_id, sale_amount) VALUES ($1, $2, $3, $4, 'sale', $5, $6)",
-        [userId, it.itemId, i.date, -it.qty, row.id, Math.round(it.qty * it.price)],
+        "INSERT INTO stock_moves (user_id, item_id, date, qty, reason, invoice_id, sale_amount, project_id) VALUES ($1, $2, $3, $4, 'sale', $5, $6, $7)",
+        [userId, it.itemId, i.date, -it.qty, row.id, Math.round(it.qty * it.price), projectId],
       );
     }
     // What those goods cost leaves the Stock account.
@@ -130,6 +139,8 @@ export type Invoice = {
   total: number;
   notes: string | null;
   transaction_id: number | null;
+  project_id: number | null;
+  project: string | null;
   share_token: string;
   cancelled: boolean;
   business: string;
@@ -164,7 +175,8 @@ export const STATUS_LABEL: Record<InvoiceStatus, string> = {
 const SELECT = `SELECT i.id, i.number, i.customer_account_id, i.customer_name, i.customer_phone,
   to_char(i.date, 'YYYY-MM-DD') AS date, to_char(i.due_date, 'YYYY-MM-DD') AS due_date, i.items,
   i.tax_percent::float8 AS tax_percent, i.discount::float8 AS discount, i.subtotal::float8 AS subtotal,
-  i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.tax_transaction_id, i.user_id, i.share_token, i.cancelled,
+  i.tax::float8 AS tax, i.total::float8 AS total, i.notes, i.transaction_id, i.tax_transaction_id, i.project_id,
+  (SELECT name FROM projects WHERE id = i.project_id) AS project, i.user_id, i.share_token, i.cancelled,
   COALESCE(u.business_name, u.name) AS business, u.phone AS business_phone, u.address AS business_address, u.ntn AS business_ntn, u.currency,
   COALESCE((SELECT SUM(p.amount) FROM invoice_payments p LEFT JOIN transactions t ON t.id = p.transaction_id
             WHERE p.invoice_id = i.id AND (p.transaction_id IS NULL OR t.deleted_at IS NULL)), 0)::float8 AS paid
@@ -304,6 +316,7 @@ export async function recordInvoicePayment(
       fromAccountId: from,
       toAccountId: p.intoAccountId,
       note: `Payment for invoice #${inv.number}`,
+      projectId: inv.project_id,
     });
     await x.q("INSERT INTO invoice_payments (invoice_id, transaction_id, amount, date) VALUES ($1, $2, $3, $4)", [invoiceId, txnId, p.amount, p.date]);
   });

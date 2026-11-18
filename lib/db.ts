@@ -413,6 +413,8 @@ export const MIGRATIONS: string[] = [
   `ALTER TABLE stock_moves ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
   ALTER TABLE stock_moves DROP CONSTRAINT IF EXISTS stock_moves_reason_check;
   ALTER TABLE stock_moves ADD CONSTRAINT stock_moves_reason_check CHECK (reason IN ('opening', 'purchase', 'sale', 'count', 'return', 'use'));`,
+  // 22: an invoice can be for a project (its sale, tax, payments and the cost of its items count there).
+  `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;`,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length + 1;

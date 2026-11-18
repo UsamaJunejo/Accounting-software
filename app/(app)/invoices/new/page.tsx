@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { khata } from "@/lib/books";
+import { khata, projects } from "@/lib/books";
 import { listItems } from "@/lib/items";
 import { today } from "@/lib/format";
 import { AccountSelect, PageHeader } from "@/components/ui";
@@ -24,6 +24,7 @@ export default async function NewInvoice({ searchParams }: { searchParams: Promi
         today={today()}
         stockItems={stock}
         initialCustomer={pre ? String(pre) : ""}
+        projects={(await projects(await db(), user.id)).filter((p) => !p.archived).map((p) => ({ id: p.id, name: p.name }))}
         initialItem={stock.find((i) => i.id === Number(sp.item))?.id}
         customerPicker={<AccountSelect name="customer" accounts={customers} value={pre} suggest="customer" addInto={["receivable"]} noneLabel="New / walk-in customer" />}
       />

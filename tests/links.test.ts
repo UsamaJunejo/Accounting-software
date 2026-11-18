@@ -155,3 +155,20 @@ test("stock and projects: buy and sell for a project, or use stock in one", asyn
   await stockMatches();
   assert.ok((await B.balanceSheet(d, uid, "2026-12-31")).balanced);
 });
+
+test("an invoice for a project: sale, tax, item cost and payments all count there", async () => {
+  const { d, uid, acc } = await fresh();
+  const site = await B.addProject(d, uid, "Site B");
+  const cement = await I.addItem(d, uid, { name: "Cement", costPrice: 1000_00, openingQty: 50 }, "2026-05-01");
+  const id = await V.createInvoice(d, uid, {
+    customerName: "Ahmed", date: "2026-05-02", items: [{ name: "Cement", qty: 10, price: 1300_00, itemId: cement }], taxPercent: 10, record: true, projectId: site,
+  });
+  await V.recordInvoicePayment(d, uid, id, { amount: 5000_00, date: "2026-05-03", intoAccountId: acc("Cash") });
+  const inv = (await V.getInvoice(d, uid, id))!;
+  assert.equal(inv.project, "Site B");
+  const rows = await B.listTransactions(d, uid, { projectId: site });
+  // sale + tax + cost of the cement + payment
+  assert.equal(rows.length, 4);
+  assert.ok(rows.some((r) => r.to_name === "Cost of goods sold" && r.amount === 10_000_00));
+  await assert.rejects(() => V.createInvoice(d, uid, { customerName: "X", date: "2026-05-02", items: [{ name: "A", qty: 1, price: 1_00 }], record: true, projectId: 999999 }), /Project not found/);
+});

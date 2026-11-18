@@ -10,13 +10,14 @@ export type InvoiceStockItem = { id: number; name: string; unit: string; group: 
 const n = (s: string) => Number(String(s).replace(/,/g, "")) || 0;
 const fmt = (v: number) => new Intl.NumberFormat("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 
-export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [], initialCustomer = "", initialItem }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[]; initialCustomer?: string; initialItem?: number }) {
+export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItems = [], initialCustomer = "", initialItem, projects = [] }: { customerPicker: React.ReactNode; today: string; currency?: string; stockItems?: InvoiceStockItem[]; initialCustomer?: string; initialItem?: number; projects?: { id: number; name: string }[] }) {
   const [state, action, pending] = useActionState<InvoiceFormState, FormData>(createInvoice, {});
   const [rows, setRows] = useState<Row[]>(() => {
     const it = stockItems.find((x) => x.id === initialItem);
     return [it ? { name: it.name, qty: "1", price: it.price ? (it.price / 100).toFixed(2) : "", itemId: it.id } : { name: "", qty: "1", price: "" }];
   });
   const hasStock = rows.some((r) => r.itemId);
+  const [project, setProject] = useState("");
   const [customer, setCustomer] = useState(initialCustomer);
   // The customer box is the same searchable account chooser as everywhere else; it tells us what was picked.
   useEffect(() => {
@@ -166,6 +167,15 @@ export function InvoiceForm({ customerPicker, today, currency = "PKR", stockItem
       </div>
 
       <div className="card space-y-4 p-5">
+        {projects.length > 0 && (
+          <div>
+            <label className="label" htmlFor="inv-project">Project (optional)</label>
+            <select id="inv-project" name="project" value={project} onChange={(e) => setProject(e.target.value)} className="input">
+              <option value="">None</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
         <div>
           <label className="label">Notes (optional)</label>
           <textarea name="notes" rows={2} {...field("notes")} className="input" placeholder="e.g. Bank: Meezan 0123… · Thank you for your business!" />
