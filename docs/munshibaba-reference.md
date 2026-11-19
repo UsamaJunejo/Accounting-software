@@ -3,11 +3,13 @@
 How the original munshibaba.com app works, written down so we can rebuild it.
 Captured by looking at the live app (read-only). No real account data is recorded here.
 
+> **Superseded:** the full, verified description is in [munshibaba-how-it-works.md](munshibaba-how-it-works.md). Where the two differ, trust that file.
+
 ## 1. Big picture
 
 - A simple **ledger app**: every entry moves money **from** one account **to** another.
 - Default currency **PKR**, with 148 currencies available.
-- Users pick an **accounting level** (1, 2 or 3) and can switch any time.
+- Users pick an **accounting level** (1, 2 or 3) and can switch it in Settings (needs email approval).
 - Old tech: ASP.NET + jQuery, one main page (`mainpage.html`) that loads each screen inside it.
 
 ## 2. Account structure (3-level system)
