@@ -2,7 +2,7 @@
 
 A complete description of munshibaba.com, written so we can rebuild or improve on it.
 
-**How this was checked (19 Nov 2026):**
+**How this was checked (19 Nov 2026, corrected after a second check on 20 Nov 2026):**
 - I logged in to a real account and opened every screen.
 - I read the app's own page code: about 95 screens and scripts.
 - I recorded every server call while browsing, with every call that could change data blocked, so the account was not changed.
@@ -113,7 +113,8 @@ Confirmed against real data in the account:
   - A loan you borrowed from goes **negative**.
 - Negative numbers on tiles are shown in brackets without the minus: `(25,000.00)`.
 - In ledgers and reports they show with a minus: `-25,000.00`.
-- The sum of **every** category, including SHARED, is always 0.00. The orange badge next to "DASHBOARD" shows exactly this sum.
+- The sum of **every** category, including SHARED, is always 0.00.
+- The orange badge next to "DASHBOARD" adds up **your own** category tiles (PAYABLES and RECEIVABLES included, SHARED left out). It shows a negative in brackets. *(Checked on the live site and in its code, 20 Nov 2026.)*
 
 ## 5. Screen layout (shell)
 
@@ -160,7 +161,7 @@ The whole app is one page. Each screen is loaded into the middle by the app's ow
 
 The dashboard shows (screen 1 of the 3-level system), from top to bottom:
 
-1. **"DASHBOARD"** with an orange badge, the sum of all categories (normally 0.00).
+1. **"DASHBOARD"** with an orange badge: the sum of your own categories, not counting SHARED (normally 0.00).
 2. **Date line**: "dd-mm-yyyy to dd-mm-yyyy".
    - With "All time", this is the date of your first entry to your last entry.
    - Otherwise it is the filter range you picked.
@@ -185,7 +186,7 @@ The dashboard shows (screen 1 of the 3-level system), from top to bottom:
 **More details:**
 - **Search** (right rail) filters the tiles by name as you type.
 - **Level 2 screen:**
-  - Header shows the category name and its balance, e.g. "BANK (25,000.00)".
+  - Header shows the category name with its balance in the orange badge, e.g. BANK `(25,000.00)`.
   - Sub-category tiles, each with a pencil.
   - A last tile **"ADD &lt;CATEGORY NAME&gt;"** (e.g. "ADD BANK").
 - **Level 3 screen:**
@@ -302,7 +303,7 @@ Menu **VOUCHER**. It has two tabs, **PAYMENT** (orange when active) and **RECEIP
 
 **History under the form:**
 - "PAYMENTS HISTORY" or "RECEIPT HISTORY" shows the **last one month** of that voucher type.
-- Columns: S.NO., DATE (yyyy.mm.dd), FROM, TO, AMOUNT, **EDIT** (pencil), **DELETE** (red bin), **VOUCHER** (PDF icon).
+- Columns: S.NO., DATE (always yyyy.mm.dd), FROM, TO, AMOUNT, **EDIT** (pencil), **DELETE** (red bin), **VOUCHER** (PDF icon).
   - **Edit** loads the entry back into the same form. The note is restored by cutting at the first "[".
   - **Delete** asks "Confirm Deletion of Transaction", then shows "Transaction  Deleted" and reloads the page. The entry goes to the Deleted Transactions Log.
   - **Voucher PDF** makes an A4 "Munshi.pdf" with:
@@ -333,6 +334,7 @@ Opened by clicking an account tile, or any account name inside a note or report.
 
 - **PAYMENTS** = money **out** of this account. **RECIEPTS** = money **in**.
 - **BALANCE** is a running balance, oldest row first, starting from the opening balance.
+- **DATE** is always shown as `yyyy-mm-dd` (e.g. 2026-11-19), whatever date format you chose.
 - Footer rows:
   - **TOTAL**: payments and receipts in the period.
   - **OPENING**: the balance just before the period starts.
@@ -406,7 +408,7 @@ The FAQ admits this confuses people: "WHY IS DASHBOARD … NOT SHOWING ACTUAL TO
 - **Reports → Shared Ledger (My)**: accounts you have shared.
   - Columns: SNO, ACCOUNTS, SUB CATEGORY, CATEGORY, RECEIPTS, PAYMENTS, BALANCE, DELETE.
   - Delete asks "Delete Sharing; confirm!" and then shows "Account Sharing Removed".
-- **Reports → Shared Ledger (Others)**: accounts others share with you, shown as "Account (Owner name)" with RECEIPTS, PAYMENTS, BALANCE. Removing works the same way.
+- **Reports → Shared Ledger (Others)**: accounts others share with you, shown as "Account (Owner name)" with RECEIPTS, PAYMENTS, BALANCE. There is **no delete column** on this tab.
 - **Reports → Shared Transactions** ("LIST OF SHARED ENTRIES"): every entry in shared ledgers.
   - Columns: SNO, DATE, NARRATION (with the person's name), AMOUNT, TYPE, STATUS, SELECT.
   - Statuses are colour-coded: **Pending** (blue), **Seen** (dark blue), **Reject** (orange), **Approved** (green), **Deleted** (red).
@@ -444,15 +446,17 @@ The FAQ admits this confuses people: "WHY IS DASHBOARD … NOT SHOWING ACTUAL TO
 |---|---|---|
 | **Group Ledger** | Every account in one table: SNO, ACCOUNTS, SUB CATEGORY, CATEGORY, RECEIPTS, PAYMENTS, BALANCE. Tabs MY ACCOUNTS / SHARED ACCOUNTS (MY) / SHARED ACCOUNTS (OTHERS). Sort [Account Title A–Z, Z–A, Lowest Balance, Highest Balance, Last Entry, First Entry] and search. Click a row to open its ledger. | All time |
 | **Shared Ledger (My) / (Others)** | See §11. | All time |
-| **Currency Ledger** | Pick a currency. Only currencies you have used appear (e.g. USD). Shows the entries made in it, with TOTAL and OPENING in **both** base and foreign currency ("TOTAL()" rows). | Filter, default this month |
+| **Currency Ledger** | Pick a currency. Only currencies you have used appear (e.g. USD). Laid out like an account ledger: page size, ACCOUNT and DATE boxes, columns S.NO, DATE, NARRATION (green "USD 100 / 280"), PAYMENTS, RECIEPTS, BALANCE, STATUS, EDIT, ACTION. Footer rows TOTAL, TOTAL(USD), OPENING, OPENING(USD). | Filter, default this month |
 | **Shared Transactions** | See §11. | Filter |
 | **Attachments** | "Total No of Attachments", "Total Size of Attachments x MB", and per account: NO OF ATTACHMENTS, ATTACHMENTS DATA SIZE. Click to see that account's files. | All time |
-| **Net Worth** | Today's date and a big "PKR &lt;net worth&gt;". Then DETAILS: each category (3-level), sub-category (2-level) or account (1-level) with its balance. The account version has a "Show all in black" tick box; otherwise negatives are coloured. | As of today |
+| **Net Worth** | Today's date (`yyyy-mm-dd`) and a big "PKR &lt;net worth&gt;". Then DETAILS: each category (3-level), sub-category (2-level) or account (1-level) with its balance. The account version has a "Show all in black" tick box; otherwise negatives are coloured. | As of today |
 | **Full Statement** | "AMOUNT PKR x", FROM/TO, and the whole tree Category → Sub-category → Account with each line's movement in the period ("DESCRIPTION / BALANCE"). Includes CROSS SHARED. The FAQ calls it "the most comprehensive report". | Filter, default this month |
 | **Balance Sheet** | Left "ASSETS / BALANCE": the Assets-nature tree plus CROSS SHARED. Right "LIABILITIES + EQUITY / BALANCE": the Liabilities and Equity trees, then **NET LOSS** or **NET PROFIT**. The header "AMOUNT PKR" is a check total. The FAQ: "AMOUNT IN BALANCE SHEET MUST BE ZERO". | As of today |
 | **Income Statement** | Header "NET LOSS / NET PROFIT &lt;amount&gt;". Left "INCOME / BALANCE" tree, right "EXPENSE / BALANCE" tree. | Filter, default this month |
-| **Deleted Transactions Log** | Per account: SNO, ACCOUNTS, SUB CATEGORY, CATEGORY, RECEIPTS, PAYMENTS, with sort. Click to see the deleted entries with a **DELETED ON** date. **There is no restore button.** | — |
-| **Payment History / Receipt History** (from the dashboard tiles) | All Payment (or Receipt) vouchers: S.NO, DATE, NARRATION, PAYMENTS (or RECEIPTS), EDIT, ACTION, TOTAL. Page size options. | Filter, default this month |
+| **Deleted Transactions Log** | Sort list as in Group Ledger. Per account: SNO, ACCOUNTS, SUB CATEGORY, CATEGORY, RECEIPTS, PAYMENTS, with sort. Click to see the deleted entries with a **DELETED ON** date. **There is no restore button.** | — |
+| **Payment History / Receipt History** (from the dashboard tiles) | Header card with page size; boxes TRANSACTIONS, PAYMENTS (or RECEIPTS) and DATE; then S.NO, DATE (`yyyy-mm-dd`), NARRATION (`note [To: CASH ]`), PAYMENTS (or RECEIPTS), EDIT, ACTION, TOTAL. | Filter, default this month |
+
+**Empty branches:** Net Worth, Full Statement, Balance Sheet and Income Statement leave out categories and sub-categories that have no accounts (checked on the live site).
 
 **How the totals are calculated (read from the code):**
 - **Net Worth** = sum of all Assets-nature balances + sum of all Liabilities-nature balances. Liabilities you owe are negative, so this works out as assets − liabilities. That matches the FAQ: "ASSETS – LIABILITIES = NET WORTH".
@@ -520,7 +524,7 @@ A list of rows that expand, and a **SAVE SETTINGS** button.
 | **SWITCH ACCOUNTING LEVEL** | Radio buttons 1 / 2 / 3 LEVEL SYSTEM (the current one in yellow), then **Submit**. An approval **email** is sent ("Email Sent For Approval, Please Check Your Email!"). The switch happens only after you click the link in the email. With no choice: "Please Select Level to Switch". |
 | **SET BUDGET OF ACCOUNT** | See §14. |
 | **DOWNLOAD DATA** | Excel or CSV. Select Data [Accounts, Group Ledger, Accounts Activity] (details below). With nothing picked: "Please Select Data". |
-| **GROUP LICENSE** | See §17. |
+| **GROUP LICENSE** | See §17. Shown **only** for the "Group Per Month" / "Group Per Year" packages; hidden otherwise. |
 | **RESET ACCOUNT** | Warning "PLEASE DOWNLOAD DATA BEFORE DELETING YOUR ALL TRANSACTIONS AND ACCOUNTS", then **Reset**. A confirm asks "Are you sure you want to delete all transaction and accounts ?". The reset only happens after **email approval** ("Email Sent For Approval, Please Check."). |
 
 **Download Data details:**
@@ -534,7 +538,7 @@ A list of rows that expand, and a **SAVE SETTINGS** button.
 
 ## 17. My Account (user portal)
 
-Opened from the profile menu in a new tab. The portal's own menu: dashboard, **Profile**, **Data Space**, **Billing Info**, **Invitations**, **Invoices**, **Funds**.
+Opened from the profile menu in a new tab. The portal's own menu: DASHBOARD, **Profile**, **Data Space**, **Billing Info**, **Invitations**, **Invoices**, **Funds**.
 
 **Profile:**
 - EDIT PROFILE: Full Name, Email, Country (with calling code), Cell #, Date Of Birth, photo.
@@ -558,9 +562,11 @@ Opened from the profile menu in a new tab. The portal's own menu: dashboard, **P
 **Invoices:**
 - "FUNDS AVAILABLE USD x $".
 - The current invoice: INVOICE #, PACKAGE, AMOUNT, INVOICE DATE, PAYMENT DUE ON, STATUS.
+- Dates are shown with the time, e.g. `20-04-2022 1:38:46 AM`.
 - "INVOICES HISTORY": S.NO., INVOICE # (format `PAK-YYYY-0000000`), PACKAGE ("Single Per Month", "14 Days Free"), AMOUNT, INVOICE DATE, PAYMENT DUE ON, STATUS (Paid / FREE / UnPaid), PAYMENT MADE ON, INVOICE SLIP.
 
 **Funds (a wallet inside the app):**
+- **Not live:** on the site, the portal's FUNDS menu only shows "This Feature Will Be Available Soon!". The details below come from the code.
 - Tabs **Add Funds** and **Transfer Funds**. "TOTAL FUNDS USD x $".
 - Form: AMOUNT, PAYMENT METHOD (from Payment Method; JazzCash is supported), REMARKS, **M-PIN**, then RESET, ADD.
 - "FUNDS HISTORY": S.NO., DATE, PAYMENT TO, AMOUNT, STATUS.
@@ -627,7 +633,7 @@ Screen "NEXT TO KIN DATA".
 - TOTAL ATTACHMENTS, TOTAL ATTACHMENTS IN MB;
 - (14 DAYS FREE) / (MONTHLY) / (YEARLY) SUBSCRIPTION USERS.
 
-On a normal account it shows zeros.
+On the checked account it showed real site-wide numbers (registered users, paid amount, transactions and so on).
 
 ## 21. Sign up, log in, forgot password
 
@@ -645,6 +651,7 @@ On a normal account it shows zeros.
 **Sign up:**
 - Fields: Full Name, Email, Country, Cell, Password, Confirm Password, photo.
 - Pick a package: **Free** / **Monthly** / **Yearly**. Card details or JazzCash for paid plans. Accept the terms.
+- **"Choose Accounting System"**: pick a 1, 2 or 3 Level System (each card has a short description and a Register button).
 - The price is converted to your local currency based on your location.
 - Messages:
   - "Please Enter Full Name"
